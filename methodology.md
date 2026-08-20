@@ -1,253 +1,236 @@
-# Executive Engineering Report — Methodology
+# Methodology
 
-Portable reasoning framework for cost + performance reports. Applies to any system.
-`template.md` is the shape; this document is why it has that shape.
-
----
-
-## Core identity
-
-```
-Unit Cost = Infrastructure Spend / Units of Business Work
-```
-
-Performance is not a parallel topic to cost — it is the **denominator** of cost.
-Throughput has no standalone value in an executive report; it exists only to move this
-ratio. This collapses "performance report" and "FinOps report" into one document with
-one currency.
-
-**Inclusion filter:** a metric belongs in the report only if it moves $/unit or defends
-an SLO. Everything else is lab noise and belongs in the design doc.
+Why the structure is shaped this way. Read once; the templates encode the rest.
 
 ---
 
-## Three cost curves — universal across projects
+## 1. One report, one question
 
-| Curve | Definition | Audience |
+A report is defined by the decision it supports, not by the ground it covers. One subject,
+one document, however many executions it took to measure.
+
+The failure mode is splitting it by measurement campaign — "Part 1: ingestion", "Part 2:
+queries". Each half then answers half a question, neither is publishable alone, and the
+second half never ships. Areas not yet measured belong in the **coverage register**, not in
+a separate document.
+
+**The section list is fixed by the template; what varies is which sections have material.**
+That is what the `Tier 1: include only when the material exists` marker means. A report
+with three of eight sections filled is a complete report with declared coverage — not a
+draft.
+
+| | Report | Article or talk |
 | :--- | :--- | :--- |
-| **Floor** | Cost at zero load | CFO — what burns on weekends |
-| **Marginal** | Cost per unit at the optimum | Product — scales with the business |
-| **Ceiling** | Where +100% spend buys <10% work | Architect — where the guardrail goes |
+| Boundary | the whole subject, coverage stated | one finding, told well |
+| Audience | decision makers, and the author in a year | the public |
+| Lifetime | revisions | once |
 
-Any system — ingestion, API, ETL, training, multi-tenant — reduces to these three.
-
----
-
-## BLUF
-
-Bottom Line Up Front (US Army staff writing; equivalent to Minto's Pyramid Principle).
-Conclusion and recommendation in the first 3–5 lines, evidence after.
-
-Engineers write chronologically ("we set up X, then ran Y, therefore Z"). Executives
-read the first 30 seconds. Inverting that order is the single most visible
-Senior → Architect signal in any document.
-
-Rules:
-- Numbers, never promises of numbers. A list of what will be measured is a table of
-  contents, not a BLUF.
-- Every row carries a **reference value**. An absolute number produces no decision:
-  "$X per 1M units" is unreadable without "vs $A on the alternative".
-- Verdict is one sentence naming one action.
-- Written last, from finished numbers.
+The article does not have to cover the whole report, and nobody notices that it did not.
+Confusing the two is what turns a finished measurement into an unpublished one.
 
 ---
 
-## Two axes, two sections — the most common structural error
+## 2. Given versus measured
 
-Efficiency Frontier and Cost Structure look like one topic cut in half. They are not.
+The single test that decides where anything lives:
 
-| | Efficiency Frontier | Cost Structure |
+> **Is it under test?**
+
+Not "is it shared", not "is it technical". A model version, a frozen parameter, an instance
+type, a rate card, an input fixture — all givens, all in `00-baseline`. The moment one of them
+becomes an axis, it leaves that file and becomes an execution's input; the winner returns in
+the next revision.
+
+The same seam runs through instrumentation:
+
+| | Belongs to | Because |
 | :--- | :--- | :--- |
-| X axis | concurrency / parallelism | monthly business volume |
-| Who turns the knob | engineer | the business |
-| Question | how do we configure it? | should we build it this way at all? |
-| Output | marginal cost per unit | break-even vs alternatives |
-| Horizon | one run, minutes | a year of ownership |
+| What is observable — the exposed metric name, whether it is collected | `00-baseline`, in the component's block | a property of the system, like its version |
+| What a run reads — filters, gating, formulas, hand-recorded judgement | that execution | method, and it differs per run |
 
-Linked by one equation — the spine of the report:
-
-```
-Monthly Cost = Floor + (Marginal_per_unit × Volume)
-                 ↑                ↑
-            Cost Structure    Frontier supplies this coefficient
-```
-
-Frontier without Cost Structure is tuning with no business meaning.
-Cost Structure without Frontier has no coefficient.
+Configuration and exposed metrics sit in the same block per component, so adding a
+component touches one place instead of three.
 
 ---
 
-## The two charts that carry the report
+## 3. An execution is the unit of work, not of publication
 
-**1. Frontier** — dual axis vs the swept parameter: throughput rising to a plateau,
-unit cost as a U-curve. The **knee** (throughput plateaus) and the **sweet spot** (cost
-bottoms) are different points. That gap is the finding: most engineers tune to the knee
-and never learn that cost minimises earlier.
+Where a result lands is decided at Close, against the finished report:
 
-*Why the cost curve turns back up:* fixed per-unit-of-capacity overhead does not amortize
-at high concurrency. Provisioning, image pull and initialisation are billed per node and
-produce zero work; consolidation delay adds a paid idle tail. At high N the batch drains
-faster, but a larger share of every resource-hour is warm-up. For ephemeral
-scale-to-zero workers this is the dominant effect and is rarely quantified.
-
-**2. Break-even** — total monthly cost vs volume, one line per architecture. Each
-architecture has a different `Floor + Marginal × V` shape:
-
-| | Floor | Marginal |
-| :--- | :--- | :--- |
-| FaaS | ~0 | high (billed per invocation, cold init每 call) |
-| Always-on | high (capacity burns 24/7) | ~0 (capacity already paid for) |
-| Elastic + spot | medium | low |
-
-Crossovers divide the volume axis into **regimes**. The output is a sentence like:
-"below ~50k units/month this architecture loses to FaaS; above that it wins with a
-widening gap." This is the Principal-level judgement — it honestly bounds the
-applicability of your own design — and it is nearly free arithmetic on data already
-collected.
-
-If both charts exist, the report is written. No other section compensates for their absence.
-
----
-
-## Provenance
-
-Reports mix numbers of different strength and readers cannot tell them apart, so they
-trust none. Minimal discipline:
-
-> **Unmarked = measured. Anything not produced by a run carries a mark.**
-> ᴬ arithmetic (price list × count; dimension × bytes) · ᴹᵒ modeled (extrapolated from
-> measured points) · ᴱ estimated (judgement, no data)
-
-State the convention once in the header. Five or six marks in a document read as
-precision; marking everything reads as bureaucracy.
-
-Unmarked estimates are the one failure mode that converts a strong report into negative
-reputation. Self-marking makes the report unattackable.
-
----
-
-## Guardrails — the difference from a recommendation
-
-A recommendation is prose. A guardrail is a config value, sourced from a number in the
-report, that can be committed to a file.
-
-| Guardrail | Value | Derived from | Enforced in |
-| :--- | :--- | :--- | :--- |
-| Max concurrency | `maxReplicaCount: 6` | §3 sweet spot | `keda/scaledjob.yaml` |
-| Memory ceiling | `limits.memory: 2Gi` | §3 peak RSS +30% | `apps/x/deployment.yaml` |
-| Backlog alert | `> 5000 for 15m` | §3 drain rate | `prometheus/rules.yaml` |
-| Budget alarm | `$<floor × 1.4>` | §4.1 floor | `terraform/budgets.tf` |
-
-Test: if it cannot be committed to a file, it is not a guardrail.
-
----
-
-## The cutting rule
-
-The report is a tree: BLUF is the root, sections are evidence. **Every section must yield
-at least one number that reaches BLUF or Guardrails.** If it yields none, it demonstrates
-that you can measure — not that anything was decided. Cut it, or drive it to a guardrail.
-
-This rule is also the defence against grandiosity: the more sections, the more often it fires.
-
----
-
-## Tier 0 — the non-negotiable minimum
-
-```
-Metadata · BLUF · Envelope · Efficiency Frontier · Cost Structure · Guardrails
-```
-
-Test: remove any one and the verdict loses its support. Envelope = validity conditions.
-Frontier = the coefficient. Cost Structure = the decision. Guardrails = the decision
-made executable. None is decorative.
-
-~6–8 pages. Two days on a system that already exists. Repeatable per project.
-
----
-
-## Growth tiers
-
-**Tier 1 — when the material exists**
-- **Reliability Economics** — only where resilience was an architectural decision. One
-  injection of the most likely failure, not a chaos programme. The question is not
-  "does it survive" but "what does the mechanism cost and what does recovery cost".
-- **Levers evaluated, including rejected** — highest-signal content in the report,
-  because nobody publishes what they turned down.
-- **Quality / cost trade-off** — only where savings are bought with accuracy (ML systems).
-  Ground truth is usually your own unoptimised baseline, not a labeled dataset.
-- **Second constraint tier** — the ladder is the order in which ceilings are hit. Tier 1
-  saturates now; Tier 2 saturates immediately after Tier 1 is relieved. It counts as
-  proven only if Tier 1 was actually relieved and a new saturation was observed. Its
-  value to an executive: it prices the *next* scaling step, which can be an order of
-  magnitude more expensive than the current one.
-
-**Tier 2 — from the second report on the same system**
-- **Regression vs previous report.** Requires `Supersedes` in metadata. After two or
-  three cycles this becomes the strongest asset available: not "I measured a system"
-  but "I managed a system's economics over time".
-- Sensitivity analysis; forecast at 10× volume.
-
----
-
-## Reuse economics
-
-Two experiments and one waiting window produce the entire document:
-
-| Source | Feeds |
+| Destination | When |
 | :--- | :--- |
-| **E1** sweep over the tuning parameter | Frontier, constraint ladder, marginal cost, BLUF |
-| **E2** 24h idle window (passive) | Floor, amortization, break-even |
-| **E3** one failure injection | Reliability Economics |
+| the whole report | it is the only execution |
+| a report section, table inline | significant, and it fits |
+| a benchmark, cited from a section | too detailed for the report, or needed as the regression unit |
+| `00-baseline` sections | it is a given with two or more consumers |
+| **nothing** | measured, and insignificant against the rest — or the hypothesis did not hold |
 
-Everything else is derivation. Rule: **any section requiring its own experiment must
-justify itself.** This is where reports stay repeatable instead of becoming projects.
+**"Insignificant" is a finding.** A module worth a few percent of cost has earned its way
+*out* of an executive report, and the run is what proved it. The record stays in
+`executions/`; the out-of-scope table carries the result so the question is not re-asked
+next revision.
+
+**Benchmarks are overflow, not a layer.** A run matrix that fits in §3 stays in §3. It
+moves out when it grows validity columns and per-point detail, or when it must be frozen
+and compared revision to revision. Two rules once one exists: a benchmark makes no
+recommendations — it is the regression unit, and a verdict ages differently from a
+measurement; and the section citing it keeps the finding, handing over only the tables.
 
 ---
 
-## Refusals — hold these against pressure
+## 4. Start minimal, promote on the second consumer
 
-| Never | Why |
+One function, one run, one report is the default shape:
+
+```
+report/
+├── report.md
+└── execution/{index.md, data/, scripts/}
+```
+
+Everything else appears when a second consumer forces it:
+
+| File | Created when |
 | :--- | :--- |
-| Speculative third constraint tier | Unproven tiers weaken the proven ones |
-| Priced SLA breach | Depends on contracts you don't have. State recovery time; let the reader price it |
-| Unmarked non-measured numbers | The one failure mode with negative reputational ROI |
-| A closing "future work" / "untested" list | Reads as apology. Same content as a forward-looking Envelope reads as scope discipline |
-| Empty table cells | Delete the column, not the content. Four honest columns beat eight with N/A |
-| Sections producing no number | Decoration |
-| Duplicated architecture description | Link the design doc |
-| Carbon footprint, exhaustive instance matrices | Nobody reads them |
+| `executions/00-baseline/` | a second execution would copy the system description |
 
-**Envelope phrasing** — forward-looking, never apologetic:
-> These numbers hold for <profile> at <scale> in <topology>. Outside that, re-measure.
+| `benchmarks/⟨name⟩.md` | a section outgrows the report, or regression tracking begins |
+| `executions/NN-⟨name⟩/` | a second execution exists — then numbering |
+
+Why shared material cannot simply live in the first benchmark: the second one starts
+depending on it, and you cannot add the second without editing something already frozen.
+That property — **adding an execution rewrites nothing** — is what the layout exists to
+protect.
 
 ---
 
-## Per-system substitutions
+## 5. What makes a figure credible
 
-The skeleton does not change. Three things do:
+Five properties. A figure missing any of them will be questioned, and the question will be
+correct.
 
-| System type | Unit of work | Frontier X axis | Dominant curve |
-| :--- | :--- | :--- | :--- |
-| Async ingestion | document / GB | worker concurrency | Floor, Marginal |
-| Sync API | request | RPS | Ceiling (overprovisioning), SLO |
-| Batch ETL | partition / TB | cluster size | Wall-clock vs cost |
-| ML training | experiment | GPU-hours | Ceiling, utilisation |
-| Multi-tenant SaaS | tenant | tenants/node | Floor, cost per tenant |
+**A denominator.** Total spend supports no decision; cost per unit supports several. Choose
+the unit once, state the exact moment it counts as done, and never change it. Two
+denominators double every table for a conversion the reader can do themselves.
 
-For sync systems the Floor section shrinks and Reliability Economics grows.
-For async the Floor dominates — the entire value of the architecture lives there.
+**A reference value.** An absolute number decides nothing. Every headline figure carries
+something it is compared against — a target, an alternative, a previous revision.
+
+**A boundary.** The conditions under which it holds, stated forward-looking, before anyone
+asks. A reader who cannot falsify a number does not trust any number.
+
+**A provenance mark.** Measured, arithmetic, modeled or estimated — marked inline, with the
+convention stated once. An unmarked derived figure is indistinguishable from a measured
+one, and one bad case poisons both.
+
+**A path to the raw data.** Report → section or benchmark → file under an execution's
+`data/`. Always resolvable.
 
 ---
 
-## Lineage
+## 6. Recorded before, not after
 
-BLUF (US Army) · Pyramid Principle (Minto/McKinsey) · Theory of Constraints (Goldratt) ·
-USE method (Gregg) · Universal Scalability Law (Gunther) · FinOps Foundation unit
-economics · SPEC/TPC disclosure rules (the Envelope) · SRE production readiness review
-(Guardrails).
+Some things cannot be reconstructed once the moment passes. They are the only genuinely
+urgent items in any project.
 
-The framework is not novel; the **stitching** is. Performance reports stop at the
-constraint ladder; FinOps reports start at cost structure and carry no engineering
-evidence. Joining them is rare. Cite the lineage in published versions — a report that
-names its sources reads as an architect's work.
+| Class | Why it is unrecoverable |
+| :--- | :--- |
+| Dated price snapshot | rates change; an undated basis makes every derived figure unverifiable |
+| Input profile and exact count | the input can be overwritten and cannot be re-derived from the report |
+| Run windows | the backend does not know when a run began; a window guessed later is a different run |
+| Saturation judgement | no query returns "component X was the bottleneck" |
+| Hypothesis | written afterwards it is worthless, and everyone can tell |
+| Attribution setup | usually forward-only, and often delayed by hours |
+
+**The hypothesis rule is the one people skip.** Record what you expect, dated, before the
+first run — which is why an execution's Plan is frozen and not edited. If the result
+inverts it, the inversion stays in the report: *"we expected to saturate X and saturated Y
+instead"* is what makes a measurement credible. An unrecorded hypothesis lets you
+rationalise any outcome, and readers assume you did.
+
+---
+
+## 7. Sweep coarse to fine
+
+When the finding is a curve, do not sweep linearly. Three points across the whole range
+first, then place the rest by the shape they produce.
+
+| What three points show | What it means |
+| :--- | :--- |
+| minimum in the middle | refine on both sides |
+| minimum on a range boundary | **not proven** — no descending branch on one side |
+| still falling at the top | **the range was wrong** — extend it |
+
+A linear sweep spends its whole budget before revealing the last row. Coarse-to-fine
+reveals it on the third run, and reads as a refinement pass rather than a mistake.
+
+---
+
+## 8. Constraint ladders
+
+A ladder is the order in which ceilings are hit. A tier counts as proven only when the
+previous one was **actually relieved** and a new saturation was then observed — never
+because its numbers looked close.
+
+Sweeping the main axis relieves tiers on its own: if component A is the ceiling at low
+concurrency, at high concurrency there is more of A and that ceiling is gone. Whatever
+saturates instead is a genuinely proven second tier.
+
+**Never claim a tier beyond what was observed.** An unproven tier weakens the tiers that
+were proven, and a reader who catches one speculative claim discounts the rest.
+
+---
+
+## 9. Cost has exactly two terms
+
+```
+Cost = Floor + ( Marginal_per_unit × Volume )
+```
+
+**The floor is measured with the system idle**, split into what is shared with other
+workloads and what disappears with this subject. Split rather than totalled: for anything
+claiming elastic or scale-to-zero economics, the floor is the entire argument, and it is
+where published architectures are least honest.
+
+**The marginal cost excludes every floor line by definition.** Mixing them inflates the
+coefficient and silently corrupts any build comparison downstream.
+
+**Amortization is arithmetic, not a run.** The volume at which floor share drops below half
+is the lower bound of where the design makes economic sense.
+
+**A build comparison needs the realistic alternative**, not the dramatic one. If the
+platform exists regardless, the alternative is a different mode on the same platform.
+
+---
+
+## 10. Guardrails, not recommendations
+
+A recommendation is prose and gets forgotten. A guardrail is a config value, sourced from a
+number in the report, that can be committed to a file.
+
+The test: **if it cannot be committed, it does not belong in the table.** Rows whose source
+number does not survive the runs are deleted, not left blank.
+
+---
+
+## 11. Declared scope beats silent omission
+
+Every report has boundaries. Stating them is what separates an engineering document from a
+student one.
+
+Phrase them as scope, never as apology, and never as a closing "future work" list. Each row
+names what the omission would have supported and why it was left out. A reader who sees a
+deliberate boundary trusts the inside of it; a reader who discovers an accidental one
+trusts nothing.
+
+---
+
+## 12. Revisions, not parts
+
+A report is reissued, not extended. Each revision carries `Supersedes` and a one-line
+`Changes` summary — the two lines a returning reader actually reads.
+
+From the second revision onward, regression against the previous one is usually the
+strongest section available. It is computed section to section, or benchmark to benchmark
+where one exists — and it cannot exist at all in a structure split into parts, because
+parts are never compared to each other.

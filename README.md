@@ -1,61 +1,114 @@
 # report-kit
 
-Portable framework for Executive Engineering Reports: one document covering
-performance and cost, repeatable per project.
+A skeleton for producing an engineering report that a decision maker can act on and an
+engineer can reproduce.
 
-````
-report-kit/
-├── README.md
-├── methodology.md          # why the report has this shape — read once
-├── template.md             # the report skeleton
-├── checklist.md            # pre-flight and execution gates
-├── notes.md                # footnotes referenced from the checklist
-├── scripts/
-│   ├── export-metrics.sh   # Prometheus range export → docs/report/data/
-│   └── queries.txt         # per-project query list (adapt, keep the four groups)
-├── cost-model.xlsx         # floor line items, resource prices, break-even chart
-└── tagging.tf              # default_tags block for cost attribution
-````
+The default layout provides a multi-execution structure, designed for systems where the baseline configuration and measured runs are physically separated.
 
-Per-project layout this kit produces:
+Copy what you need, fill it in, delete the guidance blockquotes as you go.
 
-````
-docs/report/
-├── report.md               # the deliverable
-├── data/                   # raw exports, one file per run
-└── charts/                 # plot scripts + generated images
-````
+---
 
-## Assumptions
+## Installation
 
-Swap these out per project; nothing else in the kit depends on them.
+Bootstrap the kit directly into your project repository. This approach is stateless and leaves no `.git` history behind. Replace `maksimillian1` with your actual GitHub username.
 
-| | Default | Where to change |
+**Full (Multi-Execution):**
+```bash
+bash <(curl -sL [https://raw.githubusercontent.com/maksimillian1/report-kit/main/bootstrap.sh](https://raw.githubusercontent.com/maksimillian1/report-kit/main/bootstrap.sh)) docs/report
+```
+
+**Minimal (Single Feature):**
+```bash
+bash <(curl -sL [https://raw.githubusercontent.com/maksimillian1/report-kit/main/bootstrap.sh](https://raw.githubusercontent.com/maksimillian1/report-kit/main/bootstrap.sh)) --minimal docs/report
+```
+
+---
+
+## Default Structure: Multi-Execution
+
+This layout protects the baseline. Adding a new execution (e.g., a new architectural module or a different scale) must not rewrite previously frozen givens.
+
+```text
+report/
+├── report.md                  # ONE report. Decisions. Written last
+├── benchmarks/⟨name⟩.md       # overflow from a report section; the regression unit
+├── executions/
+│   ├── 00-baseline/           # the givens + the floor. Cited by everything
+│   │   ├── index.md
+│   │   ├── metrics.md         # optional
+│   │   ├── data/
+│   │   └── scripts/
+│   └── 01-⟨name⟩/             # execution under test (index.md, metrics.md, data/, scripts/)
+└── scripts/                   # tooling used by more than one execution
+```
+
+`00-baseline` is treated as a separate execution. If shared material lived in the first benchmark, adding a second would require editing frozen files.
+
+---
+
+## The one rule that decides where things go
+
+> **Is it under test?**
+
+Not "is it shared", not "is it technical".
+
+| | Example | Home |
 | :--- | :--- | :--- |
-| Metrics backend | Prometheus (`query_range` API) | `scripts/export-metrics.sh` |
-| Metric names | kube-state-metrics + cAdvisor conventions | `scripts/queries.txt` |
-| Cost data | AWS Cost Explorer, tag-based attribution | `tagging.tf`, `cost-model.xlsx` |
-| Short-lived workloads | log-derived metrics via Promtail/Loki | `notes.md` §3 |
-| Elastic compute | Kubernetes nodes as the billable unit | `notes.md` §2 |
+| **Given** | the embedding model, an instance type, a frozen parameter, the rate card, the input fixture | `00-baseline/index.md` §1–§6 |
+| **Measured** | throughput against concurrency, cost per unit, where saturation moved | an execution → a report section |
 
-## Constraints
+The moment a given becomes an axis — an execution named *"model A versus model B"* — it leaves the baseline and becomes that execution's input. The winner comes back in the next revision.
 
-- **Cost attribution is not retroactive.** Tags must be applied *and* activated in the
-  billing console before the first run. Activation is a separate step with up to 24h
-  of delay and applies going forward only.
-- **Metric retention is shorter than the writing period.** Export raw series after every
-  run. Re-running a benchmark costs money; losing its data does not have to.
-- **Billing granularity is too coarse for short runs.** Run cost is computed from
-  resource-hours; billing exports are only usable for the 24h idle-floor window.
-- **One variable per sweep point.** Same commit, same image, same fixture.
-- **Empty query results are instrumentation gaps, not zeros.**
+---
 
-## Order of operations
+## One report, many executions
 
-1. `tagging.tf` → apply → activate tags in billing console. Wait.
-2. Freeze and profile the workload fixture.
-3. Adapt `queries.txt`; run `export-metrics.sh --dry-run` until nothing reports NO DATA.
-4. Start the 24h idle window (passive — everything else continues meanwhile).
-5. Sweep run, then optional runs.
-6. Write the report; BLUF last.
-7. Port fixes back into this kit before moving on.
+**The report's section list is fixed by the template.** What varies is which sections have material. A report with three of eight sections filled is complete with declared coverage, not a draft.
+
+**An execution is the unit of work, not the unit of publication.** Where its result lands is decided at Close, against the finished report:
+
+| Destination | When |
+| :--- | :--- |
+| the whole report | it is the only execution |
+| a report section, table inline | significant, and it fits |
+| a benchmark, cited from a section | too detailed for the report, or needed as the regression unit |
+| `00-baseline` sections | it is a given with two or more consumers |
+| **nothing** | measured, and insignificant against the rest — or the hypothesis did not hold |
+
+**Benchmarks are overflow, not a layer.** A benchmark makes no recommendations — it is the regression unit. The section citing it keeps the finding, handing over only the tables.
+
+---
+
+## Where data lives
+
+**Inside the execution that produced it.** It is the output of that package. Nothing sits in a shared pool where provenance has to be reconstructed.
+
+**Constants live in the execution that captured them**, dated in the filename: `00-baseline/data/price-2026-08-19.csv`. Downstream cites that path explicitly.
+
+**Scripts split by reuse, not by topic.** Root `scripts/` for cross-execution tools. Execution-local `scripts/` for query files and plotters whose version must stay pinned to the data beside it.
+
+---
+
+## Working order
+
+1. **Freeze the execution's Plan before the first run.** A plan written after the result cannot support a recorded hypothesis.
+2. **Fill the coverage register with statuses before measuring.** A row reading *Declared, not measured* is what lets the report ship at partial coverage.
+3. **Capture the unrecoverable first** — attribution setup, dated prices, input profile.
+4. **Run one execution at a time.** Route its result at Close.
+5. **Write `report.md` last**, from finished numbers, and the BLUF last of all.
+
+---
+
+## Scale Down: Start Minimal
+
+If you are evaluating a single feature and a baseline split is overhead paid for nothing, collapse the structure to a single directory.
+
+```text
+report/
+├── report.md                  # the whole thing, including §2 Envelope
+└── execution/
+    ├── index.md               # plan · journal · close — instrumentation included
+    ├── data/
+    └── scripts/
+```
