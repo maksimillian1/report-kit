@@ -44,6 +44,10 @@ curl -sL "$TAR_URL" | tar -xz -C "$TARGET_DIR" --strip-components=1
 # Post-processing based on mode
 cd "$TARGET_DIR"
 
+# Cleanup repository-only files
+rm -rf .git
+rm -f bootstrap.sh .gitignore README.md methodology.md
+
 if [[ "$MODE" == "minimal" ]]; then
   echo "-> Applying minimal layout..."
 
@@ -59,9 +63,5 @@ if [[ "$MODE" == "minimal" ]]; then
 else
   echo "-> Applying full multi-execution layout..."
 fi
-
-# Cleanup repository-only files
-rm -rf .git
-rm -f bootstrap.sh .gitignore README.md methodology.md
 
 echo "-> Done. Report skeleton ready in '$TARGET_DIR'."
