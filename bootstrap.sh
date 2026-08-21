@@ -61,8 +61,7 @@ else
 fi
 
 # Cleanup repository-only files
-rm -f bootstrap.sh
 rm -rf .git
-rm -f .gitignore
+rm -f bootstrap.sh .gitignore README.md methodology.md
 
 echo "-> Done. Report skeleton ready in '$TARGET_DIR'."
