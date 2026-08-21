@@ -15,12 +15,12 @@ Bootstrap the kit directly into your project repository. This approach is statel
 
 **Full (Multi-Execution):**
 ```bash
-bash <(curl -sL [https://raw.githubusercontent.com/maksimillian1/report-kit/main/bootstrap.sh](https://raw.githubusercontent.com/maksimillian1/report-kit/main/bootstrap.sh)) docs/report
+bash <(curl -sL https://raw.githubusercontent.com/maksimillian1/report-kit/main/bootstrap.sh) docs/report
 ```
 
 **Minimal (Single Feature):**
 ```bash
-bash <(curl -sL [https://raw.githubusercontent.com/maksimillian1/report-kit/main/bootstrap.sh](https://raw.githubusercontent.com/maksimillian1/report-kit/main/bootstrap.sh)) --minimal docs/report
+bash <(curl -sL https://raw.githubusercontent.com/maksimillian1/report-kit/main/bootstrap.sh) --minimal docs/report
 ```
 
 ---
