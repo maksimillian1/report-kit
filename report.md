@@ -1,6 +1,6 @@
 # Executive Engineering Report — ⟨System Name⟩
 
-⟨One sentence: the decision this report supports.⟩
+⟨Description of the decision this report supports.⟩
 
 | | |
 | :--- | :--- |

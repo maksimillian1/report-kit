@@ -1,272 +1,238 @@
-# Execution · 00 · Baseline
+# 00 · Baseline
 
-| | |
+| Field | Value |
 | :--- | :--- |
-| Produces | this document — the givens every other execution inherits, plus the floor |
-| Preconditions | none — this is the first thing that happens |
-| Data | `./data/` — constants, dated in the filename |
-| Scripts | `./scripts/` — profilers and one-off capture |
-| Optional | `./metrics.md` — move §1's metric tables there when this file gets long |
-| Status | ⟨planned · running · closed⟩ |
+| Why this execution exists | the system at rest — what every other execution inherits and does not re-measure |
+| Produces | frozen configuration · the denominator · the price basis · the metric register · the floor |
+| Expected *(recorded ⟨date⟩)* | ⟨what the floor is expected to be, and which block dominates it⟩ |
+| Status | ⟨planning · capturing · closed⟩ |
+| Revision | v⟨n⟩ · supersedes ⟨v⟨n-1⟩ · none⟩ |
+| Frozen | ⟨date⟩ · commit ⟨sha⟩ · by ⟨name⟩ |
+| Optional files | `./concepts.md` ⟨exists · none⟩ · `./metrics.md` ⟨exists · none⟩ |
 
-> **Ownership rule — nothing in §1–§6 is the subject of a measurement.** Everything here
-> is a given: components, versions, models, frozen configuration, the input fixture, the
-> rate card. Other executions cite these sections; they never restate them.
->
-> If a value here becomes an axis, **it leaves this document** and becomes that execution's
-> input. The winner returns here in the next revision.
->
-> Worked example: `bge-mini-v3` is the embedding model — a given, recorded in §1, not a
-> finding. The moment an execution named *"bge-mini-v3 versus alternatives"* exists, the
-> model becomes that execution's axis and is struck from here until it is decided again.
->
-> The test is not "is it shared" but **"is it under test"**.
+> **Values here · anything needing a paragraph goes to `./concepts.md` as `M⟨n⟩` · kit rules
+> stay in `methodology.md` and are cited, never restated.**
 
 ---
 
-# 1 · Components
+# 1 · Plan
 
-One block per component. Configuration and exposed metrics live together, so adding a
-component touches one place.
+## Preconditions for every execution downstream
 
-### ⟨Component name⟩
+Nothing may run until these are green. A campaign built on a metric name copied out of chart
+documentation dies on its third point, and the points before it are unusable too.
 
-| | |
-| :--- | :--- |
-| Version / identity | ⟨image, chart, model, commit⟩ |
-| Placement | ⟨where it runs⟩ |
-| Resources | ⟨requests / limits / sizing⟩ |
-| Elasticity | ⟨scales on ⟨signal⟩ · floor ⟨n⟩ · ceiling ⟨n⟩ — or: fixed⟩ |
-
-**Observable** — names read off the live endpoint, not from documentation. A wrong name
-returns no data and is indistinguishable from a missing target.
-
-| Ref | Metric | Name as exposed | Status |
+| # | Check | Blocks | Done |
 | :--- | :--- | :--- | :--- |
-| E⟨n⟩ | ⟨what it measures⟩ | `⟨name⟩` | ⟨available · pending · retired in v⟨n⟩⟩ |
+| 1 | Metric names read off the live endpoint, not from docs → §3 Metrics | every execution | |
+| 2 | Every ref returns data with the selector executions will actually use | every execution | |
+| 3 | Cost attribution active at the source of truth — IaC, not console; controller-created resources included | floor · unit cost | |
+| 4 | Retention ⟨⟩ — shorter than the campaign means export after every point | every execution | |
+| 5 | Configuration frozen by name and date · tooling dry-run clean | comparability | |
 
-⟨Notes: behaviour recorded but deliberately not fixed, because changing it mid-measurement
-would destroy comparability. State the expected effect and the candidate change for the
-next revision.⟩
+## Idle window rule
 
-### Metric register
+| Field | Value |
+| :--- | :--- |
+| Opens | ⟨fixture in place, triggering disabled — decided **before** the window opens⟩ |
+| Closes | ⟨spans a full daily cycle, aligned to billing granularity → M⟨n⟩⟩ |
+| Invalidated by | one execution point falling inside it · any human activity |
+| Stays on | automated reconciliation, controllers, observability — that is floor, not noise |
+| Evidence | proof of idleness exported, never asserted → `./data/` |
 
-Map of ranges. Numbers are permanent: a retired metric keeps its ref and gains a status, so
-references in older revisions stay resolvable. Never renumber, never reuse.
+## What is captured here and cannot be captured later
 
-| Range | Component / domain | Added |
+| Constant | File | Why not later |
 | :--- | :--- | :--- |
-| E1–E9 | ⟨cost and capacity — nodes, queues, egress⟩ | v1.0 |
-| E10–E19 | ⟨component⟩ | v1.0 |
-| E20– | *reserved* | |
+| Price basis | `./data/price-⟨YYYY-MM-DD⟩.⟨ext⟩` | negotiated rates appear in no public price list |
+| Fixture profile | `./data/⟨name⟩-profile.txt` | the input can be overwritten and is not re-derivable from the report |
+| Cluster identity | `./data/identity-⟨YYYY-MM-DD⟩.txt` | chart, AMI and model versions move under you |
+| Proof of idleness | `./data/idle-⟨YYYY-MM-DD⟩.⟨ext⟩` | the billing backend does not record what was running |
 
-> **Executions reference these; they do not redefine them.** Which metrics a run reads,
-> with what filters, and what each one gates is method — it lives in that execution's
-> Instrumentation section.
+## What this execution owes the report
 
-**Filtering that is mandatory, not cosmetic:** ⟨any metric mixing several producers that
-cannot be split after the fact⟩
-
-**Deliberately not observable:** ⟨what, and why it is not needed⟩
-
-### Elasticity summary
-
-Which components can reach zero and which cannot. This table decides whether any claim
-about elastic cost survives contact with a bill.
-
-| Component | Scales on | Floor | Ceiling |
-| :--- | :--- | :--- | :--- |
-| | | | |
-
-⟨Consequences: which capacity is permanent; which is shared between paths and therefore
-cannot be attributed to one of them; whether the observability stack is itself part of the
-system rather than only the instrument.⟩
+| Report section | Expected to produce |
+| :--- | :--- |
+| §2 Workload contract | unit of work · fixture profile · applicability |
+| §4.1 Floor | A / B / C split, line by line |
+| §4.3–4.4 | price basis — the amortization and break-even arithmetic happens at report time |
+| Coverage | which components are observable, and which are deliberately not |
 
 ---
 
-# 2 · Configuration freeze
+# 2 · Journal
 
-Decided once, before the first run. Changing any of these invalidates comparability;
-changing them between executions means a new revision of this document.
+| Event | Date UTC | Commit | Outcome |
+| :--- | :--- | :--- | :--- |
+| Configuration frozen | | | |
+| Fixture profiled | | | |
+| Prices captured | | | |
+| Idle window | ⟨open⟩ → ⟨close⟩ | | ⟨billing data available ⟨date⟩ · untagged spend resolved ⟨date⟩⟩ |
 
-| Parameter | Value | Why it must be frozen |
+| Anomaly | Rule applied | Decision |
 | :--- | :--- | :--- |
 | | | |
 
-Frozen by ⟨⟩ · Date ⟨⟩ · Commit ⟨⟩
-
-> Include anything that would silently change the shape of a result — sizing, placement,
-> packing density, background maintenance behaviour. A parameter left free is a parameter
-> that will differ between points.
+> State the rule, not just the outcome. "Re-run" and "excluded" are both defensible;
+> silently absorbing an anomaly is not.
 
 ---
 
-# 3 · Input fixture
+# 3 · Results
 
-> **Yields:** the denominator of every unit-cost figure.
-> **From:** `./scripts/⟨profiler⟩` → `./data/⟨name⟩-profile.txt`
-> **Before any run:** profile first, then freeze. An input that changes between points
-> makes every result matrix meaningless.
+| Block | Present | Feeds |
+| :--- | :--- | :--- |
+| Constants | yes | report §2 · every execution |
+| Metrics | yes | report §4.1 · every execution |
+| Applicability | yes | report §2 · every execution |
+| Matrix | no | — no axis |
+| Saturation | no | — no load |
+| Guardrails | ⟨yes · no⟩ | |
+| Routing · Open · Retro | yes | |
 
-| | |
+> Absent blocks are deleted, not left empty.
+
+---
+
+## Constants
+
+Numbers frozen in the system before anything runs. Changing one invalidates comparability
+between points; changing one between executions means a new revision of this document.
+
+### Configuration freeze
+
+| Parameter | Value | Where it is set | Why it must be frozen |
+| :--- | :--- | :--- | :--- |
+| | | ⟨file · CRD field · env var⟩ | ⟨one line — the paragraph version is M⟨n⟩⟩ |
+
+### Input fixture — the denominator of every unit-cost figure
+
+| Field | Value |
 | :--- | :--- |
-| Source | |
-| Snapshot location | |
-| **Exact unit count** | ← the denominator |
-| Distribution — median · p95 · total | |
-| Size | |
-| Freeze date | |
+| Source · snapshot | |
+| **Exact unit count** | ⟨the denominator — one, never two⟩ |
+| Distribution | median ⟨⟩ · p95 ⟨⟩ · total ⟨⟩ · size ⟨⟩ |
+| Unit of work | ⟨one sentence, including the exact moment a unit counts as done⟩ |
+| Frozen | ⟨date⟩ · commit ⟨sha⟩ · `./data/⟨name⟩-profile.txt` |
 
-*How to read a distribution: the median is the typical case — half is smaller. The 95th
-percentile is the tail, and the tail drives worst-case resource use and time.*
+### Price basis
 
-**One denominator, not two.** A second unit doubles every table for a conversion the reader
-can perform from the distribution above.
-
----
-
-# 4 · Price basis
-
-> **Before any run:** unrecoverable afterwards. Rates change, and an undated basis makes
-> every derived figure unverifiable.
-
-- [ ] ⟨every rate any figure will use — including ones only later executions need⟩
-
-Date captured: ⟨⟩ → `./data/price-⟨YYYY-MM-DD⟩.⟨ext⟩`
-
-**Run cost is computed from this, never read from a bill.** Billing aggregates on a daily
-cycle and cannot see a short run at all. Billing exports are used for the idle window only.
+| Field | Value |
+| :--- | :--- |
+| File | `./data/price-⟨YYYY-MM-DD⟩.⟨ext⟩` |
+| Rate type | ⟨list · EDP / PPA · Savings Plan · spot historical average⟩ |
+| Region · currency | |
+| Not in the public list | ⟨negotiated lines — the part no API returns later⟩ |
+| Covers | ⟨every rate any figure will use, including ones only later executions need⟩ |
 
 ---
 
-# 5 · Floor — cost at zero load
+## Metrics
 
-> **From:** the idle window in §7.4.
-> **Before the run:** attribution live and activated; zero activity for the full window.
+> **Extract to `./metrics.md`** when these three tables stop fitting on one screen. The file
+> takes all of them and nothing else.
 
-Split rather than totalled: for anything claiming elastic economics, the floor is the whole
+### Exposed — read off the live endpoint
+
+| Ref | Component | What it measures | Name as exposed | Status | Required selector |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| E⟨n⟩ | | | `⟨name⟩` | ⟨available · pending · retired in v⟨n⟩⟩ | ⟨when the raw series mixes producers⟩ |
+
+> Refs are permanent and global: a retired metric keeps its number and gains a status, so
+> links from older revisions resolve. Never renumber, never reuse. **Runs are named, metrics
+> are numbered** — never let one identifier mean both.
+
+### Reaches zero
+
+Whether any claim about elastic cost survives contact with an invoice is decided here.
+
+| Component | Scales on | Floor | Ceiling | Zero on idle |
+| :--- | :--- | :--- | :--- | :--- |
+| | | | | ⟨yes · no · partially⟩ |
+
+### Floor — cost with the system running and no load
+
+Split, never totalled. For anything claiming scale-to-zero economics the floor is the whole
 argument, and it is where published architectures are least honest.
 
-| Block | What it is | ⟨$/month⟩ |
-| :--- | :--- | :--- |
-| A | shared — exists without this subject | |
-| **B** | **dedicated — disappears with it. The headline** | |
-| C | standalone — A + B | |
+| Block | What it is | ⟨$/month⟩ | Source |
+| :--- | :--- | :--- | :--- |
+| A | shared — exists without this subject | | ⟨measured · derived⟩ |
+| **B** | **dedicated — disappears with it. The headline** | | |
+| C | standalone — A + B | | derived |
 
-⟨Line-by-line breakdown of A and B, each classified fixed vs variable. Close with the notes
-this table exists for: lines billed regardless of traffic, lines billed per unit of data
-moved, and the qualification of any prior public claim about idle cost.⟩
+| Line | Block | ⟨$/month⟩ | Billed | Source |
+| :--- | :--- | :--- | :--- | :--- |
+| | | | ⟨regardless of traffic · per unit of data moved⟩ | ⟨measured · derived · recorded · estimated⟩ |
+
+| Field | Value |
+| :--- | :--- |
+| Reference value | ⟨always-on alternative · previous revision · prior public claim⟩ |
+| Never divided by | an assumed number of tenant subjects — that divisor is arbitrary |
+| Raw data | `./data/idle-⟨YYYY-MM-DD⟩.⟨ext⟩` |
+
+### Derived
+
+| Figure | Formula | Inputs | Value |
+| :--- | :--- | :--- | :--- |
+| | `⟨formula⟩` | ⟨E refs · § of this file⟩ | |
+
+> An unmarked derived figure is indistinguishable from a measured one, and one bad case
+> discredits both. That is what the Source column exists for.
 
 ---
 
-# 6 · Envelope
+## Applicability
 
 Conditions under which every figure downstream holds. Each execution adds its own on top.
+Stated forward-looking, as scope and never as apology.
 
-> ⟨On what system, at what scale, against what input, in what environment. Outside these
-> conditions, re-measure.⟩
-
-Deliberately outside it: ⟨⟩
+| Dimension | Figures hold for | Re-measure outside |
+| :--- | :--- | :--- |
+| Platform | ⟨cluster · region · capacity types⟩ | |
+| Scale | ⟨volume and concurrency range⟩ | |
+| Input | ⟨fixture profile — Constants⟩ | |
+| Environment | ⟨tenancy · network path · what else runs here⟩ | |
+| Commercial | ⟨rate type and date — Constants⟩ | |
 
 ---
 
-# 7 · How this was established
+## Routing
 
-The working record. Nothing below is cited by other executions.
+| Result | Destination | Applied |
+| :--- | :--- | :--- |
+| | ⟨report §⟨n⟩ · execution ⟨NN⟩ · nothing⟩ | |
 
-## 7.1 Cost attribution
+| Gate condition | Met |
+| :--- | :--- |
+| §1 rows 1–5 green | |
+| Idle window closed, proof exported, untagged spend resolved | |
+| Every Open item below resolved, or carried into the report as declared scope | |
+| Date · by | ⟨date⟩ · ⟨name⟩ |
 
-Not retroactive. Longest lead time of anything here — do it first.
+---
 
-- [ ] Tags or labels applied at the source of truth (IaC, not the console)
-- [ ] Rolled out — every component carries the right value
-- [ ] **Activated** where activation is a separate step from tagging
-- [ ] Verified on a live resource, not in plan output
+## Open
 
-Date attribution went live: ⟨⟩
-
-> Without this, cost reporting returns one undifferentiated number and the floor cannot be
-> split. It is the most common reason a cost report is impossible rather than merely late.
-
-## 7.2 Observability verification
-
-Verified by query, not by reading config.
-
-**Required before any execution:**
-
-- [ ] No scrape target down
-- [ ] ⟨refs⟩ return data, with the filters the executions will actually use
-- [ ] Anything the system under test itself depends on for correct behaviour — if the
-  observability stack drives autoscaling or alerting, it is part of the system, not only
-  the instrument
-
-**Optional — gates ⟨specific claim⟩ only. Not a gate for the runs:**
-
-- [ ] ⟨refs⟩
-
-> A component that is not observed cannot be named as a constraint, because an absent
-> series looks exactly like an idle one. But an optional metric blocks one claim, not the
-> whole report — say which claim, and start without it if it is late.
-
-**Confirmed names.** Read each off the live endpoint, then write it into the component
-block in §1.
-
-| Ref | Component | Name as exposed | Copied to §1 |
-| :--- | :--- | :--- | :--- |
-| | | | |
-
-## 7.3 Constants captured → `./data/`
-
-Dated in the filename. Re-capturing later means a new file, never an overwrite.
-
-- [ ] **Prices** → `./data/price-⟨date⟩.⟨ext⟩` — every rate any figure will use. Dating two
-  snapshots costs more than taking one complete one.
-- [ ] **Fixture profile** → `./data/⟨name⟩-profile.txt`
-- [ ] **System configuration snapshot** → `./data/⟨name⟩-config.json`
-- [ ] **Artifact identity** → `./data/⟨name⟩-identity.json`
-
-## 7.4 Idle window → §5
-
-- [ ] Scheduled so that **no execution point falls inside it**. One point inside destroys
-  the window
-- [ ] Zero workload and zero human activity for the full window: no deploys, no config
-  changes, no manual commands. Automated reconciliation stays on — it is part of the floor
-- [ ] Window spans a full daily cycle: backups, rotations, scheduled jobs
-
-Window UTC: start ⟨⟩ → end ⟨⟩
-
-Audit every always-billed line explicitly, and mark ᴬ anything computed from §4 rather than
-resolved from the bill. The lines most often missed are those billed by the hour regardless
-of traffic, and those billed per unit of data moved.
-
-## 7.5 Open verification
-
-Facts that must be confirmed rather than assumed, because a wrong assumption fails silently
-rather than loudly.
+Assumptions that fail silently rather than loudly.
 
 | Item | What it invalidates if wrong | Resolved |
 | :--- | :--- | :--- |
 | | | |
 
-## 7.6 Gate
+Deliberately not observable — instrumentation without a consumer generates work, not evidence:
 
-- [ ] §7.1 green — attribution live, date recorded
-- [ ] §7.2 required rows green
-- [ ] §2 frozen
-- [ ] §7.3 constants captured and dated
-- [ ] §7.4 window closed and floor split into §5
-- [ ] §7.5 resolved
-- [ ] Tooling configured and dry-run clean
-
-Date: ⟨⟩ · Optional items still open, and which claim each puts at risk: ⟨⟩
+| What | Why nothing needs it |
+| :--- | :--- |
+| | |
 
 ---
 
-# 8 · Teardown artifacts
+## Retro
 
-Captured after the final execution, **before** anything is destroyed.
-
-- [ ] ⟨artifact⟩ → ⟨location⟩ · checksum ⟨⟩
-- [ ] Manifest alongside it: versions, parameters, identity of everything that produced it
-
-*Why nothing else produces it:* ⟨cost of regenerating from scratch⟩
+| Field | Value |
+| :--- | :--- |
+| Expectation | ⟨held · inverted — what actually happened⟩ |
+| Cost against estimate | |
+| What should have been checked earlier | ⟨and which check should have caught it⟩ |
+| What belongs back in the kit | |

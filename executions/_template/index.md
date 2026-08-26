@@ -1,163 +1,198 @@
-# Execution · ⟨NN-name⟩
+# ⟨NN⟩ · ⟨name⟩
 
-| | |
+| Field | Value |
 | :--- | :--- |
-| Produces | ⟨decided at Close — see §3⟩ |
-| Preconditions | ⟨`00-baseline` §7.6 gate green · other executions⟩ |
-| Data | `./data/` |
-| Scripts | `./scripts/` — anything pinned to this execution's data |
-| Optional | `./metrics.md` — move §1 Instrumentation there when this file gets long |
+| Why this execution exists | ⟨the engineering question it answers, in one sentence⟩ |
+| Produces | ⟨the finding it exists to yield — or, if it may yield none, the question it settles⟩ |
+| Expected *(recorded ⟨date⟩, before the first point)* | ⟨what you expect and why. If it inverts, the inversion goes into the report verbatim⟩ |
 | Status | ⟨planned · running · closed · abandoned⟩ |
+| Plan frozen | ⟨date⟩ · commit ⟨sha⟩ |
+| Inherits | `00-baseline` — Constants · Metrics · Applicability |
+| Depends on | ⟨other executions · none⟩ |
+| Optional files | `./concepts.md` ⟨exists · none⟩ · `./metrics.md` ⟨exists · none⟩ |
 
-> **Three phases. The Plan is frozen before the first run and is not edited afterwards.**
-> A plan written after the result cannot support a recorded hypothesis, and the recorded
-> hypothesis is what makes an inverted finding credible instead of embarrassing. If the
-> plan turns out wrong, say so in Close — do not rewrite §1.
->
-> **Where the result lands is decided at Close, not now.** The same execution can become
-> the whole report, one section of it, a benchmark, baseline material, or nothing at all.
-> That call is made against the finished report, from significance and volume — never from
-> structure decided in advance.
+> **§1 is frozen before the first point and is not edited afterwards.** If it turns out
+> wrong, say so in Retro — do not rewrite the Plan. An expectation written after the result
+> is worthless, and every reader can tell.
 
 ---
 
 # 1 · Plan  *(frozen ⟨date⟩)*
 
-### What this execution measures
+## Axis
 
-⟨One paragraph. If it may produce no benchmark, say what question it settles instead.⟩
-
-### Axis and points
-
-| | |
+| Field | Value |
 | :--- | :--- |
-| Varied | ⟨parameter⟩ |
-| Values | ⟨list — and whether coarse-to-fine⟩ |
-| Held constant | ⟨what must not move between points⟩ |
+| Varied | ⟨parameter, and where it is set⟩ |
+| Candidate grid | ⟨list⟩ |
+| Order | ⟨coarse to fine: three points across the range, then place the rest by the shape they produce⟩ |
+| Held constant | ⟨what must not move between points, beyond the baseline freeze⟩ |
 
-### Conditions
+## Conditions added on top of baseline Applicability
 
-Baseline envelope applies in full (`00-baseline/index.md` §6). This execution adds:
+| Condition | True only during | Mechanism |
+| :--- | :--- | :--- |
+| | | ⟨one line — or → M⟨n⟩⟩ |
 
-> ⟨What is true only during this run.⟩
+## Window rule
 
-⟨List any condition that is really a conclusion in disguise — a setting that shapes the
-result and would move it if changed.⟩
+| Boundary | Signal | Recorded by |
+| :--- | :--- | :--- |
+| Opens | | |
+| Closes | ⟨the obvious closing signal usually deletes the tail the report exists to explain → M⟨n⟩⟩ | |
 
-### Window rule
+## What this run reads
 
-| | |
+Names live in `00-baseline` Metrics — referenced, never redefined.
+
+| Ref | Read as | Selector | Gates which claim | Required |
+| :--- | :--- | :--- | :--- | :--- |
+| E⟨n⟩ | ⟨role in this run⟩ | ⟨when the raw series mixes producers⟩ | ⟨what fails without it⟩ | ⟨yes · no⟩ |
+
+| Field | Value |
 | :--- | :--- |
-| Opens | ⟨signal, and who records the timestamp⟩ |
-| Closes | ⟨signal — and why the obvious one is wrong, if it is⟩ |
+| Query file | `./scripts/⟨queries⟩` · dry run clean ⟨date⟩ |
+| Export | after **every** point — a missing point costs a re-run, an extra one costs nothing |
+| Recorded by hand | ⟨point id · axis value · config commit · UTC window · which component was at its ceiling and from which metric⟩ |
 
-### Validity criteria
+## Validity criteria
 
-- [ ] ⟨what must be identical across points⟩
-- [ ] ⟨what must be reset between points⟩
-- [ ] ⟨what invalidates a point, and what happens to it — re-run, or marked ᴱ and excluded⟩
-
-### Instrumentation
-
-Which observable series this run reads and what each gates. Names live in
-`00-baseline/index.md` §1 — referenced here, never redefined. Move to `./metrics.md` if
-this grows.
-
-| Ref | Read as | Filter | Gates |
-| :--- | :--- | :--- | :--- |
-| E⟨n⟩ | ⟨role in this run⟩ | ⟨selector⟩ | ⟨which claim fails without it⟩ |
-
-Derived figures (ᴬ): ⟨C⟨n⟩ = formula⟩
-Recorded by hand: ⟨run log · saturation signal — what no query returns⟩
-
-Query file: `./scripts/⟨queries⟩` · dry run clean: ⟨date⟩
-
-### Hypothesis
-
-⟨What you expect to happen and why. Dated. The single most valuable line in this file, and
-the one most often written too late.⟩
-
-### Cost and stop condition
-
-| | |
+| Criterion | What happens when it fails |
 | :--- | :--- |
-| Estimated cost | ⟨time · money⟩ |
+| ⟨identical across points⟩ | ⟨re-run · excluded⟩ |
+| ⟨reset between points⟩ | |
+| ⟨cross-check: the same figure from two independent sources⟩ | ⟨what disagreement means⟩ |
+
+## Cost and stop condition
+
+| Field | Value |
+| :--- | :--- |
+| Estimated | ⟨time · money⟩ |
 | Stop if | ⟨the condition under which this is abandoned rather than pushed through⟩ |
+
+## What this execution owes the report
+
+Written now, from the report's section list. If no section is named, the execution does not
+need to run.
+
+| Report section | Expected to produce |
+| :--- | :--- |
+| §⟨n⟩ ⟨name⟩ | ⟨table · figure · one number · a sentence⟩ |
 
 ---
 
 # 2 · Journal
 
-## How a point is run
+One command per point — see `./scripts/`. What the tooling does not capture must be written
+down immediately, while the window is fresh.
 
-```
-⟨command⟩
-```
+| Point | Date UTC | Window | Config commit | Valid | Data |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| | | ⟨open → close⟩ | | ⟨yes · no⟩ | `./data/⟨file⟩` |
 
-⟨What the tooling does automatically, and what must be done by hand immediately after each
-point while the window is fresh.⟩
-
-## Points
-
-| Point | Date UTC | Config commit | Outcome | Data |
-| :--- | :--- | :--- | :--- | :--- |
-| | | | | |
-
-### ⟨point id⟩
-
-⟨Paste the point block, or write it out.⟩
-
-## Anomalies and validity decisions
-
-| Point | Anomaly | Decision |
-| :--- | :--- | :--- |
-| | | |
-
-⟨State the rule being applied, not just the outcome. "Re-run" and "excluded and marked ᴱ"
-are both defensible; averaging an anomalous point in silently is not.⟩
-
----
-
-# 3 · Close
-
-## Export manifest
-
-| Artifact | Written | Gaps | Notes |
+| Point | Anomaly | Rule applied | Decision |
 | :--- | :--- | :--- | :--- |
 | | | | |
 
-## Routing — where the result went
+---
 
-Decided here, against the finished report.
+# 3 · Results
 
-| Destination | When it applies | Used |
+| Block | Present | Feeds |
 | :--- | :--- | :--- |
-| **The whole report** | this is the only execution | |
-| **A report section**, table inline | the material is significant and fits | |
-| **A benchmark**, cited from a section | too detailed for the report, or needed as the regression unit across revisions | |
-| **`00-baseline` sections** | it is a given, not a finding, and has two or more consumers | |
-| **Nothing** | measured, and insignificant against the rest — or the hypothesis did not hold | |
+| Matrix | ⟨yes · no⟩ | ⟨report §⟨n⟩⟩ |
+| Metrics | ⟨yes · no⟩ | |
+| Saturation | ⟨yes · no⟩ | |
+| Constants | ⟨yes · no — only if this run froze something others inherit⟩ | |
+| Applicability | ⟨yes · no — only if it narrows the baseline envelope⟩ | |
+| Guardrails | ⟨yes · no⟩ | |
+| Routing · Open · Retro | yes | |
 
-> **"Nothing" is a result, not a failure.** A module contributing a few percent of cost has
-> earned its way *out* of an executive report, and the run proved it. Record the finding in
-> the report's out-of-scope table so the question is not asked again next revision, keep
-> this folder intact, and move on.
+> Blocks are chosen from the catalogue in `methodology.md` §4. **Absent blocks are deleted,
+> not left empty** — an empty heading invites filling.
 
-Detail is what sends material to a benchmark — not the existence of the benchmarks folder.
-A run matrix that fits in the report stays in the report.
+---
+
+## Matrix
+
+**Finding:** ⟨one sentence a decision maker can act on. If it needs two, it is two findings.⟩
+
+| ⟨axis⟩ | ⟨metric⟩ | ⟨metric⟩ | ⟨$ / unit⟩ | Source | Valid |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| | | | | ⟨measured · derived · recorded · estimated⟩ | |
+
+| Field | Value |
+| :--- | :--- |
+| Reference value | ⟨target · alternative · previous revision — an absolute number decides nothing⟩ |
+| Holds only under | ⟨conditions beyond baseline applicability · nothing extra⟩ |
+| Raw data | `./data/⟨file⟩` |
+
+⟨Mechanism, when the table reads as noise without it. More than a paragraph → M⟨n⟩.⟩
+
+---
+
+## Metrics
+
+> Extract to `./metrics.md` when this stops fitting on one screen.
+
+| Figure | Formula | Inputs | Value |
+| :--- | :--- | :--- | :--- |
+| | `⟨formula⟩` | ⟨E refs · Matrix rows · `00-baseline` §⟩ | |
+
+---
+
+## Saturation
+
+| Axis value | Component at its ceiling | Evidence | Relieved by |
+| :--- | :--- | :--- | :--- |
+| | | ⟨which metric, which value⟩ | |
+
+> A tier counts as proven only when the previous ceiling was **actually relieved** and a new
+> saturation was then observed — never because its numbers looked close. An unproven tier
+> weakens the tiers that were proven.
+
+---
+
+## Guardrails
+
+A guardrail is a config value traceable to a row above and committable to a file. If it
+cannot be committed it is a recommendation, and recommendations get forgotten. Rows whose
+source number did not survive the runs are deleted, not left blank.
+
+| Value | Where it is set | From |
+| :--- | :--- | :--- |
+| | ⟨file · CRD field · env var⟩ | ⟨block · row⟩ |
+
+---
+
+## Routing
+
+Decided here, against the finished report — `methodology.md` §3.
 
 | Result | Destination | Applied |
 | :--- | :--- | :--- |
+| | ⟨report §⟨n⟩ · `benchmarks/⟨name⟩.md` · `00-baseline` · nothing⟩ | |
+
+> **"Nothing" is a result.** The run proved the question is not worth a section; the finding
+> goes to the report's out-of-scope table so it is not re-asked next revision.
+
+---
+
+## Open
+
+| Item | What it invalidates if wrong | Resolved |
+| :--- | :--- | :--- |
 | | | |
 
-## Hypothesis outcome
-
-- [ ] Confirmed
-- [ ] Inverted — ⟨what actually happened; this goes into the report verbatim⟩
-- [ ] Untestable — ⟨why⟩
+---
 
 ## Retro
 
-- What did this execution cost against its estimate?
-- Which precondition should have been checked earlier?
-- What belongs back in the kit?
+Never published.
+
+| Field | Value |
+| :--- | :--- |
+| Expectation | ⟨held · inverted — what actually happened, in the words that go into the report⟩ |
+| Cost against estimate | |
+| What should have been checked earlier | ⟨and which validity criterion should have caught it⟩ |
+| What belongs back in the kit | |
