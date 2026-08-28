@@ -1,4 +1,4 @@
-# Baseline — Concepts
+# Concepts
 
 ## M1 · ⟨Concept Name⟩
 

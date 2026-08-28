@@ -46,22 +46,17 @@ cd "$TARGET_DIR"
 
 # Cleanup repository-only files
 rm -rf .git
-rm -f bootstrap.sh .gitignore README.md methodology.md
+rm -f bootstrap.sh README.md
+
+# Scaffold target-specific directories
+mkdir -p assets
 
 if [[ "$MODE" == "minimal" ]]; then
   echo "-> Applying minimal layout..."
-
-  # Remove multi-execution overhead
-  rm -rf benchmarks
-  rm -rf executions/00-baseline
-
-  # Promote template to standard execution
-  mv executions/_template execution
   rm -rf executions
-
-  # Remove specific instructions from README if needed, or leave as is
 else
   echo "-> Applying full multi-execution layout..."
+  rm -rf execution
 fi
 
 echo "-> Done. Report skeleton ready in '$TARGET_DIR'."

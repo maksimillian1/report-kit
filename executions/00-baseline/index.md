@@ -13,16 +13,23 @@
 ## 1 · Plan
 
 ### Preflight Checklist
-1. [ ] Metric names validated on live endpoints against `./metrics.md`.
-2. [ ] Cost attribution tags verified active in IaC (`terraform/`).
-3. [ ] Price basis captured and saved to `./data/price-⟨YYYY-MM-DD⟩.json`.
-4. [ ] Fixture profile captured and saved to `./data/⟨name⟩-profile.txt`.
-5. [ ] Proof of idleness window scheduled (spans daily cycle, zero execution points).
+- [ ] Metric names validated on live endpoints.
+- [ ] Cost attribution tags verified active in IaC (`terraform/`).
+- [ ] Price basis captured and saved to `./data/price-⟨YYYY-MM-DD⟩.json`.
+- [ ] Fixture profile captured and saved to `./data/⟨name⟩-profile.txt`.
+- [ ] Proof of idleness window scheduled (spans daily cycle, zero execution points).
 
 ### Deliverables
 - **§2 Workload Contract:** Unit of work definition, fixture profile, applicability boundary.
 - **§4.1 Floor:** Split A (Shared) / B (Dedicated — headline) / C (Standalone).
 - **§4.3–4.4 Cost Analysis:** Price basis for amortization and break-even.
+
+### Baseline Metrics
+<!-- Metrics collected, derived, or recorded strictly for this baseline capture. 
+     Provenance marks: unmarked (measured), ᴰ (derived), ᴿ (recorded), ᴱ (estimated). -->
+* **⟨Metric Name 1⟩:** ⟨What it measures⟩. Source/Formula: ⟨query/math⟩. Gate/Selector: ⟨selector⟩.
+* **⟨Metric Name 2⟩ ᴰ:** ⟨What it measures⟩. Source/Formula: ⟨query/math⟩. Gate/Selector: ⟨selector⟩.
+* **⟨Metric Name 3⟩ ᴿ:** ⟨What it measures⟩. Source/Formula: ⟨query/math⟩. Gate/Selector: ⟨selector⟩.
 
 ---
 
@@ -54,20 +61,11 @@
 
 ---
 
-### Metrics
-
-Global register — permanent refs, inherited by every execution:
-[`./metrics.md`](./metrics.md).
-
----
-
 ### Applicability
 
-| Dimension | Scope Boundaries | Re-measure Trigger |
-| :--- | :--- | :--- |
-| Platform | AWS EKS v1.30, x86_64 | ARM64 migration, minor K8s upgrade |
-| Scale Range | 0 to 10,000 req/sec | Traffic > 10k req/sec |
-| Commercial | Enterprise Discount Plan 2026 | Rate card update |
+* **Platform:** ⟨AWS EKS v1.30, x86_64⟩. Re-measure on: ⟨ARM64 migration, minor K8s upgrade⟩
+* **Scale Range:** ⟨0 to 10,000 req/sec⟩. Re-measure on: ⟨Traffic > 10k req/sec⟩
+* **Commercial:** ⟨Enterprise Discount Plan 2026⟩. Re-measure on: ⟨Rate card update⟩
 
 ---
 
@@ -83,10 +81,8 @@ Global register — permanent refs, inherited by every execution:
 
 ### Routing
 
-| Result | Target Section | Status |
-| :--- | :--- | :--- |
-| Floor split B | Report §4.1 · BLUF | Routed |
-| Denominator N | Report §2 | Routed |
+* **Floor split B** → Report §4.1 · BLUF (Status: ⟨Routed⟩)
+* **Denominator N** → Report §2 (Status: ⟨Routed⟩)
 
 ---
 

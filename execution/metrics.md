@@ -1,4 +1,4 @@
-# Baseline — Metrics
+# Metrics
 
 | Ref | Domain | What it measures | Formula / name | Provenance | Status | Inputs / notes |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
