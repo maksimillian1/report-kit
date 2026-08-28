@@ -1,198 +1,144 @@
+# executions/NN-name/index.md
+
 # ⟨NN⟩ · ⟨name⟩
 
-| Field | Value |
-| :--- | :--- |
-| Why this execution exists | ⟨the engineering question it answers, in one sentence⟩ |
-| Produces | ⟨the finding it exists to yield — or, if it may yield none, the question it settles⟩ |
-| Expected *(recorded ⟨date⟩, before the first point)* | ⟨what you expect and why. If it inverts, the inversion goes into the report verbatim⟩ |
-| Status | ⟨planned · running · closed · abandoned⟩ |
-| Plan frozen | ⟨date⟩ · commit ⟨sha⟩ |
-| Inherits | `00-baseline` — Constants · Metrics · Applicability |
-| Depends on | ⟨other executions · none⟩ |
-| Optional files | `./concepts.md` ⟨exists · none⟩ · `./metrics.md` ⟨exists · none⟩ |
+- **Why this execution exists:** ⟨The engineering question it answers, in one sentence⟩
+- **Produces:** ⟨The finding it exists to yield — or the hypothesis it settles⟩
+- **Expected:** ⟨Recorded YYYY-MM-DD before the first run: expected outcome and mechanism⟩
+- **Status:** planned · running · closed · abandoned
+- **Plan Frozen:** ⟨YYYY-MM-DD⟩ · commit `⟨sha⟩`
+- **Inherits:** `00-baseline` (Constants · Metrics · Applicability)
+- **Depends On:** ⟨Other executions · none⟩
+- **Optional Files:** `./concepts.md` ⟨exists · none⟩ · `./metrics.md` ⟨exists · none⟩
 
-> **§1 is frozen before the first point and is not edited afterwards.** If it turns out
-> wrong, say so in Retro — do not rewrite the Plan. An expectation written after the result
-> is worthless, and every reader can tell.
+> **§1 Plan is frozen before the first run.** If the outcome inverts the expectation, record the inversion in Retro — do not edit the Plan. An expectation written after the result is worthless.
 
 ---
 
-# 1 · Plan  *(frozen ⟨date⟩)*
+## 1 · Plan
 
-## Axis
-
+### Axis
 | Field | Value |
 | :--- | :--- |
-| Varied | ⟨parameter, and where it is set⟩ |
-| Candidate grid | ⟨list⟩ |
-| Order | ⟨coarse to fine: three points across the range, then place the rest by the shape they produce⟩ |
-| Held constant | ⟨what must not move between points, beyond the baseline freeze⟩ |
+| Varied Parameter | ⟨Parameter name and location in config/code⟩ |
+| Candidate Grid | ⟨e.g., 10, 50, 100, 250, 500 RPS⟩ |
+| Sweep Strategy | Coarse-to-fine (3 boundary points first, then internal refinement) |
+| Held Constant | ⟨Parameters that must not move during runs⟩ |
 
-## Conditions added on top of baseline Applicability
-
-| Condition | True only during | Mechanism |
+### Extended Applicability
+| Condition | Active During | Mechanism / Notes |
 | :--- | :--- | :--- |
-| | | ⟨one line — or → M⟨n⟩⟩ |
+| ⟨e.g., Cold cache baseline⟩ | Point 1 only | Flush Redis before execution → M⟨n⟩ |
 
-## Window rule
-
-| Boundary | Signal | Recorded by |
+### Window & Telemetry Capture
+| Boundary | Signal | Triggered / Recorded By |
 | :--- | :--- | :--- |
-| Opens | | |
-| Closes | ⟨the obvious closing signal usually deletes the tail the report exists to explain → M⟨n⟩⟩ | |
+| Opens | ⟨Warmup phase complete / Synthetic traffic start⟩ | Automated script |
+| Closes | ⟨Traffic drain / Cooldown complete⟩ | Automated script |
 
-## What this run reads
+### Metric Reference Gate
+*Uses global metrics defined in `00-baseline/metrics.md` or local overrides in `./metrics.md`.*
 
-Names live in `00-baseline` Metrics — referenced, never redefined.
+| Metric Ref | Role in this Run | Selector / Filter | Required Gate |
+| :--- | :--- | :--- | :--- |
+| E1 | Primary Load Metric | `{namespace="prod", container="app"}` | Yes |
+| E2 | Cost Boundary Check | `{namespace="prod", container="app"}` | Yes |
 
-| Ref | Read as | Selector | Gates which claim | Required |
+### Execution Safeguards
+- **Estimated Cost / Duration:** ⟨e.g., $12.50 · 45 minutes⟩
+- **Abort Condition:** ⟨e.g., Error rate > 1% for 3 consecutive minutes OR Pod OOMKilled⟩
+
+### Target Deliverables
+| Target Report Section | Deliverable |
+| :--- | :--- |
+| Report §3.1 | Throughput vs Unit Cost matrix table |
+| Report §3.5 | Primary constraint component identification |
+
+---
+
+## 2 · Journal
+
+> Array of execution runs. Each entry represents an immutable record of an execution point, accompanied by mandatory post-run validation.
+
+---
+
+### Run ⟨ID⟩ — ⟨Axis Value / Target State⟩
+
+- **Meta:** `⟨YYYY-MM-DD HH:MM → HH:MM UTC⟩` · Commit: `⟨sha⟩` · Status: `⟨PASS | INVALID | ABORTED | SATURATED⟩`
+- **Setup & Scope:** ⟨Specific override or setup applied before starting this run (e.g., Redis flushed, 500 RPS target)⟩
+
+#### Observations & Field Notes
+- ⟨Anomaly, latency behavior, GC pause, or resource saturation observation⟩
+- ⟨Mid-run decisions, e.g., aborted at minute 4 due to OOM⟩
+
+#### Post-Run Checklist
+- [ ] **Artifacts Exported:** Raw telemetry and logs exported to `./data/run-⟨ID⟩-raw.json`
+- [ ] **Window Sanity Check:** No background noise, cron jobs, or egress spikes during the execution window
+- [ ] **Saturation Verification:** Primary bottleneck identified or headroom confirmed
+- [ ] **Data Provenance Assigned:** All exported numbers classified (Measured / Derived / Recorded / Estimated)
+- [ ] **Verdict:** Point marked `Valid` for Result Matrix (if `No`, state reason and schedule rerun)
+
+---
+
+## 3 · Results
+
+> **Provenance Legend:**
+> **Measured** (read from instrument) · **Derived** (arithmetic on other rows) · **Recorded** (hand-written at the time) · **Estimated** (modeled, carries reference value).
+
+### Matrix
+
+**Finding:** ⟨One actionable sentence for C-Level / Decision Maker. If two sentences are needed, split into two findings.⟩
+
+| Point ID | Axis Value | Throughput | Latency p95 | Unit Cost ($/1M) | Provenance | Valid |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| P01 | 10 RPS | 600 req/min | 12 ms | $0.15 | Measured | Yes |
+| P01_cost | 10 RPS | - | - | $0.15 | Derived | Yes |
+
+- **Reference Value:** ⟨Target / Alternative / Previous Revision baseline⟩
+- **Condition Boundary:** ⟨Holds only under current grid constraints⟩
+- **Raw Data Location:** `./data/`
+
+---
+
+### Metrics (Calculated / Local)
+
+> Extract to `./metrics.md` if this block exceeds one screen.
+
+| Ref | Name / Concept | Formula / Calculation | Input Sources | Provenance |
 | :--- | :--- | :--- | :--- | :--- |
-| E⟨n⟩ | ⟨role in this run⟩ | ⟨when the raw series mixes producers⟩ | ⟨what fails without it⟩ | ⟨yes · no⟩ |
-
-| Field | Value |
-| :--- | :--- |
-| Query file | `./scripts/⟨queries⟩` · dry run clean ⟨date⟩ |
-| Export | after **every** point — a missing point costs a re-run, an extra one costs nothing |
-| Recorded by hand | ⟨point id · axis value · config commit · UTC window · which component was at its ceiling and from which metric⟩ |
-
-## Validity criteria
-
-| Criterion | What happens when it fails |
-| :--- | :--- |
-| ⟨identical across points⟩ | ⟨re-run · excluded⟩ |
-| ⟨reset between points⟩ | |
-| ⟨cross-check: the same figure from two independent sources⟩ | ⟨what disagreement means⟩ |
-
-## Cost and stop condition
-
-| Field | Value |
-| :--- | :--- |
-| Estimated | ⟨time · money⟩ |
-| Stop if | ⟨the condition under which this is abandoned rather than pushed through⟩ |
-
-## What this execution owes the report
-
-Written now, from the report's section list. If no section is named, the execution does not
-need to run.
-
-| Report section | Expected to produce |
-| :--- | :--- |
-| §⟨n⟩ ⟨name⟩ | ⟨table · figure · one number · a sentence⟩ |
+| C1 | Unit Cost per 1M | `(Total Cost / Executed Units) * 1,000,000` | Baseline E1, P01 Egress | Derived |
 
 ---
 
-# 2 · Journal
+### Saturation Analysis
 
-One command per point — see `./scripts/`. What the tooling does not capture must be written
-down immediately, while the window is fresh.
-
-| Point | Date UTC | Window | Config commit | Valid | Data |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| | | ⟨open → close⟩ | | ⟨yes · no⟩ | `./data/⟨file⟩` |
-
-| Point | Anomaly | Rule applied | Decision |
+| Axis Value | Saturating Component | Evidence Metric | Relieved By |
 | :--- | :--- | :--- | :--- |
-| | | | |
+| 500 RPS | Database Connection Pool | `pg_stat_activity` count = max_connections | Provisioning PgBouncer |
+
+> *A tier counts as proven only when the previous ceiling was actually relieved and a new saturation was observed.*
 
 ---
 
-# 3 · Results
+### Guardrails
 
-| Block | Present | Feeds |
-| :--- | :--- | :--- |
-| Matrix | ⟨yes · no⟩ | ⟨report §⟨n⟩⟩ |
-| Metrics | ⟨yes · no⟩ | |
-| Saturation | ⟨yes · no⟩ | |
-| Constants | ⟨yes · no — only if this run froze something others inherit⟩ | |
-| Applicability | ⟨yes · no — only if it narrows the baseline envelope⟩ | |
-| Guardrails | ⟨yes · no⟩ | |
-| Routing · Open · Retro | yes | |
-
-> Blocks are chosen from the catalogue in `methodology.md` §4. **Absent blocks are deleted,
-> not left empty** — an empty heading invites filling.
-
----
-
-## Matrix
-
-**Finding:** ⟨one sentence a decision maker can act on. If it needs two, it is two findings.⟩
-
-| ⟨axis⟩ | ⟨metric⟩ | ⟨metric⟩ | ⟨$ / unit⟩ | Source | Valid |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| | | | | ⟨measured · derived · recorded · estimated⟩ | |
-
-| Field | Value |
-| :--- | :--- |
-| Reference value | ⟨target · alternative · previous revision — an absolute number decides nothing⟩ |
-| Holds only under | ⟨conditions beyond baseline applicability · nothing extra⟩ |
-| Raw data | `./data/⟨file⟩` |
-
-⟨Mechanism, when the table reads as noise without it. More than a paragraph → M⟨n⟩.⟩
-
----
-
-## Metrics
-
-> Extract to `./metrics.md` when this stops fitting on one screen.
-
-| Figure | Formula | Inputs | Value |
+| Target Configuration | Enforced Value | Derived From | File / Location |
 | :--- | :--- | :--- | :--- |
-| | `⟨formula⟩` | ⟨E refs · Matrix rows · `00-baseline` §⟩ | |
+| HPA Max Replicas | 24 | Saturation at 500 RPS | `helm/values.yaml` |
 
 ---
 
-## Saturation
+### Routing
 
-| Axis value | Component at its ceiling | Evidence | Relieved by |
-| :--- | :--- | :--- | :--- |
-| | | ⟨which metric, which value⟩ | |
-
-> A tier counts as proven only when the previous ceiling was **actually relieved** and a new
-> saturation was then observed — never because its numbers looked close. An unproven tier
-> weakens the tiers that were proven.
-
----
-
-## Guardrails
-
-A guardrail is a config value traceable to a row above and committable to a file. If it
-cannot be committed it is a recommendation, and recommendations get forgotten. Rows whose
-source number did not survive the runs are deleted, not left blank.
-
-| Value | Where it is set | From |
+| Result Item | Target Destination | Status |
 | :--- | :--- | :--- |
-| | ⟨file · CRD field · env var⟩ | ⟨block · row⟩ |
+| Efficiency Knee | Report §3.3 | Routed |
+| HPA Guardrail | Report §5 | Routed |
 
 ---
 
-## Routing
+### Retro
 
-Decided here, against the finished report — `methodology.md` §3.
-
-| Result | Destination | Applied |
-| :--- | :--- | :--- |
-| | ⟨report §⟨n⟩ · `benchmarks/⟨name⟩.md` · `00-baseline` · nothing⟩ | |
-
-> **"Nothing" is a result.** The run proved the question is not worth a section; the finding
-> goes to the report's out-of-scope table so it is not re-asked next revision.
-
----
-
-## Open
-
-| Item | What it invalidates if wrong | Resolved |
-| :--- | :--- | :--- |
-| | | |
-
----
-
-## Retro
-
-Never published.
-
-| Field | Value |
-| :--- | :--- |
-| Expectation | ⟨held · inverted — what actually happened, in the words that go into the report⟩ |
-| Cost against estimate | |
-| What should have been checked earlier | ⟨and which validity criterion should have caught it⟩ |
-| What belongs back in the kit | |
+- **Expectation vs Reality:** ⟨Held · Inverted — state primary surprise⟩
+- **Cost vs Estimate:** ⟨Actual run cost vs estimated budget⟩
+- **Process Improvement:** ⟨What should have been caught in Preflight/Validity checks⟩
