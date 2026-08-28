@@ -6,12 +6,12 @@
 
 ## Register
 
-* `M<n>` refs are **execution-local** (e.g., `00-baseline M3`).
+* `M<n>` refs are **execution-local**.
 * Permanent IDs: never renumber or reuse.
 
 | Ref | Concept | Cited from | Status |
 | :--- | :--- | :--- | :--- |
-| M1 | ⟨short concept name⟩ | §⟨n⟩ | active · superseded by M⟨n⟩ · retired in v⟨n⟩ |
+| M1 | ⟨short concept name⟩ | `report.md §4.1` · `01-⟨name⟩/index.md §3` | active · superseded by M⟨n⟩ · retired in v⟨n⟩ |
 
 ---
 

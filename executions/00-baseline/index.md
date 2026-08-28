@@ -2,6 +2,7 @@
 
 - **Purpose:** System at rest — inherited constants, denominator, price basis, metric register, floor.
 - **Produces:** Frozen config · Price basis · Metric register · Floor baseline
+- **Expected:** ⟨Recorded YYYY-MM-DD before capture: expected floor split and which line dominates⟩
 - **Revision:** v⟨n⟩ (supersedes: ⟨v(n-1) · none⟩)
 - **Capture Window:** ⟨YYYY-MM-DD HH:MM → HH:MM UTC⟩
 - **Frozen At:** `⟨sha⟩` · by ⟨name⟩
@@ -20,15 +21,15 @@
 
 ### Deliverables
 - **§2 Workload Contract:** Unit of work definition, fixture profile, applicability boundary.
-- **§4.1 Floor:** Split A (Shared) / B (Dedicated) / C (Standalone).
+- **§4.1 Floor:** Split A (Shared) / B (Dedicated — headline) / C (Standalone).
 - **§4.3–4.4 Cost Analysis:** Price basis for amortization and break-even.
 
 ---
 
 ## 2 · Results
 
-> **Provenance Legend:**
-> **Measured** (read from instrument) · **Derived** (arithmetic on other rows) · **Recorded** (hand-written at the time) · **Estimated** (modeled, carries reference value).
+> **Provenance** — unmarked = measured · ᴰ derived · ᴿ recorded · ᴱ estimated.
+> Convention defined once in `methodology.md` §5.
 
 ### Constants
 
@@ -39,9 +40,12 @@
 
 #### Input Fixture (Denominator)
 - **Unit of work:** ⟨One sentence: exact moment a unit is complete⟩
-- **Exact unit count:** `⟨N⟩` (The single denominator for all $/unit calculations)
+- **Exact unit count:** `⟨N⟩` (the denominator for every $/unit figure on this path)
 - **Distribution:** median ⟨X⟩ · p95 ⟨Y⟩ · total ⟨Z⟩
 - **Profile Source:** `./data/⟨name⟩-profile.txt` frozen at ⟨YYYY-MM-DD⟩ (`⟨sha⟩`)
+
+> A second unit is defined here **only** for a physically different path (ingestion vs.
+> query). Repeat the block; never convert between them — `methodology.md` §5.
 
 #### Price Basis
 - **Data File:** `./data/price-⟨YYYY-MM-DD⟩.json`
@@ -52,7 +56,8 @@
 
 ### Metrics
 
-See metrics definition in [`./metrics.md`](./metrics.md).
+Global register — permanent refs, inherited by every execution:
+[`./metrics.md`](./metrics.md).
 
 ---
 
@@ -66,11 +71,21 @@ See metrics definition in [`./metrics.md`](./metrics.md).
 
 ---
 
+### Floor Split
+
+| Split | Line | $/month | Fixed / Variable | Provenance |
+| :--- | :--- | :--- | :--- | :--- |
+| A · Shared | ⟨platform line the subject consumes but does not cause⟩ | | | |
+| B · Dedicated | ⟨exists only because the subject does — **headline**⟩ | | | |
+| C · Standalone | ⟨cost with no platform to sit on — comparison only⟩ | | | ᴱ |
+
+---
+
 ### Routing
 
 | Result | Target Section | Status |
 | :--- | :--- | :--- |
-| Floor Cost B | Report §4.1 | Routed |
+| Floor split B | Report §4.1 · BLUF | Routed |
 | Denominator N | Report §2 | Routed |
 
 ---
@@ -79,4 +94,4 @@ See metrics definition in [`./metrics.md`](./metrics.md).
 
 - **Expectation vs Reality:** ⟨Held · Inverted — state primary surprise⟩
 - **Cost vs Estimate:** ⟨Actual run cost vs budgeted run cost⟩
-- **Intentionally Not Observed:** ⟨e.g., Pod-to-Pod Egress excluded — managed via VPC Flow logs to avoid telemetry overhead⟩
+- **Intentionally Not Observed:** ⟨e.g., Pod-to-Pod Egress excluded — managed via VPC Flow logs to avoid telemetry overhead⟩ → carry to Report Coverage

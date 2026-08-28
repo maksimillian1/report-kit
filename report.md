@@ -7,12 +7,15 @@
 | Report | `⟨system⟩` · v⟨n⟩ · ⟨date⟩ |
 | System under test | commit `⟨sha⟩` · ⟨date⟩ |
 | Envelope | ⟨workload profile⟩ · ⟨scale range⟩ · ⟨topology⟩ |
-| Executions | ⟨`00-system` · `01-⟨name⟩` · …⟩ |
-| Raw data | `executions/⟨…⟩/data/` |
+| Executions | ⟨`00-baseline` · `01-⟨name⟩` · … — including `abandoned` ones⟩ |
+| Raw data | `executions/⟨…⟩/data/` · charts in `assets/` |
 | Supersedes | ⟨v(n-1) · date, or —⟩ |
 | Changes | ⟨one line — what moved, what did not. From v2 onward⟩ |
 
-> All figures are measured unless marked: ᴬ arithmetic · ᴹᵒ modeled · ᴱ estimated.
+> **Provenance** — unmarked figures are **measured**.
+> ᴰ derived (arithmetic, formula published) · ᴿ recorded (hand-written at the time) ·
+> ᴱ estimated or modeled (carries a reference value). Convention defined in
+> `methodology.md` §5.
 
 ---
 
@@ -21,17 +24,25 @@
 What this revision measured, what it declares without measuring, and what is out of scope.
 A reader who cannot see the boundary of a report cannot trust any number inside it.
 
-| Area | Status | Evidence | Since |
-| :--- | :--- | :--- | :--- |
-| | | | |
+**This table is the only scope register in the report.** There is no closing "future work"
+section — an omission that is not a row here does not exist.
+
+| Area | Status | Evidence | What its absence costs | Since |
+| :--- | :--- | :--- | :--- | :--- |
+| | | | | |
 
 **Measured** — evidence exists and this report cites it · **Derived** — arithmetic on a
 measured figure · **Declared, not measured** — named so its absence is visible, scheduled
 for a stated revision · **Out of scope** — deliberately not this report's question.
 
-> Fill in the statuses **before** measuring. A row reading *Declared, not measured* is what
-> lets the report ship at partial coverage without pretending to be complete — and what
-> stops the subject from being split into two documents that each answer half a question.
+> Write the **rows before measuring**; let the statuses resolve at Close. A row reading
+> *Declared, not measured* is what lets the report ship at partial coverage without
+> pretending to be complete — and what stops the subject from being split into two documents
+> that each answer half a question.
+>
+> An execution that ran and turned out insignificant is a row here too, with its finding:
+> *"measured, contributed under ⟨n⟩ % of cost, omitted"* is a result, and it stops the
+> question being asked again next revision.
 
 ---
 
@@ -45,10 +56,10 @@ sentence saying what it means.
 | Metric | Result | Reference | What it means |
 | :--- | :--- | :--- | :--- |
 | Unit cost at optimum | ⟨$X / 1M units⟩ | vs ⟨$A on alternative⟩ | |
-| Idle floor | ⟨$Y / month⟩ ᴬ | vs ⟨$B always-on baseline⟩ | |
+| Idle floor (split B) | ⟨$Y / month⟩ ᴰ | vs ⟨$B always-on baseline⟩ | |
 | Peak stable rate | ⟨Z units/min at N=n⟩ | knee at ⟨N=m⟩ | |
 | SLO under load | ⟨p95 = W ms @ R RPS⟩ | target < ⟨target⟩ ms | |
-| Primary constraint | ⟨component⟩ | headroom cost ⟨$C⟩ ᴬ | |
+| Primary constraint | ⟨component⟩ ᴿ | headroom cost ⟨$C⟩ ᴰ | |
 
 **Verdict:** ship / ship with guardrails / do not ship — one sentence, one action.
 
@@ -57,13 +68,17 @@ sentence saying what it means.
 ## 2. Workload Contract & Envelope
 
 - **Unit of work:** exact definition, including the moment a unit counts as done.
-  Everything below is priced per this unit. One denominator only.
+  Everything below is priced per this unit.
 - **Workload fixture:** what was fed in — profile, distribution, arrival pattern. Frozen
   and identical across all runs.
 - **Envelope:** conditions under which these numbers hold. Outside them, re-measure.
   Forward-looking, never an apology.
 - **Measurement architecture:** metric sources; blind spots and how they were closed. A
   component that is not observed cannot be named as a constraint.
+
+> **One denominator per cost curve.** A second unit appears only for a physically different
+> path (e.g. ingestion per document, query per request). Repeat this block once per unit,
+> keep their tables separate, and publish no conversion between them — `methodology.md` §5.
 
 > When more than one execution shares this material, it moves to
 > `executions/00-baseline/` and this section becomes a citation. With a single execution it
@@ -80,6 +95,8 @@ sentence saying what it means.
 | | | | | | | |
 
 ### 3.2 Chart — throughput (plateau) vs unit cost (U-curve)
+
+`assets/⟨name⟩.svg` — rendered from `executions/⟨NN⟩/data/⟨file⟩`.
 
 ### 3.3 Knee · Sweet spot · Waste boundary
 
@@ -106,8 +123,9 @@ own section only when a second tier is proven.
 
 ### 4.1 Floor — line by line, each classified fixed vs variable
 
-Split into shared / dedicated / standalone where the subject runs on infrastructure that
-exists anyway. For anything claiming elastic economics the floor is the whole argument.
+Split **A shared** / **B dedicated** / **C standalone** (`methodology.md` §9). **B is the
+headline figure**; A and C exist to keep it honest. For anything claiming elastic economics
+the floor is the whole argument.
 
 ### 4.2 Marginal — decomposed unit economics at the sweet spot; components sum to total
 
@@ -152,17 +170,3 @@ summary of what was done, not as an evaluation.
 ## 8. Quality / Cost Trade-off
 
 Only where savings are purchased with accuracy. Ground truth = the unoptimised baseline.
-
----
-
-## Out of scope for this revision
-
-Stated rather than omitted silently, and phrased as scope, not apology.
-
-| Not included | What it would have supported | Why |
-| :--- | :--- | :--- |
-| | | |
-
-> An execution that ran and turned out insignificant belongs here too — with its finding.
-> "Measured, contributed under ⟨n⟩ % of cost, omitted" is a result, and it stops the
-> question being asked again next revision.
