@@ -1,7 +1,9 @@
 # Baseline — Metrics
 
-| Ref | What it measures | Formula / name | Provenance | Status | Selector | Inputs / notes |
-|:----| :--- | :--- | :--- | :--- | :--- | :--- |
-| M1  | | | Measured | active | | |
-| D2  | | | Derived | active | n/a — post-run | |
-| R3  | | | Recorded | active | n/a — hand-recorded at ⟨moment⟩ | |
+| Ref | What it measures | Source | Status | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| M1 | ⟨⟩ | `⟨metric_name{selector}⟩` | ⟨confirmed YYYY-MM-DD⟩ | ⟨→ K1⟩ |
+| M2 | ⟨⟩ | `⟨metric_name{selector}⟩` | unconfirmed | ⟨what blocks it⟩ |
+| D3 | ⟨⟩ | `⟨M1 / M2⟩` | active | |
+| R4 | ⟨⟩ | hand-recorded at ⟨moment⟩ · ⟨who⟩ | active | |
+| E5 | ⟨⟩ | ⟨basis⟩ vs ⟨reference value⟩ | active | |

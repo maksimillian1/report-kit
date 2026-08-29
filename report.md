@@ -15,36 +15,33 @@
 
 ## Coverage
 
-<!-- Rules: methodology.md §11. List items written before measuring; statuses resolve at Close.
-     Statuses: measured · derived · declared, not measured · out of scope. -->
-
-* **⟨Area 1⟩:** ⟨Status⟩ — ⟨Evidence link⟩. Cost of absence: ⟨Impact⟩. (Since ⟨Revision⟩)
-* **⟨Area 2⟩:** ⟨Status⟩ — ⟨Evidence link⟩. Cost of absence: ⟨Impact⟩. (Since ⟨Revision⟩)
+| Area | Status | Evidence | Cost of absence | Since |
+| :--- | :--- | :--- | :--- | :--- |
+| ⟨⟩ | ⟨measured⟩ | ⟨`01-⟨name⟩` §3⟩ | ⟨what this would have supported⟩ | ⟨v1⟩ |
+| ⟨⟩ | ⟨declared, not measured⟩ | — | ⟨⟩ | ⟨v1⟩ |
+| ⟨⟩ | ⟨out of scope⟩ | — | ⟨⟩ | ⟨v1⟩ |
 
 ---
 
 ## 1. BLUF
 
-<!-- Written last, from finished numbers. Every line carries a reference value. -->
+* **Unit cost at optimum** — ⟨$X / 1M units⟩ (vs ⟨$A on alternative⟩)
+* **Idle floor, Block B** — ⟨$Y / month⟩ (vs ⟨$B always-on baseline⟩)
+* **Peak stable rate** — ⟨Z units/min at N=n⟩ (knee at ⟨N=m⟩)
+* **SLO under load** — ⟨p95 = W ms @ R RPS⟩ (target < ⟨target⟩ ms)
+* **Primary constraint** — ⟨component⟩ ᴿ (headroom cost ⟨$C⟩ ᴰ)
 
-* **Unit cost at optimum:** ⟨$X / 1M units⟩ (vs ⟨$A on alternative⟩)
-* **Idle floor (Block B):** ⟨$Y / month⟩ (vs ⟨$B always-on baseline⟩)
-* **Peak stable rate:** ⟨Z units/min at N=n⟩ (knee at ⟨N=m⟩)
-* **SLO under load:** ⟨p95 = W ms @ R RPS⟩ (target < ⟨target⟩ ms)
-* **Primary constraint:** ⟨component⟩ ᴿ (headroom cost ⟨$C⟩ ᴰ)
-
-**Verdict:** ⟨ship · ship with guardrails · do not ship⟩ — one sentence, one action.
+**Verdict** — ⟨ship · ship with guardrails · do not ship⟩. ⟨One sentence, one action.⟩
 
 ---
 
 ## 2. Workload Contract & Envelope
 
-<!-- One denominator per cost curve. -->
-
 - **Unit of work** — ⟨definition, including the moment a unit counts as done⟩
-- **Workload fixture** — ⟨profile · distribution · arrival pattern · frozen at⟩
+- **Workload fixture** — ⟨profile · distribution · arrival pattern · frozen at ⟨date⟩ `⟨sha⟩`⟩
+- **Denominator** — ⟨N⟩, from ⟨`00-baseline` §2⟩
 - **Envelope** — ⟨conditions under which these numbers hold⟩
-- **Measurement architecture** — ⟨metric sources · blind spots and how they were closed⟩
+- **Metric sources** — ⟨instruments the figures are read from⟩
 
 ---
 
@@ -52,9 +49,9 @@
 
 ### 3.1 Run matrix
 
-| N | Units/min | Wall time | Resource-hours | $/run | $/1M units | Saturation signal |
+| ⟨Axis⟩ | Units/min | Wall time | Resource-hours | $/run | $/1M units | Saturation signal |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| | | | | | | |
+| ⟨⟩ | | | | ᴰ | ᴰ | ⟨⟩ |
 
 ### 3.2 Chart — throughput plateau vs unit-cost curve
 
@@ -65,17 +62,13 @@
 ⟨One sentence: what you pay extra to run at the knee, what throughput you give up at the
 sweet spot.⟩
 
-### 3.4 Why the cost curve turns back up
+### 3.4 Shape of the cost curve
 
-⟨Warm-up share of resource-hours.⟩
+⟨What the curve does past the knee, and the mechanism that produces it.⟩
 
 ### 3.5 Constraint ladder
 
-<!-- A tier counts as proven only when the previous one was relieved and a new saturation
-     observed (methodology.md §8). -->
-
-* **Tier 1:** ⟨Component⟩ — Proof metric: ⟨Metric⟩. Cost to remove: ⟨$X⟩.
-* **Tier 2:** ⟨Component⟩ — Proof metric: ⟨Metric⟩. Cost to remove: ⟨$Y⟩.
+* **Tier 1** — ⟨component⟩. Proof: ⟨metric and reading⟩. Cost to relieve: ⟨$X⟩.
 
 ---
 
@@ -83,20 +76,24 @@ sweet spot.⟩
 
 ### 4.1 Floor
 
-<!-- Blocks A shared / B dedicated / C total — methodology.md §9. B is the headline. -->
+| Block | Line | $/month | Fixed / variable |
+| :--- | :--- | :--- | :--- |
+| **B · Dedicated** | ⟨⟩ | ⟨⟩ | ⟨⟩ |
+| A · Shared | ⟨⟩ | ⟨⟩ | ⟨⟩ |
+| **C · Total** | `A + B` | ⟨⟩ ᴰ | — |
 
-* **Block A (Shared):** ⟨Line⟩ — ⟨$/month⟩ (Fixed/Variable)
-* **Block B (Dedicated):** ⟨Line⟩ — ⟨$/month⟩ (Fixed/Variable)
-* **Block C (Total):** ⟨Line⟩ — ⟨$/month⟩ (Fixed/Variable)
+⟨One sentence: Block B against its reference value.⟩
 
 ### 4.2 Marginal — unit economics at the sweet spot
 
-* **⟨Component 1⟩:** ⟨$/1M units⟩ (⟨Share %⟩)
-* **⟨Component 2⟩:** ⟨$/1M units⟩ (⟨Share %⟩)
+| Component | $/1M units | Share |
+| :--- | :--- | :--- |
+| ⟨⟩ | ⟨⟩ ᴰ | ⟨%⟩ |
 
 ### 4.3 Amortization — effective $/unit across monthly volumes
 
-⟨Data or short statement⟩
+⟨The volume at which floor share drops below half, and the effective $/unit at two or three
+volumes around it.⟩
 
 ### 4.4 Break-even against ⟨alternative⟩
 
@@ -106,10 +103,11 @@ sweet spot.⟩
 
 ## 5. Guardrails
 
-* **⟨Guardrail Name⟩:** ⟨Value⟩ — Derived from ⟨Source⟩. Enforced in ⟨Config/System⟩.
+| Guardrail | Value | Derived from | Enforced in |
+| :--- | :--- | :--- | :--- |
+| ⟨key⟩ | ⟨⟩ | ⟨§3.1, run #⟨n⟩⟩ | ⟨`file`⟩ |
 
 ---
-<!-- Sections 6-8: include only when the material exists. -->
 
 ## 6. Reliability Economics
 
@@ -117,9 +115,10 @@ sweet spot.⟩
 
 ## 7. Levers Evaluated
 
-* **⟨Lever 1⟩:** Effort ⟨Level⟩. Δ Throughput ⟨X⟩. Δ Cost ⟨Y⟩. Quality/risk price ⟨Z⟩. **Decision:** ⟨Action⟩.
-* **⟨Lever 2⟩:** Effort ⟨Level⟩. Δ Throughput ⟨X⟩. Δ Cost ⟨Y⟩. Quality/risk price ⟨Z⟩. **Decision:** ⟨Action⟩.
+| Lever | Effort | Δ Throughput | Δ Cost | Quality / risk price | Decision |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| ⟨⟩ | ⟨⟩ | ⟨⟩ | ⟨⟩ | ⟨⟩ | ⟨⟩ |
 
 ## 8. Quality / Cost Trade-off
 
-⟨Only where savings are purchased with accuracy. Ground truth = the unoptimised baseline.⟩
+⟨Only where savings are purchased with accuracy. Ground truth is the unoptimised baseline.⟩

@@ -41,33 +41,47 @@ type, a rate card, an input fixture — all givens. The moment one becomes an ax
 the givens and becomes an execution's input; the winner returns as a given next revision.
 
 **A given never lives in a Plan.** Changing one is preparation — a new freeze commit and a
-journal note — not a run. In the full profile givens sit in `00-baseline` §3; in the minimal
+journal note — not a run. In the full profile givens sit in `00-baseline` §2; in the minimal
 profile they get their own section, frozen before the Plan is written.
 
-### The register seam
+### The metric register
 
-The same test runs through instrumentation. The exposed metric name, whether it is collected
-at all, and what it mixes at the source are **properties of the system**, like its version —
-they belong to the register. A selector, a gate, a formula, a hand-recorded judgement are
-**method**, they differ per run, and they belong to that execution.
+Every metric is defined **exactly once**, in the execution that uses it, and carries a ref.
+There is no shared register and no inheritance: a ref is cited from anywhere by path.
 
-Four rules follow, and they are the whole of the register's discipline:
+| Ref | Class | Mark on the figure | What `Source` holds |
+| :--- | :--- | :--- | :--- |
+| `M⟨n⟩` | Measured | *(unmarked)* | the exposed metric name and its selector |
+| `D⟨n⟩` | Derived | ᴰ | the formula, written over other refs |
+| `R⟨n⟩` | Recorded | ᴿ | the moment it was written down, and by whom |
+| `E⟨n⟩` | Estimated | ᴱ | the basis, and the reference value it is judged against |
 
-1. **Scrape status and name confirmation are separate columns.** A target can be up while
-   the string in the table was copied from chart documentation. Merged into one word —
-   "available" — the query returns nothing on a healthy target, and the failure looks like a
-   missing scrape. Confirm names against the live endpoint, and date the confirmation.
-2. **Only E refs are global**, because only E refs are properties of the system. Derived (C)
-   and recorded (R) refs belong to the execution that computed them and are cited from
-   outside with it: `01-ingestion C4`. Runs are named, metrics are numbered; never let one
-   identifier mean both.
-3. **An execution never re-lists or overrides an inherited ref.** A repeated row with a
-   different selector is a second definition of the same number, and two runs then report the
-   same ref meaning two different things. An execution sets a selector, in its own gate.
-4. **The register holds no explanations.** Why a series lies, which exporter flag its label
+The letter is the class, so the register needs no provenance column and a row copied into
+the report needs no lookup. Numbering is a single sequence per execution — `M1, M2, D3, R4` —
+never one counter per letter, so a mistyped letter fails to resolve instead of quietly
+naming a second live metric. **A number is never reused**, including by a dropped ref: raw
+data files and published revisions already point at it.
+
+Inside its own execution the bare ref is enough. From outside, cite the path:
+`00-baseline/M2`, `01-frontier/D6`.
+
+Three rules follow, and they are the whole of the register's discipline:
+
+1. **Name confirmation is the gate.** A target can be up while the string in the table was
+   copied from chart documentation — the query then returns nothing on a healthy endpoint,
+   and the failure reads as a missing scrape. An `M` ref carries the date its name was
+   checked against the live endpoint; until it does, its status is `unconfirmed` and it
+   cannot appear in a Plan. Scrape health is transient and belongs to preflight, not here.
+2. **Refs are lettered, runs are numbered.** `M4` is a metric; `#04` is a run. One
+   identifier never means both.
+3. **The register holds no explanations.** Why a series lies, which exporter flag its label
    dimensions depend on, what changed between minor versions — those are mechanisms of the
-   system and live in `concepts.md`, cited from the register's Notes cell. A register that
-   explains itself stops being scannable, which is the only thing it is for.
+   system and live in `concepts.md` as `K⟨n⟩`, cited from the register's Notes cell. A
+   register that explains itself stops being scannable, which is the only thing it is for.
+
+Two executions may read the same exposed name under different selectors. That is two refs,
+not a conflict — each is defined where it is used. The later row names the earlier one in
+Notes, so a reader comparing the two figures sees at once that they are not the same number.
 
 ---
 
@@ -135,19 +149,11 @@ something it is compared against — a target, an alternative, a previous revisi
 **A boundary.** The conditions under which it holds, stated forward-looking, before anyone
 asks. A reader who cannot falsify a number does not trust any number.
 
-**A provenance mark.**
-
-| Class | Mark | Meaning |
-| :--- | :--- | :--- |
-| Measured | *(unmarked)* | read from an instrument |
-| Derived | ᴰ | arithmetic on other rows; the formula is published |
-| Recorded | ᴿ | hand-written by a human at the time; not reconstructible afterwards |
-| Estimated | ᴱ | modeled or judged, never a run output; carries a reference value |
-
-Measured is unmarked so the exceptions are visible at a glance. The mark sits on the figure
-rather than in a provenance column, so a row copied into the report carries it. The register
-records provenance for the author; the mark carries it to a reader who will never open the
-register — which is why the report states the legend once, in its header, and nowhere else.
+**A provenance mark.** Measured is unmarked so the exceptions are visible at a glance: ᴰ
+derived, ᴿ recorded, ᴱ estimated. The mark sits on the figure rather than in a column, so a
+row copied into the report carries it. In the register the class is already the ref's first
+letter (§2); the mark carries it to a reader who will never open a register — which is why
+the report states the legend once, in its header, and nowhere else.
 
 **A path to the raw data.** Report → section or benchmark → file under an execution's
 `data/`. Always resolvable. A rendered chart names the data file it came from; both are
@@ -175,12 +181,24 @@ a floor capture has an expectation, and it is the one most often wrong. If the r
 it, the inversion stays in the report. An unrecorded hypothesis lets you rationalise any
 outcome, and readers assume you did.
 
+### The run ledger
+
+One row per run, not per point. `#` is the execution sequence — monotonic, never reused, so
+a re-run of a point is a new row rather than an edit to the old one. `Point` is the axis
+identity, and the same string names the file under `data/` and the row in the results matrix.
+Rows sit in the order the runs happened, which under coarse-to-fine is not the order of the
+axis.
+
+`Exported` means raw telemetry was written out **before** the retention window expired, and
+it is the only column that stops being true on its own. Prose is written only where a run has
+something to say; a clean run needs no paragraph.
+
 ---
 
 ## 7. Sweep coarse to fine
 
-When the finding is a curve, do not sweep linearly. Three points across the whole range
-first, then place the rest by the shape they produce.
+When the finding is a curve, do not sweep linearly. Take the two ends of the range and one
+point between them first, then place the rest by the shape those three produce.
 
 | What three points show | What it means |
 | :--- | :--- |
@@ -205,7 +223,8 @@ saturates instead is a genuinely proven second tier.
 
 **Never claim a tier beyond what was observed.** An unproven tier weakens the tiers that
 were proven, and a reader who catches one speculative claim discounts the rest. An unproven
-tier is a coverage row, not a paragraph.
+tier is a coverage row, not a paragraph — which is why the templates carry one tier block
+and you add the second only after it exists.
 
 ---
 
@@ -226,7 +245,8 @@ Cost = Floor + ( Marginal_per_unit × Volume )
 B is the number quoted first. A alone inflates it into a platform bill. Dividing A by an
 assumed number of co-tenant features is refused: the divisor is invented, and a headline
 built on an invented divisor is not defensible against anyone who picks a different one. A
-"cost standing alone" figure has the same defect and is not what C means.
+"cost standing alone" figure has the same defect and is not what C means. C is arithmetic
+over A and B and therefore carries no line of its own and no fixed/variable attribute.
 
 **The marginal cost excludes every floor line by definition.** Mixing them inflates the
 coefficient and silently corrupts any build comparison downstream.
@@ -257,7 +277,8 @@ student one.
 **Scope has exactly one register: the Coverage table.** Measured, derived, declared-not-
 measured and out-of-scope are statuses in that one table, not separate sections. A closing
 "future work" list is the failure mode: it duplicates the register, drifts out of sync, and
-reads as apology rather than as scope.
+reads as apology rather than as scope. A measurement blind spot is a row here too — an area
+the instrumentation could not reach is an area not covered, whatever the reason.
 
 Write the rows **before** measuring and let the statuses resolve at Close. A row reading
 *declared, not measured* is what lets a report ship at partial coverage without pretending
@@ -296,14 +317,19 @@ The kit's own failure mode is instruction leaking into the deliverable. One test
 | Addressed to | Example | Lives in |
 | :--- | :--- | :--- |
 | the **reader** of the report | how to read a mark, what a status means | `report.md` |
-| the **author** filling a template | "write the rows before measuring", "move this when it outgrows the report" | `methodology.md`, or an HTML comment in the template |
-| an engineer new to the **system** | why a series lies, what an exporter flag changes | `concepts.md` as `M⟨n⟩` |
+| the **author** filling a template | "write the rows before measuring", "one row per run, not per point" | `methodology.md` |
+| an engineer new to the **system** | why a series lies, what an exporter flag changes | `concepts.md` as `K⟨n⟩` |
 
 The report must read as a standalone document. Guidance to the person filling it in is not
 part of the argument, and a decision maker who encounters it stops reading the argument and
-starts reading the process. Template prompts therefore go in `<!-- -->`: present in the
-source, absent from the rendered page.
+starts reading the process.
+
+**The templates therefore carry no guidance at all** — not as prose, not as commented-out
+prose. A working file holds headings, tables and `⟨angle-bracket⟩` placeholders. Instructions
+kept inside the artifact get copied forward, edited into half-truths, and eventually
+contradict this file; instructions kept here are read once and stay correct. The rendered
+page and the source say the same thing, which is the point.
 
 The legend is the one thing that looks like a note and is not. It tells a reader how to
 interpret a number in front of them — the same role as a key on a map. It appears once, in
-the header, in one line.
+the report header, in one line.
