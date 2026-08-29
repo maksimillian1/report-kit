@@ -27,7 +27,7 @@ report/
 ├── methodology.md
 ├── assets/                    # created with the first rendered chart
 └── execution/
-    ├── index.md               # 1 Preflight · 2 Givens · 3 Plan · 4 Journal · 5 Results
+    ├── index.md               # 1 Givens · 2 Plan · 3 Journal · 4 Results
     ├── concepts.md            # optional — when the block outgrows index.md
     ├── metrics.md             # optional — when the register outgrows index.md
     ├── data/
@@ -62,8 +62,9 @@ report/
 
 The flows diverge, so the templates are separate files. Do not use one for the other.
 
-* **Minimal (`execution/index.md`)** — 1 Preflight, 2 Givens, 3 Plan, 4 Journal, 5 Results.
-  Givens live in §2. Routing targets the report directly.
+* **Minimal (`execution/index.md`)** — 1 Givens, 2 Plan, 3 Journal, 4 Results. The metric
+  register is a given: instrumentation is never under test. Preflight closes §1, so the
+  checklist gates only what stands above it. Routing targets the report directly.
 * **Full (`executions/NN-⟨name⟩/index.md`)** — 1 Plan, 2 Journal, 3 Results. Givens are
   inherited from `00-baseline` §2 and cited from there.
 
@@ -86,7 +87,8 @@ and a journal note.
    late yields a partial month and no way to tell which part.
 4. **Capture the price basis** → `data/price-⟨date⟩.json`. An undated basis invalidates every
    derived figure downstream.
-5. **Freeze the input fixture** → `data/⟨name⟩-profile.txt`, and record the exact unit count.
+5. **Freeze the input fixture** → `data/⟨name⟩-profile.txt`. Record the exact count on a
+   batch path; on a serving path record the request mix and what counts as a unit.
 6. **Write the Expected line**, dated, before the first run — the baseline included.
 7. **Capture the floor** over a window with zero execution points. Split A / B / C.
 8. **Write the Coverage rows** in `report.md`, statuses left unresolved.
@@ -96,8 +98,8 @@ and a journal note.
 
 ## Rules of placement
 
-1. **Is it under test?** No — a given: `00-baseline` §2, or minimal §2. Yes — an axis:
-   `NN-⟨name⟩` §1 Plan. Changing a given is preparation, not a run. → §2
+1. **Is it under test?** No — a given: `00-baseline` §2, or minimal §1. Yes — an axis:
+   `NN-⟨name⟩` §1 Plan, or minimal §2 Plan. Changing a given is preparation, not a run. → §2
 2. **Every metric is defined once**, in the execution that uses it, and carries a ref.
    `M` measured · `D` derived · `R` recorded · `E` estimated. No global register, no
    inheritance; cite across executions by path — `00-baseline/M2`. → §2

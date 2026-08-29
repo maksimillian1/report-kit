@@ -137,6 +137,9 @@ correct.
 **A denominator.** Total spend supports no decision; cost per unit supports several. Choose
 the unit once, state the exact moment it counts as done, and never change it.
 
+On a batch path the denominator is frozen with the fixture; on a serving path it is produced
+by each run. Both are denominators — what must not vary is the definition of the unit.
+
 > **One denominator per cost curve, not per report.** A second unit appears only for a
 > physically different path — ingestion priced per document, queries per query. Then each
 > unit gets its own contract block and its own tables, and no table, chart or headline row
@@ -189,9 +192,27 @@ identity, and the same string names the file under `data/` and the row in the re
 Rows sit in the order the runs happened, which under coarse-to-fine is not the order of the
 axis.
 
-`Exported` means raw telemetry was written out **before** the retention window expired, and
-it is the only column that stops being true on its own. Prose is written only where a run has
-something to say; a clean run needs no paragraph.
+**A row is completed when its run ends, not at Close.** Two of its columns hold things this
+section calls unrecoverable. `Signal` is the saturation judgement — what the instruments
+showed while the run was live: the component sitting at its ceiling, or headroom. Nothing
+queried afterwards returns it, and the results matrix asks for it at Close, by which point it
+can only be inferred. `Exported` is bounded by telemetry retention, not by the end of the
+execution: a sweep that spans more days than the retention window loses its early runs while
+the later ones are still going, so batching export to Close is a checklist item that cannot
+be honestly ticked.
+
+The row is therefore the per-run discipline, and it needs no separate checklist: a blank cell
+among filled ones is visible, which is what a table is for. Prose is written only where a run
+has something to say; a clean run needs no paragraph.
+
+A closing checklist covers the opposite case — what fails **silently**. An unresolved
+saturation judgement, an unmarked figure, an expectation never compared: none of these leaves
+a hole anyone would notice. Anything already carried by a field or a column stays out of the
+checklist, or the two definitions drift and the checklist becomes the one that lies. For the
+same reason an execution has no opening checklist: its preparation is fields — `Expected`,
+`Plan frozen`, the register's confirmation status — and a field filled after the fact is not
+forgetfulness but a forgery. A baseline does have one, because its preflight produces files
+and external state that no field in the document would reveal as missing.
 
 ---
 

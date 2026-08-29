@@ -46,6 +46,7 @@ cd "$TARGET_DIR"
 
 # Cleanup repository-only files
 rm -rf .git
+rm -rf examples
 rm -f bootstrap.sh README.md
 
 # Scaffold target-specific directories

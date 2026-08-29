@@ -42,9 +42,9 @@
 
 ### Run ledger
 
-| # | Point | Window UTC | Commit | Outcome | Exported |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| 01 | ⟨name⟩-⟨value⟩ | ⟨HH:MM → HH:MM⟩ ᴿ | `⟨sha⟩` | ⟨ok · aborted, ⟨reason⟩ · invalid, ⟨reason⟩⟩ | ⟨✓ · —⟩ |
+| # | Point | Window UTC | Commit | Outcome | Signal | Exported |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| 01 | ⟨name⟩-⟨value⟩ | ⟨HH:MM → HH:MM⟩ ᴿ | `⟨sha⟩` | ⟨ok · aborted, ⟨reason⟩ · invalid, ⟨reason⟩⟩ | ⟨component at its ceiling · headroom⟩ ᴿ | ⟨✓ · —⟩ |
 
 ### Notes
 
@@ -52,8 +52,6 @@
 
 ### Close
 
-- [ ] Every run exported while still inside the retention window.
-- [ ] Every invalid run carries a reason and a rerun decision.
 - [ ] Saturation identified, or headroom confirmed at the top of the grid.
 - [ ] Every figure in §3 marked (unmarked · ᴰ · ᴿ · ᴱ).
 - [ ] Outcome compared against Expected in Retro, inversion included.
