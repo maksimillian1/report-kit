@@ -1,0 +1,15 @@
+# What gets exported at each point's close: ref|promql
+#
+# One line per ref. The ref is the name the report cites (M4, M5, …); the
+# query is evaluated over the point's window and written to <run>.jsonl.
+# Blank lines and # comments are ignored. A ref that returns no series fails
+# the run with exit 2 — an empty result is a gap, not a zero. Where zero is
+# genuinely the answer, write it: `... or vector(0)`.
+#
+# Confirm every query against the live endpoint before the first run, and
+# date that confirmation in the execution's metric register. An unconfirmed
+# ref cannot appear in a frozen Plan.
+
+M4|count(up{job="your-service"} == 1)
+M5|sum(rate(your_requests_total[30s]))
+M6|sum(rate(your_request_duration_seconds_sum[30s])) / sum(rate(your_requests_total[30s]))

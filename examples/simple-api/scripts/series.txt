@@ -1,0 +1,5 @@
+# ref | promql — the server-side view. M1–M3 are client-side and come from
+# the k6 summary instead; every ref is defined once, in the register.
+M4|count(up{job="mock-api"} == 1)
+M5|sum(rate(mock_requests_total[30s]))
+M6|sum(rate(mock_request_duration_seconds_sum[30s])) / sum(rate(mock_requests_total[30s]))

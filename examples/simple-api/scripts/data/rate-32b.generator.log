@@ -1,0 +1,39 @@
+time="2026-09-05T21:17:15+02:00" level=warning msg="Request Failed" error="Get \"http://localhost:8081/\": request timeout"
+time="2026-09-05T21:17:15+02:00" level=warning msg="Request Failed" error="request timeout"
+time="2026-09-05T21:17:19+02:00" level=warning msg="Request Failed" error="request timeout"
+
+
+  █ THRESHOLDS 
+
+    http_req_failed
+    ✓ 'rate<0.05' rate=0.21%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 1384   29.462777/s
+    checks_succeeded...: 99.78% 1381 out of 1384
+    checks_failed......: 0.21%  3 out of 1384
+
+    ✗ status 200
+      ↳  99% — ✓ 1381 / ✗ 3
+
+    HTTP
+    http_req_duration..............: avg=1.3s  min=71.64ms med=894.41ms max=10s  p(90)=2.74s p(95)=3.75s
+      { expected_response:true }...: avg=1.28s min=71.64ms med=891.1ms  max=9.1s p(90)=2.7s  p(95)=3.72s
+    http_req_failed................: 0.21%  3 out of 1384
+    http_reqs......................: 1384   29.462777/s
+
+    EXECUTION
+    dropped_iterations.............: 57     1.213424/s
+    iteration_duration.............: avg=1.3s  min=83.88ms med=894.54ms max=10s  p(90)=2.74s p(95)=3.75s
+    iterations.....................: 1384   29.462777/s
+    vus............................: 26     min=11        max=68
+    vus_max........................: 73     min=16        max=73
+
+    NETWORK
+    data_received..................: 216 kB 4.6 kB/s
+    data_sent......................: 97 kB  2.1 kB/s
+
+
+

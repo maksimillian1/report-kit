@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "report-kit"
+version = "0.1.0"
+description = "Measurement tooling and templates for engineering reports"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = ["PyYAML>=6"]
+
+# boto3 is needed by cloud/aws_s3.py alone; cloud/aws.py shells out to the
+# aws CLI instead, so the common case installs nothing extra.
+[project.optional-dependencies]
+s3 = ["boto3>=1.28"]
+
+[project.scripts]
+report-kit = "report_kit.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# Without this the templates stay behind and `init` has nothing to copy.
+[tool.setuptools.package-data]
+report_kit = ["API.md", "templates/**/*"]
+
+[tool.setuptools.exclude-package-data]
+report_kit = ["**/__pycache__/*"]

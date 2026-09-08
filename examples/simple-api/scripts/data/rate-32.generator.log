@@ -1,0 +1,44 @@
+time="2026-09-05T21:14:59+02:00" level=warning msg="Request Failed" error="Get \"http://localhost:8081/\": request timeout"
+time="2026-09-05T21:15:02+02:00" level=warning msg="Request Failed" error="Get \"http://localhost:8081/\": request timeout"
+time="2026-09-05T21:15:02+02:00" level=warning msg="Request Failed" error="Get \"http://localhost:8081/\": request timeout"
+time="2026-09-05T21:15:05+02:00" level=warning msg="Request Failed" error="Get \"http://localhost:8081/\": request timeout"
+time="2026-09-05T21:15:06+02:00" level=warning msg="Insufficient VUs, reached 80 active VUs and cannot initialize more" executor=constant-arrival-rate scenario=constant
+time="2026-09-05T21:15:08+02:00" level=warning msg="Request Failed" error="Get \"http://localhost:8081/\": request timeout"
+time="2026-09-05T21:15:10+02:00" level=warning msg="Request Failed" error="Get \"http://localhost:8081/\": request timeout"
+time="2026-09-05T21:15:16+02:00" level=warning msg="Request Failed" error="Get \"http://localhost:8081/\": request timeout"
+
+
+  █ THRESHOLDS 
+
+    http_req_failed
+    ✓ 'rate<0.05' rate=0.51%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 1350   26.353808/s
+    checks_succeeded...: 99.48% 1343 out of 1350
+    checks_failed......: 0.51%  7 out of 1350
+
+    ✗ status 200
+      ↳  99% — ✓ 1343 / ✗ 7
+
+    HTTP
+    http_req_duration..............: avg=1.5s  min=83.34ms med=960.62ms max=10s   p(90)=3.2s  p(95)=4.68s
+      { expected_response:true }...: avg=1.45s min=83.34ms med=950.5ms  max=9.48s p(90)=3.11s p(95)=4.41s
+    http_req_failed................: 0.51%  7 out of 1350
+    http_reqs......................: 1350   26.353808/s
+
+    EXECUTION
+    dropped_iterations.............: 90     1.756921/s
+    iteration_duration.............: avg=1.5s  min=83.52ms med=961ms    max=10s   p(90)=3.2s  p(95)=4.68s
+    iterations.....................: 1350   26.353808/s
+    vus............................: 1      min=1         max=80
+    vus_max........................: 80     min=17        max=80
+
+    NETWORK
+    data_received..................: 210 kB 4.1 kB/s
+    data_sent......................: 95 kB  1.8 kB/s
+
+
+

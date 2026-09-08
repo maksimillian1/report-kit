@@ -1,0 +1,18 @@
+{
+  "client": {
+    "failed_share": 0.0052,
+    "p95_ms": 4680.4,
+    "requests": 1350,
+    "served_per_second": 26.35
+  },
+  "empty_refs": [],
+  "generator_exit": 0,
+  "guard_failures": [],
+  "rate": "32",
+  "run": "rate-32",
+  "window": {
+    "end": "2026-09-05T19:15:16Z",
+    "seconds": 51.7,
+    "start": "2026-09-05T19:14:24Z"
+  }
+}

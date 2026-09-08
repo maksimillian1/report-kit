@@ -214,6 +214,25 @@ same reason an execution has no opening checklist: its preparation is fields —
 forgetfulness but a forgery. A baseline does have one, because its preflight produces files
 and external state that no field in the document would reveal as missing.
 
+### What the tooling holds, and what it does not
+
+Two of the unrecoverable classes are mechanical enough to be enforced rather than remembered,
+and the runner enforces them. A window comes from the process that applied the load, so it is
+observed rather than reconstructed from memory. Export happens at each point's close rather
+than being batched toward the end, and a series that came back empty exits non-zero — which
+makes a retention gap loud on the day it happens, when the window can still be re-exported,
+instead of at Close, when it cannot.
+
+A third is recorded rather than enforced: each point carries the `kit_version` that
+produced it, because the measurement tooling is a dependency with a life of its own and
+nothing else in the record would say which code produced the numbers.
+
+`Signal` is deliberately not among them. What the instruments showed is a judgement, not a
+reading, and a tool that inferred it would produce a confident sentence nobody checked. The
+runner records only what the judgement is made from — the peak, whether a configured ceiling
+was touched, which tier never left its floor — and stops there. The column belongs to the
+author and is filled while the run is live. A blank cell is visible; an inferred one is not.
+
 ---
 
 ## 7. Sweep coarse to fine
