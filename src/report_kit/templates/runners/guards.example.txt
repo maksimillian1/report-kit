@@ -1,0 +1,19 @@
+# What makes a point INVALID: ref|bound|promql
+#
+# Guards are not findings. They answer one question — "may this point be
+# compared with the others?" — and nothing about whether the result is
+# interesting. A guard that fails means the row is carried as invalid, not
+# that the system is bad.
+#
+# bound is `min N` or `max N`. Each query is evaluated **as of the instant the
+# load stopped**, not when the check runs: minutes pass in between (scale-in,
+# the hold, the export), and a rate-based guard checked at "now" averages its
+# lookback over dead air and passes quietly.
+#
+# Guard whatever the sweep holds constant. Replica count is the usual one:
+# a point that ran against one replica instead of four is not comparable,
+# whatever its numbers say — and that is a mechanical check, not a judgement
+# about whether the figure "looks right".
+
+G1|min 1|count(up{job="your-service"} == 1)
+G2|max 0|sum(increase(your_errors_total[5m])) or vector(0)

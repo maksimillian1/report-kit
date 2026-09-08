@@ -1,0 +1,4 @@
+# ref | bound | promql — what makes a point invalid, not what makes it
+# interesting. A guard that fires at saturation would be a finding, not a guard.
+G1|min 1|count(up{job="mock-api"} == 1)
+G2|max 0|max(resets(mock_requests_total[2m])) or vector(0)

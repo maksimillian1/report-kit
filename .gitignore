@@ -3,3 +3,11 @@
 *.iml
 out
 gen
+
+# Python bytecode from running the kit in place
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+build/
+dist/
