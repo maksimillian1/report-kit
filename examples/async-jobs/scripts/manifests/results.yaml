@@ -1,0 +1,76 @@
+# The shared tier: always on, autoscaled, and capped below what the worker
+# pool can offer it. It is the component that does not scale with the
+# workers, which is what makes an async grid interesting rather than linear.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: results
+  namespace: report-kit-jobs
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: results}
+  template:
+    metadata:
+      labels: {app: results}
+    spec:
+      containers:
+        - name: results
+          image: python:3.12-alpine
+          command: ["python3", "/src/results.py"]
+          env:
+            - {name: PYTHONPATH, value: /src}
+            - {name: PYTHONUNBUFFERED, value: "1"}
+            - {name: BURN_MS, value: "60"}
+            - name: POD_NAME
+              valueFrom: {fieldRef: {fieldPath: metadata.name}}
+          ports:
+            - {name: http, containerPort: 8080}
+          # requests must be set or the HPA has no percentage to compute
+          resources:
+            requests: {cpu: 300m, memory: 32Mi}
+            limits: {cpu: 500m, memory: 128Mi}
+          readinessProbe:
+            httpGet: {path: /healthz, port: 8080}
+            periodSeconds: 2
+          volumeMounts:
+            - {name: src, mountPath: /src}
+      volumes:
+        - name: src
+          configMap: {name: jobs-src}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: results
+  namespace: report-kit-jobs
+spec:
+  selector: {app: results}
+  ports:
+    - {name: http, port: 80, targetPort: 8080}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: results
+  namespace: report-kit-jobs
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: results}
+  # The floor the runner's close condition waits for, and a ceiling low
+  # enough that the workers can outrun it. Two replicas at 500m is one core;
+  # at 60 ms of CPU per unit that is about 16 units/s, whatever the workers do.
+  minReplicas: 1
+  maxReplicas: 2
+  metrics:
+    - type: Resource
+      resource: {name: cpu, target: {type: Utilization, averageUtilization: 70}}
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies: [{type: Pods, value: 2, periodSeconds: 15}]
+    scaleDown:
+      # Kubernetes defaults to 300s. Shortened so the window can close in
+      # minutes — in a real sweep leave the default and set HOLD_SECONDS
+      # above it, or the window closes during a lull instead of at the end.
+      stabilizationWindowSeconds: 15
+      policies: [{type: Pods, value: 2, periodSeconds: 15}]

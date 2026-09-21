@@ -1,0 +1,55 @@
+{
+  "run": "n08",
+  "exported_at": "2026-09-09T15:35:46Z",
+  "prom_url": "http://localhost:9092",
+  "step": "5s",
+  "window": {
+    "start": "2026-09-09T15:34:08Z",
+    "end": "2026-09-09T15:35:14Z",
+    "seconds": 65.9
+  },
+  "refs": [
+    {
+      "ref": "M1",
+      "query": "max(jobs_queue_depth{queue=\"work\"})",
+      "series": 1,
+      "points": 14
+    },
+    {
+      "ref": "M2",
+      "query": "max(jobs_queue_depth{queue=\"retry\"})",
+      "series": 1,
+      "points": 14
+    },
+    {
+      "ref": "M3",
+      "query": "max(jobs_inflight)",
+      "series": 1,
+      "points": 14
+    },
+    {
+      "ref": "M4",
+      "query": "count(up{job=\"worker\"} == 1)",
+      "series": 1,
+      "points": 8
+    },
+    {
+      "ref": "M5",
+      "query": "sum(rate(jobs_completed_total[30s]))",
+      "series": 1,
+      "points": 14
+    },
+    {
+      "ref": "M6",
+      "query": "count(up{job=\"results\"} == 1)",
+      "series": 1,
+      "points": 14
+    },
+    {
+      "ref": "M7",
+      "query": "sum(rate(results_seconds_total[30s]))",
+      "series": 1,
+      "points": 14
+    }
+  ]
+}

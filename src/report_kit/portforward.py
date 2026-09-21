@@ -97,7 +97,7 @@ class PortForwards:
         for proc in self.procs:
             try:
                 os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-            except Exception:                                  # noqa: BLE001
+            except Exception:
                 proc.terminate()
         return False
 

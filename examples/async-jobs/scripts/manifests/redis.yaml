@@ -1,0 +1,79 @@
+# The queue, and the one process allowed to describe it to Prometheus.
+#
+# Redis stands in for SQS here. What the example needs from a queue is a
+# depth that can be read from outside and a pop that is destructive — every
+# managed queue has both, and the runner never names this one: `env.yaml`
+# does.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: report-kit-jobs
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: redis}
+  template:
+    metadata:
+      labels: {app: redis}
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.4-alpine
+          # No persistence: the queue is state this example resets between
+          # points, and a dump file surviving a restart would be a way for
+          # one point's leftovers to reach the next.
+          args: ["--save", "", "--appendonly", "no"]
+          ports:
+            - {name: redis, containerPort: 6379}
+          resources:
+            requests: {cpu: 50m, memory: 32Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+          readinessProbe:
+            tcpSocket: {port: 6379}
+            periodSeconds: 2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: report-kit-jobs
+spec:
+  selector: {app: redis}
+  ports:
+    - {name: redis, port: 6379, targetPort: 6379}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: queue-exporter
+  namespace: report-kit-jobs
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: queue-exporter}
+  template:
+    metadata:
+      labels: {app: queue-exporter}
+    spec:
+      containers:
+        - name: exporter
+          image: python:3.12-alpine
+          command: ["python3", "/src/exporter.py"]
+          env:
+            - {name: PYTHONPATH, value: /src}
+            - {name: PYTHONUNBUFFERED, value: "1"}
+            - {name: REDIS_HOST, value: redis}
+          ports:
+            - {name: http, containerPort: 8080}
+          resources:
+            requests: {cpu: 25m, memory: 32Mi}
+            limits: {cpu: 200m, memory: 128Mi}
+          readinessProbe:
+            httpGet: {path: /metrics, port: 8080}
+            periodSeconds: 2
+          volumeMounts:
+            - {name: src, mountPath: /src}
+      volumes:
+        - name: src
+          configMap: {name: jobs-src}

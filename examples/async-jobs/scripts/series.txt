@@ -1,0 +1,13 @@
+# ref | promql — every ref is defined once, in the register.
+#
+# All of these come from the queue exporter or the shared tier, both of which
+# are still running when the window closes. Nothing here is read from the
+# worker pods: they scale to zero at the end of every point, and a series that
+# disappears with its pod cannot be exported for the window it belongs to.
+M1|max(jobs_queue_depth{queue="work"})
+M2|max(jobs_queue_depth{queue="retry"})
+M3|max(jobs_inflight)
+M4|count(up{job="worker"} == 1)
+M5|sum(rate(jobs_completed_total[30s]))
+M6|count(up{job="results"} == 1)
+M7|sum(rate(results_seconds_total[30s]))

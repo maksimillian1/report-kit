@@ -1,0 +1,129 @@
+# Prometheus scraping the three parts of the system per pod.
+#
+# Per-pod discovery rather than the Service DNS name, for the same reason as
+# the api example: behind one Service a scrape lands on a random pod, so a
+# counter would jump between pods' values and every rate() over it would be
+# fiction. It is also what makes count(up{job="worker"} == 1) a usable
+# reading of pool size.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: report-kit-jobs
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: report-kit-jobs-prometheus
+rules:
+  - apiGroups: [""]
+    resources: [pods, services, endpoints, nodes]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: report-kit-jobs-prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: report-kit-jobs-prometheus
+subjects:
+  - kind: ServiceAccount
+    name: prometheus
+    namespace: report-kit-jobs
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: report-kit-jobs
+data:
+  prometheus.yml: |
+    global:
+      # A drain is a minute or two, not an hour. A 15s export step over a 5s
+      # scrape leaves rate() something to work with.
+      scrape_interval: 5s
+      evaluation_interval: 5s
+    scrape_configs:
+      - job_name: queue
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces: {names: [report-kit-jobs]}
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: queue-exporter
+          - source_labels: [__meta_kubernetes_pod_container_port_number]
+            action: keep
+            regex: "8080"
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+      - job_name: worker
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces: {names: [report-kit-jobs]}
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: worker
+          - source_labels: [__meta_kubernetes_pod_container_port_number]
+            action: keep
+            regex: "8080"
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+      - job_name: results
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces: {names: [report-kit-jobs]}
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: results
+          - source_labels: [__meta_kubernetes_pod_container_port_number]
+            action: keep
+            regex: "8080"
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: report-kit-jobs
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: prometheus}
+  template:
+    metadata:
+      labels: {app: prometheus}
+    spec:
+      serviceAccountName: prometheus
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v3.1.0
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.retention.time=2h
+            - --web.enable-lifecycle
+          ports:
+            - {name: web, containerPort: 9090}
+          readinessProbe:
+            httpGet: {path: /-/ready, port: 9090}
+            periodSeconds: 2
+          volumeMounts:
+            - {name: config, mountPath: /etc/prometheus}
+      volumes:
+        - name: config
+          configMap: {name: prometheus-config}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: report-kit-jobs
+spec:
+  selector: {app: prometheus}
+  ports:
+    - {name: web, port: 9090, targetPort: 9090}

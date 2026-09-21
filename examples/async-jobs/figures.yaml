@@ -1,0 +1,455 @@
+meta:
+  updated: 2026-09-09
+  rule: every figure the two documents print exists here; each renders it at whatever precision it needs
+  rounding: >-
+    D9 is measured, not derived from D8, and that is deliberate. The drain is published rounded
+    to a tenth of a second, so 1200 / 50.3 gives 23.86 where the point record says 23.85. The
+    rate was computed from the unrounded drain, and re-deriving it here from the printed one
+    would quietly disagree with the evidence. Arithmetic at full precision, rounded once at
+    print -- which also means you cannot recover the precision a document threw away.
+  note: >-
+    Checked by `report-kit figures --path examples/async-jobs/figures.yaml check`.
+    D9 is measured rather than derived from D8 — see meta.rounding.
+
+scan:
+  - report.md
+  - execution.md
+
+figures:
+  units_per_point:
+    ref: FR1
+    kind: R
+    value: 1200
+    unit: units
+    display: 0
+    source: the second pass's unit count, a Held constant. The first pass ran 400 and its rows are a different grid
+
+  offered_rate:
+    ref: FR2
+    kind: R
+    value: 40
+    unit: units_per_second
+    display: 0
+    source: produce.py --rate, constant offered rate, open model
+
+  worker_ms:
+    ref: FR3
+    kind: R
+    value: 150
+    unit: milliseconds
+    display: 0
+    source: worker.py burn(), wall time per unit. A latency, not exclusive CPU -- see report 3.5
+
+  tier_ms:
+    ref: FR4
+    kind: R
+    value: 60
+    unit: milliseconds
+    display: 0
+    source: results.py burn(), wall time per call
+
+  ceiling_n01:
+    ref: FR5
+    kind: R
+    value: 1
+    unit: workers
+    display: 0
+    source: maxReplicaCount on the ScaledObject, the swept axis. Registered because per-worker efficiency divides by it
+
+  ceiling_n02:
+    ref: FR6
+    kind: R
+    value: 2
+    unit: workers
+    display: 0
+    source: maxReplicaCount, point n02-long
+
+  ceiling_n04:
+    ref: FR7
+    kind: R
+    value: 4
+    unit: workers
+    display: 0
+    source: maxReplicaCount, point n04-long
+
+  ceiling_n08:
+    ref: FR8
+    kind: R
+    value: 8
+    unit: workers
+    display: 0
+    source: maxReplicaCount, points n08-long and n08-long-b
+
+  drain_n01:
+    ref: FM1
+    kind: M
+    value: 283.7
+    unit: seconds
+    display: 1
+    source: D8, producer start to the first poll reading outstanding 0; data/n01-long.point.json
+
+  drain_n02:
+    ref: FM2
+    kind: M
+    value: 146.7
+    unit: seconds
+    display: 1
+    source: D8, data/n02-long.point.json
+
+  drain_n04:
+    ref: FM3
+    kind: M
+    value: 84.4
+    unit: seconds
+    display: 1
+    source: D8, data/n04-long.point.json
+
+  drain_n08:
+    ref: FM4
+    kind: M
+    value: 50.3
+    unit: seconds
+    display: 1
+    source: D8, data/n08-long.point.json
+
+  drain_n08b:
+    ref: FM5
+    kind: M
+    value: 53.3
+    unit: seconds
+    display: 1
+    source: D8, data/n08-long-b.point.json, the repeat of n08-long
+
+  rate_n01:
+    ref: FM6
+    kind: M
+    value: 4.23
+    unit: units_per_second
+    source: D9, units divided by the unrounded drain. Taken from the point record rather than recomputed from drain_n01 -- see meta.rounding
+
+  rate_n02:
+    ref: FM7
+    kind: M
+    value: 8.18
+    unit: units_per_second
+    source: D9, data/n02-long.point.json
+
+  rate_n04:
+    ref: FM8
+    kind: M
+    value: 14.22
+    unit: units_per_second
+    source: D9, data/n04-long.point.json
+
+  rate_n08:
+    ref: FM9
+    kind: M
+    value: 23.85
+    unit: units_per_second
+    source: D9, data/n08-long.point.json
+
+  rate_n08b:
+    ref: FM10
+    kind: M
+    value: 22.51
+    unit: units_per_second
+    source: D9, data/n08-long-b.point.json
+
+  tier_service_n01:
+    ref: FM11
+    kind: M
+    value: 72.0
+    unit: milliseconds
+    display: 1
+    source: D10, M7 divided by M5 over samples where M5 > 1
+
+  tier_service_n02:
+    ref: FM12
+    kind: M
+    value: 72.5
+    unit: milliseconds
+    display: 1
+    source: D10, point n02-long
+
+  tier_service_n04:
+    ref: FM13
+    kind: M
+    value: 81.1
+    unit: milliseconds
+    display: 1
+    source: D10, point n04-long
+
+  tier_service_n08:
+    ref: FM14
+    kind: M
+    value: 83.4
+    unit: milliseconds
+    display: 1
+    source: D10, point n08-long
+
+  tier_service_n08b:
+    ref: FM15
+    kind: M
+    value: 84.2
+    unit: milliseconds
+    display: 1
+    source: D10, point n08-long-b
+
+  peak_queue_n01:
+    ref: FM16
+    kind: M
+    value: 1070
+    unit: units
+    display: 0
+    source: M1 peak, max work-queue depth over the window
+
+  peak_queue_n02:
+    ref: FM17
+    kind: M
+    value: 926
+    unit: units
+    display: 0
+    source: M1 peak, point n02-long
+
+  peak_queue_n04:
+    ref: FM18
+    kind: M
+    value: 718
+    unit: units
+    display: 0
+    source: M1 peak, point n04-long
+
+  peak_queue_n08:
+    ref: FM19
+    kind: M
+    value: 534
+    unit: units
+    display: 0
+    source: M1 peak, point n08-long
+
+  peak_queue_n08b:
+    ref: FM20
+    kind: M
+    value: 517
+    unit: units
+    display: 0
+    source: M1 peak, point n08-long-b
+
+  speedup_n01:
+    ref: FD1
+    kind: D
+    formula: rate_n01 / rate_n01
+    unit: ratio
+    group: speedup
+
+  speedup_n02:
+    ref: FD2
+    kind: D
+    formula: rate_n02 / rate_n01
+    unit: ratio
+    group: speedup
+
+  speedup_n04:
+    ref: FD3
+    kind: D
+    formula: rate_n04 / rate_n01
+    unit: ratio
+    group: speedup
+
+  speedup_n08:
+    ref: FD4
+    kind: D
+    formula: rate_n08 / rate_n01
+    unit: ratio
+    group: speedup
+    appears_in: [report.md, execution.md]
+
+  speedup_n08b:
+    ref: FD5
+    kind: D
+    formula: rate_n08b / rate_n01
+    unit: ratio
+    group: speedup
+
+  efficiency_n01:
+    ref: FD6
+    kind: D
+    formula: speedup_n01 / ceiling_n01 * 100
+    unit: percent
+    display: 0
+    group: efficiency
+
+  efficiency_n02:
+    ref: FD7
+    kind: D
+    formula: speedup_n02 / ceiling_n02 * 100
+    unit: percent
+    display: 0
+    group: efficiency
+
+  efficiency_n04:
+    ref: FD8
+    kind: D
+    formula: speedup_n04 / ceiling_n04 * 100
+    unit: percent
+    display: 0
+    group: efficiency
+
+  efficiency_n08:
+    ref: FD9
+    kind: D
+    formula: speedup_n08 / ceiling_n08 * 100
+    unit: percent
+    display: 0
+    group: efficiency
+    appears_in: [report.md, execution.md]
+
+  efficiency_n08b:
+    ref: FD10
+    kind: D
+    formula: speedup_n08b / ceiling_n08 * 100
+    unit: percent
+    display: 0
+    group: efficiency
+
+  tier_service_rise:
+    ref: FD11
+    kind: D
+    formula: (tier_service_n08b - tier_service_n01) / tier_service_n01 * 100
+    unit: percent
+    display: 0
+    source: how little the shared tier's service time moved across the grid. Half of the pair that rules the tier out as the constraint
+    group: constraint
+
+  throughput_rise:
+    ref: FD12
+    kind: D
+    formula: (rate_n08 - rate_n01) / rate_n01 * 100
+    unit: percent
+    display: 0
+    source: the load the tier absorbed while its service time barely moved
+    group: constraint
+    appears_in: [report.md, execution.md]
+
+  repeat_spread:
+    ref: FD13
+    kind: D
+    formula: (rate_n08 - rate_n08b) / rate_n08b * 100
+    unit: percent
+    display: 0
+    source: the gap between two identical points, which sets the resolution of every comparison here. Base is the repeat, so the figure reads as how much the first point overstated the second
+    group: constraint
+
+  retry_units:
+    ref: FD14
+    kind: D
+    formula: units_per_point / 20
+    unit: units
+    display: 0
+    source: one unit in twenty, deterministic (unit n retries when n % 20 == 0)
+    group: workload
+
+  total_burns:
+    ref: FD15
+    kind: D
+    formula: units_per_point + retry_units
+    unit: units
+    display: 0
+    source: what the workers actually execute, retries included
+    group: workload
+
+  expected_tier_ceiling:
+    ref: FE1
+    kind: E
+    formula: 1000 / tier_ms
+    unit: units_per_second
+    display: 1
+    source: >-
+      the Expected line, written before the first run: two replicas at 500m is one core, and at
+      60 ms per unit that is this many units/s. Wrong, and report 3.5 says why: it priced wall
+      time as though it were exclusive CPU. A colon inside a plain scalar would end the value
+      here, which is why this one is a block scalar
+    group: expected
+
+  expected_single_worker:
+    ref: FE2
+    kind: E
+    formula: 1000 / (worker_ms + tier_ms)
+    unit: units_per_second
+    display: 1
+    source: the same Expected line, for one worker running both costs serially
+    group: expected
+
+  units_first_pass:
+    ref: FR9
+    kind: R
+    value: 400
+    unit: units
+    display: 0
+    source: the first pass's unit count. Not a row of the matrix — its drains were ramp-dominated — but the report names it when it says why those rows are excluded
+    group: workload
+
+  window_n08:
+    ref: FM21
+    kind: M
+    value: 84.8
+    unit: seconds
+    display: 1
+    source: the measured window of n08-long, drain plus scale-in; data/n08-long.point.json
+    group: constraint
+
+  rate_p1_n08:
+    ref: FM22
+    kind: M
+    value: 12.74
+    unit: units_per_second
+    source: D9 of the first pass's n08 point at 400 units; data/n08.point.json. Registered because 7 quotes the pair it belongs to
+    group: first_pass
+
+  rate_p1_relief:
+    ref: FM23
+    kind: M
+    value: 18.16
+    unit: units_per_second
+    source: D9 of n08-relief, the first pass's probe with the shared tier's ceiling at 4; data/n08-relief.point.json
+    group: first_pass
+
+  efficiency_drop_n02_n04:
+    ref: FD16
+    kind: D
+    formula: efficiency_n02 - efficiency_n04
+    unit: percentage_points
+    display: 0
+    source: how far per-worker efficiency falls across the knee. Stated in 3.3 as a relationship between two figures, which makes it a figure
+    group: efficiency
+
+  efficiency_gap_n08:
+    ref: FD17
+    kind: D
+    formula: 100 - efficiency_n08
+    unit: percent
+    display: 0
+    source: the per-worker efficiency unaccounted for at the top of the grid — the "missing 30 %" the Coverage table declares unseparated
+    group: efficiency
+
+  window_rate_n08:
+    ref: FD18
+    kind: D
+    formula: units_per_point / window_n08
+    unit: units_per_second
+    display: 1
+    source: what n08-long's rate would read if it were averaged over the window instead of the drain. Half of the pair 5 quotes; the other half is FM9
+    group: constraint
+
+  relief_apparent_gain:
+    ref: FD19
+    kind: D
+    formula: (rate_p1_relief - rate_p1_n08) / rate_p1_n08 * 100
+    unit: percent
+    display: 0
+    source: the improvement the first pass's relief probe appeared to produce. It produced none — M6 shows the shared tier at one replica through both drains — and the figure exists so the number in 7 is checked rather than recalled
+    group: first_pass
+
+allow: []
+
+retired: []
