@@ -10,7 +10,7 @@ copies to your report's root.
 ## Installation
 
 ```bash
-pip install "report-kit @ git+https://github.com/maksimillian1/report-kit@v0.1"
+pip install "report-kit @ git+https://github.com/maksimillian1/report-kit@v0.2"
 
 report-kit init docs/report            # 2+ executions
 report-kit init docs/report --minimal  # a single execution
@@ -19,21 +19,10 @@ report-kit init docs/report --minimal  # a single execution
 Nothing is published to a registry: pip clones the tag and builds it. A
 private checkout works the same way over `git+ssh://`.
 
-The tag has to exist on the remote — `git tag v0.1 && git push --tags`. Pin to
-a tag rather than a branch: a report's numbers were produced by one version of
-this code, and `@master` would quietly become a different one.
-
 `init` **copies named files out of the package** — the templates, the
-methodology, and the two reference documents. It is not a download that
-deletes what does not belong, which is what the old `bootstrap.sh` was; the
-difference is that a file added to this repo now reaches a project only if
-somebody names it in `scaffold.py`. `tests/test_scaffold.py` asserts both
-directions of that.
-
-The library itself is **not** copied into your project. It is a dependency,
-and each point record carries the `kit_version` that produced it — which is
-better provenance than a pin written once at `init` time, because it records
-what actually ran, per point, and cannot drift from it.
+methodology, and the two reference documents. Nothing else arrives, and the
+library is not copied: it stays a dependency, and each point record carries the
+`kit_version` that produced it.
 
 ## Profiles
 
@@ -113,7 +102,7 @@ One command, installed with the package:
 | `report-kit node-cost` | what the nodes cost during a window, the same day |
 | `report-kit selftest` | drive both runner templates against a faked cluster |
 
-Behind them are three kinds of thing, and the distinction is the whole design:
+What the repository holds:
 
 | | |
 | :--- | :--- |
@@ -274,11 +263,17 @@ report-kit figures check              # retired values, ref identity, coverage
 report-kit figures validate           # the registry's own rules
 report-kit figures block_b_total      # one figure, bare value — by name or by ref
 report-kit figures orphans report.md  # currency tokens matching no figure
+report-kit figures retype d23_n25 E   # change a kind, renumber every ref
 ```
 
 Its exit codes are what a CI job needs: **0** clean, **1** something drifted,
 **2** the registry is missing or unreadable. `check --strict` promotes a missing
 `appears_in` target from a report line to a failure.
+
+Fenced code blocks and inline code spans are skipped whole, so a price quoted
+inside an example command is not a claim the checker has to be told to ignore.
+A marked number still counts inside backticks: `553.83`(FD7) is an anchor, and
+a table cell often wraps the digits that way.
 
 ---
 
