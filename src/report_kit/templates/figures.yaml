@@ -1,0 +1,52 @@
+meta:
+  updated: ⟨date⟩
+  rule: ⟨which numbers must exist here — the promise this file makes⟩
+  rounding: ⟨how precision is handled, and the evidence for choosing it that way⟩
+  display: ⟨what prose prints · what tables print · what rates keep⟩
+  naming: ⟨how a figure is named, so two authors produce one name and not two⟩
+
+scan:
+  - report.md
+  - ⟨executions/NN-name/index.md⟩
+
+figures:
+  ⟨recorded_name⟩:
+    ref: FR1
+    kind: R
+    value: ⟨number⟩
+    unit: ⟨unit⟩
+    source: ⟨the authority it was read from, and the date⟩
+
+  ⟨measured_name⟩:
+    ref: FM1
+    kind: M
+    value: ⟨number⟩
+    unit: ⟨unit⟩
+    source: ⟨the metric ref, its selector, and the window⟩
+
+  ⟨derived_name⟩:
+    ref: FD1
+    kind: D
+    formula: ⟨expression over other figure names⟩
+    unit: ⟨unit⟩
+    display: ⟨decimals⟩
+    group: ⟨subject⟩
+    appears_in: [report.md]
+
+  ⟨estimated_name⟩:
+    ref: FE1
+    kind: E
+    value: ⟨number⟩
+    unit: ⟨unit⟩
+    source: ⟨the basis, and the reference value it is judged against⟩
+
+allow:
+  - pattern: "⟨digits⟩"
+    file: ⟨path⟩
+    must_contain: ⟨text that makes this occurrence deliberate⟩
+    why: ⟨why this one is not drift⟩
+
+retired:
+  - pattern: "⟨the superseded digits⟩"
+    replaced_by: ⟨figure name⟩
+    why: ⟨what changed, so a reader meeting the old number knows⟩

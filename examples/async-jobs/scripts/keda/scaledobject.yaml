@@ -1,0 +1,58 @@
+# What makes the worker pool a *pool*: KEDA scales it on queue depth, and
+# down to zero when both queues go quiet.
+#
+# Scale-to-zero is the part that matters. It is the local stand-in for the
+# node pool draining in the real jobs profile: the runner's close condition
+# asks the same question — "is there anything still allocated to this work?"
+# — one layer down, where a laptop can answer it.
+#
+# Applied separately from manifests/ because it needs KEDA's CRDs, which
+# up.sh installs first.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: worker
+  namespace: report-kit-jobs
+spec:
+  scaleTargetRef:
+    name: worker
+  # Depth is read this often. The KEDA default is 30s, which on a 60-second
+  # drain is most of the run.
+  pollingInterval: 2
+  # How long both triggers must read inactive before the pool goes to zero.
+  # The default is 300s; the runner's HOLD_SECONDS has to sit above whatever
+  # this is, or the window closes while the pool is still winding down.
+  cooldownPeriod: 20
+  minReplicaCount: 0
+  # The varied parameter. point.py patches this per point — it is the axis,
+  # so it is the one thing in this file that is allowed to move during a sweep.
+  maxReplicaCount: 1
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          policies: [{type: Pods, value: 8, periodSeconds: 15}]
+        scaleDown:
+          stabilizationWindowSeconds: 10
+          policies: [{type: Pods, value: 8, periodSeconds: 15}]
+  triggers:
+    # listLength is units *per replica*: 20 in the queue asks for one worker,
+    # 400 asks for twenty and gets maxReplicaCount instead. The pool is meant
+    # to sit at its ceiling for the whole drain — the axis is the ceiling,
+    # not the autoscaler's opinion of it.
+    - type: redis
+      metadata:
+        address: redis.report-kit-jobs.svc.cluster.local:6379
+        listName: jobs:work
+        listLength: "20"
+        enableTLS: "false"
+    # The retry queue scales the pool too. Without this trigger the pool
+    # scales to zero on an empty work queue while retried units are still
+    # waiting, and nothing is left running to drain them.
+    - type: redis
+      metadata:
+        address: redis.report-kit-jobs.svc.cluster.local:6379
+        listName: jobs:retry
+        listLength: "5"
+        enableTLS: "false"

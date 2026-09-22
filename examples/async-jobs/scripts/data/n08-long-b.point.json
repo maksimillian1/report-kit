@@ -1,0 +1,28 @@
+{
+  "count": 1200,
+  "drain_window": {
+    "end": "2026-09-09T16:00:57Z",
+    "seconds": 53.3,
+    "start": "2026-09-09T16:00:04Z"
+  },
+  "drained_per_second": 22.51,
+  "empty_refs": [],
+  "final_counters": {
+    "completed": 1200,
+    "enqueued": 1200,
+    "retried": 60
+  },
+  "guard_failures": [],
+  "n": 8,
+  "offered_rate": "40",
+  "peak_worker_pods": 8,
+  "producer_exit": 0,
+  "profile": "jobs",
+  "run": "n08-long-b",
+  "units_outstanding_at_close": 0,
+  "window": {
+    "end": "2026-09-09T16:01:28Z",
+    "seconds": 84.6,
+    "start": "2026-09-09T16:00:04Z"
+  }
+}

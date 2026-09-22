@@ -120,7 +120,7 @@ class Background:
             return
         try:
             os.killpg(os.getpgid(self.proc.pid), signal.SIGTERM)
-        except Exception:                                      # noqa: BLE001
+        except Exception:
             self.proc.terminate()
         self.finished_at = self.finished_at or utcnow()
 

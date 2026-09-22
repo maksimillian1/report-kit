@@ -23,6 +23,8 @@ import importlib
 import sys
 
 TOOLS = {
+    "figures": ("report_kit.tools.figures",
+                "resolve figures.yaml, and fail when a number drifts"),
     "export-metrics": ("report_kit.tools.export_metrics",
                        "re-export a window whose metrics are aging out"),
     "inspect-metrics": ("report_kit.tools.inspect_metrics",

@@ -37,15 +37,17 @@ what actually ran, per point, and cannot drift from it.
 
 ## Profiles
 
-What `report-kit init` writes. `report.md`, `methodology.md`, `API.md` and
-`runners.md` land in both; only the execution layout differs.
+What `report-kit init` writes. `report.md`, `figures.yaml`, `methodology.md`,
+`formats.md`, `API.md` and `runners.md` land in both; only the execution layout
+differs.
 
 ### A · Minimal — one execution
 
 ```text
 report/
 ├── report.md
-├── methodology.md              # the rules · API.md · runners.md — reference, not edited
+├── figures.yaml                # every number the documents print, resolved in one place
+├── methodology.md              # the rules · formats.md · API.md · runners.md — reference, not edited
 ├── assets/                     # charts, once something renders one
 └── execution/
     ├── index.md                # 1 Givens · 2 Plan · 3 Journal · 4 Results
@@ -60,7 +62,8 @@ report/
 ```text
 report/
 ├── report.md
-├── methodology.md              # + API.md · runners.md
+├── figures.yaml                # every number the documents print, resolved in one place
+├── methodology.md              # + formats.md · API.md · runners.md
 ├── assets/
 └── executions/
     ├── 00-baseline/            # 1 Plan · 2 Results
@@ -104,6 +107,7 @@ One command, installed with the package:
 | :--- | :--- |
 | `report-kit init` | write the report skeleton for a layout |
 | `report-kit new-point` | copy a runner and its inputs into one execution |
+| `report-kit figures` | resolve `figures.yaml`, and fail when a number drifts |
 | `report-kit export-metrics` | re-export a window whose metrics are aging out |
 | `report-kit inspect-metrics` | read back what an export actually captured |
 | `report-kit node-cost` | what the nodes cost during a window, the same day |
@@ -114,9 +118,9 @@ Behind them are three kinds of thing, and the distinction is the whole design:
 | | |
 | :--- | :--- |
 | [src/report_kit/](src/report_kit/) | the **library you import** — windows, polling, Prometheus export, guard evaluation, the point record |
-| [src/report_kit/templates/](src/report_kit/templates/) | what `init` and `new-point` **copy into a project**: the report and execution documents, and the two runners |
+| [src/report_kit/templates/](src/report_kit/templates/) | what `init` and `new-point` **copy into a project**: the report and execution documents, the number registry, and the two runners |
 | [src/report_kit/tools/](src/report_kit/tools/) | **run as-is**, as the subcommands above |
-| [examples/](examples/) | *(repo only)* worked executions, one directory each. [simple-api/](examples/simple-api/) is a complete one: a local cluster, the runs, and the `execution.md` / `report.md` they produced |
+| [examples/](examples/) | *(repo only)* worked executions, one directory each — [simple-api/](examples/simple-api/) for the api profile and [async-jobs/](examples/async-jobs/) for the jobs one. Each is a local cluster, the runs, and the `execution.md` / `report.md` they produced |
 
 **A runner is copied, not imported.** It lands in the execution's `scripts/`
 beside its own `env.yaml`, `series.txt` and `guards.txt`, because the axis is
@@ -136,13 +140,15 @@ than hidden behind an interface with one implementation.
 
 | | |
 | :--- | :--- |
+| [formats.md](src/report_kit/templates/formats.md) | how a number is written so a script can verify it: how a ref attaches to the digits, which shapes a scan ignores on purpose, and the three states a number can be in |
 | [runners.md](src/report_kit/templates/runners.md) | which profile fits your workload, **exactly what inputs to provide** (`env.yaml`, `series.txt`, `guards.txt`, the freeze), the exit-code contract |
 | [API.md](src/report_kit/API.md) | the library module by module: what is pure, what talks to a cluster, the one seam to patch when testing |
-| [examples/simple-api/scripts/README.md](examples/simple-api/scripts/README.md) | *(repo only)* how to run the worked example, and an honest table of what a local cluster can and cannot exercise |
+| [examples/simple-api/scripts/README.md](examples/simple-api/scripts/README.md) | *(repo only)* how to run the api example, and an honest table of what a local cluster can and cannot exercise |
+| [examples/async-jobs/scripts/README.md](examples/async-jobs/scripts/README.md) | *(repo only)* the same for the jobs example, plus the three things that make an async point its own profile |
 
-Both of the first two are copied to your report's root by `init`, so in a
-project they sit beside `report.md`; the paths above are where they live in
-this repository.
+All but the two example READMEs are copied to your report's root by `init`, so
+in a project they sit beside `report.md`; the paths above are where they live
+in this repository.
 
 ### Start here
 
@@ -157,6 +163,11 @@ One of the six is invalid — it ran against the wrong replica count — and is
 carried as a row rather than deleted, which is the part worth reading.
 Every number in both documents came out of a run — which is also why their cost
 sections are empty rather than plausible.
+
+`examples/async-jobs/` is the same loop for the other profile — a queue, a
+worker pool that scales to zero, and a producer running *while* the watch loop
+watches. Its ledger carries a whole pass that measured the autoscaler's ramp
+rather than the system, and says how that was caught.
 
 ---
 
@@ -187,8 +198,11 @@ and a journal note.
 1. **Is it under test?** No — a given: `00-baseline` §2, or minimal §1. Yes — an axis:
    `NN-⟨name⟩` §1 Plan, or minimal §2 Plan. Changing a given is preparation, not a run. → §2
 2. **Every metric is defined once**, in the execution that uses it, and carries a ref.
-   `M` measured · `D` derived · `R` recorded · `E` estimated. No global register, no
-   inheritance; cite across executions by path — `00-baseline/M2`. → §2
+   `M` measured · `D` derived · `R` recorded · `E` estimated. Definitions neither inherit
+   nor get copied; a ref is cited from anywhere by path — `00-baseline/M2`. The *values*
+   those refs produce are a separate concern and live in one registry per report,
+   `figures.yaml`, written the way
+   [formats.md](src/report_kit/templates/formats.md) defines. → §2
 3. **Why a metric behaves as it does** is not register material — `concepts.md` as `K⟨n⟩`,
    cited from the register's Notes. → §2
 4. **Who is the sentence addressed to?** The report's reader → `report.md`. The author filling
@@ -199,21 +213,101 @@ and a journal note.
 
 ---
 
-## Working on the kit
+## Make the check run without being remembered
 
-Three gates. Each has failed before, which is why they are run and not assumed:
+`figures.yaml` is only worth having if something verifies it. A stale figure is
+invisible in a correct-looking table — no reader catches it and no reviewer
+questions it — so this is the one failure that survives everything else you do.
 
-```bash
-pip install -e .
-report-kit selftest                  # both runner templates + node-cost, faked cluster
-python3 tests/test_scaffold.py       # every template ships, and nothing else does
-cd examples/simple-api/scripts && ./up.sh && ./point.py --run demo --rate 8 --duration 45s
+Two layers, doing different jobs.
+
+**An editor or agent hook — fast, and not a guarantee.** It puts the contract in
+front of whoever is about to edit the report, and runs the check right after. For
+Claude Code that is `.claude/settings.json` in the report's repository:
+
+```json
+{
+  "hooks": {
+    "PreToolUse":  [{ "matcher": "Edit|Write", "hooks": [{ "type": "command",
+        "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/report-guard.py\"" }] }],
+    "PostToolUse": [{ "matcher": "Edit|Write", "hooks": [{ "type": "command",
+        "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/report-guard.py\"" }] }]
+  }
+}
 ```
 
-The last one is the only check that the kit still *measures* anything; the
-first two only prove it is wired correctly. An example runs against the
-installed package like any other project, so a green run there is also proof
-the install works.
+Four things that script has to get right, each of which is a way to build one
+that looks wired up and does nothing:
+
+- **Filter on `tool_input.file_path`** from the hook's stdin JSON, so it speaks
+  up only for files under the report.
+- **Never block.** Registering a figure and marking it are two edits, and the
+  state between them does not resolve. A hook that refuses an edit refuses every
+  intermediate one. Exit 0 on every path, its own failures included.
+- **Reach the model through `hookSpecificOutput.additionalContext`.** Plain
+  stdout from a `PreToolUse` hook is not added to the context, so printing the
+  rules accomplishes nothing.
+- **State the contract before, run the checker after.** Checking in `PreToolUse`
+  validates the state you are about to replace.
+
+Commit `.claude/settings.json` so the hook travels with the repository; leave
+`.claude/settings.local.json` to `.gitignore`, since personal permission
+approvals land there.
+
+**CI — slower, and the actual guarantee.** A hook is per-tool and per-machine,
+and a pre-commit hook is one `--no-verify` from gone. A job that resolves the
+registry and fails the build is what makes the contract hold for a reader nobody
+briefed.
+
+What the hook should restate before an edit is the short version of
+[formats.md](src/report_kit/templates/formats.md): numbers resolve from the
+registry and are never computed in prose; a mark is the ref glued to the digits,
+before any closing markup; figures are appended rather than inserted, because
+deleting one renumbers every later ref of its class.
+
+The checker is `report-kit figures`. It finds the registry by walking up from the
+working directory, so it runs from anywhere inside a report, and `--path` names
+one explicitly:
+
+```bash
+report-kit figures check              # retired values, ref identity, coverage
+report-kit figures validate           # the registry's own rules
+report-kit figures block_b_total      # one figure, bare value — by name or by ref
+report-kit figures orphans report.md  # currency tokens matching no figure
+```
+
+Its exit codes are what a CI job needs: **0** clean, **1** something drifted,
+**2** the registry is missing or unreadable. `check --strict` promotes a missing
+`appears_in` target from a report line to a failure.
+
+---
+
+## Working on the kit
+
+Four gates. Each has failed before, which is why they are run and not assumed:
+
+```bash
+pip install -e ".[dev]"
+report-kit selftest                  # both runner templates + node-cost, faked cluster
+pytest                               # scaffolding, and the registry's arithmetic and marks
+report-kit figures --path examples/simple-api/figures.yaml check
+report-kit figures --path examples/async-jobs/figures.yaml check
+cd examples/simple-api/scripts  && ./up.sh && ./point.py --run demo --rate 8 --duration 45s
+cd examples/async-jobs/scripts  && ./up.sh && ./point.py --run demo --n 2 --count 400
+```
+
+The last two are the only checks that the kit still *measures* anything; the
+others prove it is wired correctly. The two `figures check` runs are the
+examples checking themselves: every marked number in both reports still equals
+what the registry resolves to, which is the guarantee the marks exist to give.
+`tests/test_figures.py` is one level under that — it checks the checker, because a
+mark that silently stops being parsed takes the whole contract with it and the
+only symptom is a count going down.
+
+An example runs against the installed package like any other project, so a
+green run there is also proof the install works. Run both: they exercise different halves — the api example
+never closes a window on a composite condition, and the jobs example never
+reads a client-side summary.
 
 The rules live next to what they constrain —
 [src/report_kit/API.md](src/report_kit/API.md) for the library's contract,

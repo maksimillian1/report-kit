@@ -30,7 +30,7 @@ from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
-from report_kit import shell  # noqa: F401  (patched by name below)
+from report_kit import shell  # (patched by name below)
 from report_kit.tools import node_cost
 
 
@@ -69,12 +69,21 @@ class FakeCluster:
         self.marker = marker
         self.busy_polls = busy_polls
         self.polls = 0
+        self.polls_at_start: int | None = None
 
     @property
     def busy(self) -> bool:
         if not self.marker.exists():
             return False            # preflight: nothing has been asked of it yet
-        return self.polls < self.busy_polls
+        # Counted from the poll the load started on, not from zero: preflight
+        # reads the cluster several times before the generator is even
+        # launched, and against a fixed budget those reads spent it. The busy
+        # phase then never opened and both runners watched a system that was
+        # idle from the first poll — the window closed immediately and every
+        # assertion below still passed.
+        if self.polls_at_start is None:
+            self.polls_at_start = self.polls
+        return self.polls - self.polls_at_start < self.busy_polls
 
     def sh(self, cmd, timeout=60):
         if cmd[:2] == ["git", "rev-parse"]:
@@ -180,7 +189,11 @@ def run_profile(profile: str) -> int:
             code = runner.main()
 
         record = json.loads((root / "data" / f"smoke-{profile}.point.json").read_text())
-        assert record["window"]["seconds"] >= 0, record["window"]
+        # > 0, not >= 0. A runner that closes its window at the very first
+        # poll records a zero-length window, and every other assertion here
+        # passes anyway — which is exactly how jobs_point.py shipped able to
+        # measure nothing and report it clean.
+        assert record["window"]["seconds"] > 0, record["window"]
         assert record["export"]["series"] == 1, record["export"]
         assert (root / "data" / f"smoke-{profile}.point.md").is_file()
         assert (root / "data" / f"smoke-{profile}.jsonl").is_file()
@@ -190,7 +203,7 @@ def run_profile(profile: str) -> int:
     except SystemExit as e:
         print(f"\n[ FAIL ] {profile}: runner exited early with code {e.code}")
         return 1
-    except Exception as e:                                     # noqa: BLE001
+    except Exception as e:
         print(f"\n[ FAIL ] {profile}: {type(e).__name__}: {e}")
         return 1
     finally:
@@ -241,7 +254,7 @@ def run_node_cost() -> int:
     except SystemExit as e:
         print(f"\n[ FAIL ] node_cost: exited early with code {e.code}")
         return 1
-    except Exception as e:                                     # noqa: BLE001
+    except Exception as e:
         print(f"\n[ FAIL ] node_cost: {type(e).__name__}: {e}")
         return 1
 

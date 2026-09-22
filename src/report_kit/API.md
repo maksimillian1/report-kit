@@ -29,8 +29,9 @@ helpers live in `clock.py` rather than next to `Env` precisely so that
 importing a timestamp doesn't drag PyYAML in behind it — otherwise most of
 the package would transitively require it, and `report-kit export-metrics`
 would stop being a rescue path for a window whose metrics are aging out.
-Verified: with `yaml` unimportable, 17 of the 18 modules here still load —
-every one but `env.py` itself — and the export tool still runs.
+Verified: with `yaml` unimportable, 22 of the 24 modules here still load.
+The two that do not are `env.py` itself, by design, and `cloud/aws_s3.py`,
+which wants boto3 — and `report-kit export-metrics` still runs.
 
 ## Module map
 
@@ -214,8 +215,12 @@ Two things sit beside this library, and the split between them is the point:
   body of `main()`, readable top to bottom. The copy is deliberate: a runner
   edited in place would change what the earlier points of the same sweep
   measured.
-- **`tools/`** — `export_metrics`, `inspect_metrics`, `node_cost`, `selftest`,
-  reached as `report-kit <name>`. Generic CLIs that **work unedited** in any
+- **`tools/`** — `figures`, `export_metrics`, `inspect_metrics`, `node_cost`,
+  `selftest`, reached as `report-kit <name>`. Generic CLIs that **work
+  unedited** in any project, and the reason `cli.py` imports a subcommand only
+  after the arguments are parsed. A tool's model sits above its `cmd_*`
+  functions and prints nothing, so `from report_kit.tools.figures import
+  Registry` gets a script a value rather than a page. Generic CLIs that **work unedited** in any
   project, and the reason `cli.py` imports a subcommand only after the
   arguments are parsed.
 
@@ -232,7 +237,7 @@ root. A "point" is one measured run; `series.txt` is
 `ref|promql` exported per point; `guards.txt` is `ref|bound|promql` checked at
 the window's close; a frozen set of image digests proves a whole sweep measured
 one artifact. Reuse those two modules if that methodology fits, and ignore them
-if it does not — the other sixteen do not depend on them.
+if it does not — nothing else here depends on them.
 
 `cluster.FORCED_REASONS` is similarly specific: it lists the node-loss reasons
 that invalidate a window on EKS with Karpenter, as distinct from ordinary

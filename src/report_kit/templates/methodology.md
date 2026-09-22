@@ -47,7 +47,14 @@ profile they get their own section, frozen before the Plan is written.
 ### The metric register
 
 Every metric is defined **exactly once**, in the execution that uses it, and carries a ref.
-There is no shared register and no inheritance: a ref is cited from anywhere by path.
+Definitions neither inherit nor get copied: a ref is cited from anywhere by path. What is
+global is the ref namespace, not a second definition.
+
+The **values** those refs produce are a separate concern and are not governed by this rule. A
+report whose executions share a floor, a rate or a denominator needs one place where each
+number is resolved and checked, and `formats.md` defines it. Keeping definitions local and
+values central is deliberate: a definition that moves invalidates measurements already taken,
+while a value is expected to be revised as data is re-read.
 
 | Ref | Class | Mark on the figure | What `Source` holds |
 | :--- | :--- | :--- | :--- |
@@ -82,6 +89,33 @@ Three rules follow, and they are the whole of the register's discipline:
 Two executions may read the same exposed name under different selectors. That is two refs,
 not a conflict — each is defined where it is used. The later row names the earlier one in
 Notes, so a reader comparing the two figures sees at once that they are not the same number.
+
+### The value registry
+
+The register says what a number *means*. `figures.yaml`, at the report root, holds what it
+currently *is* — one file per report, whatever the executions. A figure is either a leaf, a
+value with a source, or a formula over other figures. The letters are the register's own,
+prefixed so the two namespaces never collide: `FM` measured · `FR` recorded · `FD` derived ·
+`FE` estimated.
+
+Four habits are what make it worth having. Without them it is a second place to be wrong:
+
+1. **Register before writing the sentence.** A number worked out while writing is one nothing
+   can check afterwards. Arithmetic belongs in a formula; prose prints its result.
+2. **Append, never insert.** Refs are assigned by a tool, which is what makes reclassifying a
+   figure free. Deleting one is not free: every later ref of that letter shifts down, while
+   the marks already written into documents keep naming the old numbers.
+3. **Retire a superseded value rather than deleting it.** The old digits stay listed beside
+   what replaced them, so a scan still finds them wherever they survived — a sentence, a
+   table, or a run-data file nobody thought to revisit.
+4. **Declare where a figure has to appear.** Then a check reports that a headline went missing
+   during a rewrite, instead of leaving it to whoever reads the draft last.
+
+All of it exists to make one question mechanical: *does the number on the page still equal the
+number the registry resolves?* `formats.md` is what makes that question askable — how a ref
+attaches to the digits, which shapes a scan ignores on purpose, and the three states a number
+can be in. A number outside the contract is not an error; a number that looks checked and is
+not is the failure worth engineering against.
 
 ---
 
@@ -157,6 +191,15 @@ derived, ᴿ recorded, ᴱ estimated. The mark sits on the figure rather than in
 row copied into the report carries it. In the register the class is already the ref's first
 letter (§2); the mark carries it to a reader who will never open a register — which is why
 the report states the legend once, in its header, and nowhere else.
+
+**A resolvable value.** The mark says where a number came from; it does not say the number is
+still right. A figure printed in more than one place drifts the moment one of them is revised,
+and nothing about a correct-looking table reveals it. So a figure also carries a ref into the
+report's one registry of values, and what is printed is checked against the registry rather than
+assumed equal to it. `formats.md` defines the ref, how it attaches to the digits, and which
+numbers sit outside the contract on purpose. The discipline underneath it is that **a sentence
+never computes**: a number worked out while writing is one nothing can check, which is why
+arithmetic lives in the registry and prose only prints its results.
 
 **A path to the raw data.** Report → section or benchmark → file under an execution's
 `data/`. Always resolvable. A rendered chart names the data file it came from; both are

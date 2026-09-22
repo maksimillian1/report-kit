@@ -109,12 +109,12 @@ produced the collapse.
 was still at one replica: it started 70 s after #04 ended, and the autoscaler
 had scaled down but not yet back up. Replica count is in *Held constant*, so a
 point measured against one replica is not comparable with four, whatever its
-numbers say. It served 26.35/s at p95 4680 ms — close enough to #06 to be
+numbers say. It served 26.35<!--FM4-->/s at p95 4,680<!--FM10--> ms — close enough to #06 to be
 mistaken for a valid row, which is exactly why the check is mechanical
 (`M4 = 1`) rather than a judgement about whether the number "looks right".
 
 **#06 — the re-run.** Same Point identity, new row, because the ledger's `#` is
-never reused. Four replicas this time: 29.46/s at p95 3755 ms.
+never reused. Four replicas this time: 29.46<!--FM5-->/s at p95 3,755<!--FM11--> ms.
 
 **Between points the instrumentation needs a moment.** A pod that has just
 scaled in is still a scrape target for an interval or two and reports `up == 0`,
@@ -138,11 +138,11 @@ non-zero exit; deciding which kind it was is the author's.
 
 ## 4 · Results
 
-**Finding** — the service serves the offered rate up to **24 req/s** at
-p95 412 ms. Between 24 and 32 the queue grows faster than it drains: throughput
-still climbs to 29.5/s but p95 jumps nine-fold to 3.8 s. At 40 req/s it breaks
-down — 19.7/s served, one request in five unanswered, p95 pinned at the 10 s
-timeout. **Throughput peaks before the system stops keeping up, and latency
+**Finding** — the service serves the offered rate up to **24<!--FR3--> req/s** at
+p95 412<!--FM9--> ms. Between 24 and 32 the queue grows faster than it drains: throughput
+still climbs to 29.5<!--FM5-->/s but p95 jumps nine-fold to 3,755<!--FM11--> ms. At
+40<!--FR5--> req/s it breaks down — 19.7<!--FM6-->/s served, one request in five unanswered,
+p95 pinned at the 10 s timeout. **Throughput peaks before the system stops keeping up, and latency
 finds the ceiling first.**
 
 **Against the Expected line** — the throughput ceiling landed near 29/s, not
@@ -156,19 +156,19 @@ same rate.
 
 | Point | Offered | M1 served/s | D8 served share | M2 p95 | M3 unserved | M4 targets | Signal |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | :--- |
-| rate-04 | 4 | 4.01 | 100 % | 98 ms | 0 % | 4 | headroom |
-| rate-12 | 12 | 11.99 | 100 % | 195 ms | 0 % | 4 | headroom |
-| rate-24 | 24 | 23.97 | 100 % | 412 ms | 0 % | 4 | at the knee |
-| rate-32 ᴱˣ | 32 | 26.35 | 82 % | 4680 ms | 0.5 % | 1 | — (invalid) |
-| rate-32 | 32 | 29.46 | 92 % | 3755 ms | 0.2 % | 4 | past the knee |
-| rate-40 | 40 | 19.72 | 49 % | 10001 ms | 21.2 % | 5 | saturated |
+| rate-04 | 4<!--FR1--> | 4.01<!--FM1--> | 100<!--FD1--> % | 98<!--FM7--> ms | 0<!--FM13--> % | 4 | headroom |
+| rate-12 | 12<!--FR2--> | 11.99<!--FM2--> | 100<!--FD2--> % | 195<!--FM8--> ms | 0<!--FM14--> % | 4 | headroom |
+| rate-24 | 24<!--FR3--> | 23.97<!--FM3--> | 100<!--FD3--> % | 412<!--FM9--> ms | 0<!--FM15--> % | 4 | at the knee |
+| rate-32 ᴱˣ | 32<!--FR4--> | 26.35<!--FM4--> | 82<!--FD4--> % | 4,680<!--FM10--> ms | 0.5<!--FM16--> % | 1 | — (invalid) |
+| rate-32 | 32<!--FR4--> | 29.46<!--FM5--> | 92<!--FD5--> % | 3,755<!--FM11--> ms | 0.2<!--FM17--> % | 4 | past the knee |
+| rate-40 | 40<!--FR5--> | 19.72<!--FM6--> | 49<!--FD6--> % | 10,001<!--FM12--> ms | 21.2<!--FM18--> % | 5 | saturated |
 
 ᴱˣ — excluded from the curve fit: ran against one replica, see Journal #05.
 
 ### Saturation
 
 **Tier 1 — CPU, between 24 and 32 req/s, runs #02 and #06.** Latency rises with
-offered load from the very first point (98 → 195 → 412 ms across 4 → 12 → 24),
+offered load from the very first point (98<!--FM7--> → 195<!--FM8--> → 412<!--FM9--> ms across 4<!--FR1--> → 12<!--FR2--> → 24<!--FR3-->),
 which is queueing, not noise. Past 24 the four replicas are already the
 autoscaler's maximum, so nothing more arrives to absorb the load and the queue
 grows without bound. `M6` (server-side service time, which excludes queueing)
@@ -198,7 +198,7 @@ first is what surfaced that on the fourth run rather than the ninth.
 
 The invalid row cost one re-run and would have cost a wrong conclusion. It was
 caught because replica count is checked as a number rather than eyeballed —
-26.35/s at p95 4680 ms sits close enough to the valid row that no one would
+26.35<!--FM4-->/s at p95 4,680<!--FM10--> ms sits close enough to the valid row that no one would
 have questioned it.
 
 Back into the kit: nothing this time. The runner already refused to overwrite

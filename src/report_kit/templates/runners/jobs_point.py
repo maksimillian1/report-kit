@@ -224,6 +224,7 @@ def watch(env: Env, pf: PortForwards, producer: Background) -> tuple[Window | No
     # The window opens with the producer, not with this loop: the few
     # milliseconds between them are the runner's, not the system's.
     started = producer.started_at or utcnow()
+    seen_busy = False
     seen_nodes: dict[str, str] = {}
     node_workload: dict[str, int] = {}
     lost_with_work: list[str] = []
@@ -235,7 +236,7 @@ def watch(env: Env, pf: PortForwards, producer: Background) -> tuple[Window | No
           f"poll {env.poll_seconds}s, timeout {hms(env.max_wait_seconds)}")
 
     def drained() -> bool:
-        nonlocal peak_nodes
+        nonlocal peak_nodes, seen_busy
         for notice in pf.ensure_alive():
             print(f"{WARN} {notice}")
 
@@ -257,7 +258,17 @@ def watch(env: Env, pf: PortForwards, producer: Background) -> tuple[Window | No
 
         state.update(current)
         state["producer"] = "running" if producer.running else "done"
-        return is_idle(current)
+
+        # An untouched system satisfies every clause of is_idle(): the queues
+        # are empty, the pool is at zero, every shared tier is at its floor.
+        # That is true at the *first* poll, before the producer has enqueued
+        # anything — so a producer slower to start than HOLD_SECONDS (an
+        # upload, a seeding pass, an image pull) closes a zero-length window
+        # over a system that never did any work, and the point reads clean.
+        # The window cannot close until the system has been seen busy once.
+        idle = is_idle(current)
+        seen_busy = seen_busy or not idle
+        return seen_busy and idle
 
     def tick(ok: bool, held: float) -> None:
         held_note = f" · held {int(held)}s/{HOLD_SECONDS}s" if ok else ""

@@ -1,0 +1,46 @@
+# The worker pool. `replicas: 0` is the starting state and the only one this
+# file asserts — KEDA owns the number from the moment it adopts the
+# deployment (keda/scaledobject.yaml), and a replica count written here would
+# fight it.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: report-kit-jobs
+spec:
+  replicas: 0
+  selector:
+    matchLabels: {app: worker}
+  template:
+    metadata:
+      labels: {app: worker}
+    spec:
+      # One unit is ~0.25 s of work, so the default 30 s is generous. It is
+      # what makes scale-in safe: SIGTERM sets a flag, the unit in hand
+      # finishes and is counted, and only then does the process exit. Cut
+      # this below a unit's duration and the conservation guard starts
+      # firing — which is the guard working, not a flaky example.
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: worker
+          image: python:3.12-alpine
+          command: ["python3", "/src/worker.py"]
+          env:
+            - {name: PYTHONPATH, value: /src}
+            - {name: PYTHONUNBUFFERED, value: "1"}
+            - {name: REDIS_HOST, value: redis}
+            - {name: BURN_MS, value: "150"}
+            - {name: RETRY_EVERY, value: "20"}
+            - {name: RESULTS_URL, value: "http://results/ingest"}
+            - name: POD_NAME
+              valueFrom: {fieldRef: {fieldPath: metadata.name}}
+          ports:
+            - {name: http, containerPort: 8080}
+          resources:
+            requests: {cpu: 200m, memory: 32Mi}
+            limits: {cpu: 600m, memory: 128Mi}
+          volumeMounts:
+            - {name: src, mountPath: /src}
+      volumes:
+        - name: src
+          configMap: {name: jobs-src}

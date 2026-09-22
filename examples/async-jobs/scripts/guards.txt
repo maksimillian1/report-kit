@@ -1,0 +1,15 @@
+# ref | bound | promql — what makes a point invalid, not what makes it
+# interesting. A guard that fires because the pool saturated would be a
+# finding; these fire only when the run did not measure what it claims to.
+#
+# Checked at the window's close, so every query here has to read a series that
+# still exists then — see series.txt.
+#
+# G1 is the conservation check and the reason the counters live in Redis. Every
+# unit enqueued is completed exactly once; anything left over was dropped by a
+# worker that went away holding it, and the drain time below is then a time to
+# do less work than the point claims.
+G1|max 0|max(jobs_enqueued_total) - max(jobs_completed_total)
+G2|min {count}|max(jobs_enqueued_total)
+G3|max 0|max(jobs_queue_depth{queue="work"}) + max(jobs_queue_depth{queue="retry"})
+G4|min 1|count(up{job="results"} == 1)

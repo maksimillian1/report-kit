@@ -30,10 +30,15 @@ LAYOUTS = {
 # copies to keep in step.
 ROOT_FILES = {
     "templates/report.md": "report.md",
+    # A working file like report.md, not a reference: every number the
+    # documents print resolves from here, so it belongs at the report root
+    # rather than inside any one execution.
+    "templates/figures.yaml": "figures.yaml",
     # Read-only reference that travels with a report: the rules its author
     # fills templates against, how to make a point, and what is importable —
     # so an agent working in the project can see all three without leaving it.
     "templates/methodology.md": "methodology.md",
+    "templates/formats.md": "formats.md",
     "templates/runners.md": "runners.md",
     "API.md": "API.md",
 }

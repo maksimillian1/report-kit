@@ -232,6 +232,18 @@ Each of these cost someone a wasted run:
 - **The producer runs alongside the watch, never before it.** Filling the
   queue first measures a system draining a backlog that already exists —
   a different experiment, and the arrival pattern is gone from the data.
+- **An idle system satisfies the close condition.** Empty queues, a pool at
+  zero and every tier at its floor is also exactly what a system that has not
+  started yet looks like. A producer slower to start than `HOLD_SECONDS` — an
+  upload, a seeding pass, an image pull — closes a zero-length window over a
+  system that never did any work, and the point reads clean. `jobs_point.py`
+  will not begin the hold until it has seen the system busy at least once.
+- **A worker pool that scales to zero takes its `/metrics` with it.** Guards
+  are checked at the window's close, and by then the workers are gone: every
+  worker-side series is absent, `check_guards` reports NO DATA, and the point
+  fails on instrumentation rather than on the system. Anything that decides
+  validity has to be published by something still running when the window
+  closes — the queue, an always-on tier, a durable counter.
 - **An empty query result is a gap, not a zero.** Both the guards and the
   export treat "no series" as a failure. Where zero is genuinely the answer,
   write it as `... or vector(0)` in the query and say so.

@@ -1,0 +1,251 @@
+meta:
+  updated: 2026-09-21
+  rule: every figure the two documents print exists here; each renders it at whatever precision it needs
+  rounding: >-
+    A figure carries what the point record carries, and rounds only at print. The runner already
+    rounded k6's raw summary once — p95 to a tenth, the failure share to four places — and that
+    record is the evidence. Rounding a second time in here looked harmless while every document
+    printed whole milliseconds, but it put the registry and its own source out of step: p95 read
+    98 against a recorded 97.6, so a document that wanted one decimal would have been rejected
+    for printing the true number. display: decides what a page shows; value: stays as measured
+  note: >-
+    Checked by `report-kit figures --path examples/simple-api/figures.yaml check`.
+    This file is also the shape a project's own registry takes.
+
+scan:
+  - report.md
+  - execution.md
+
+figures:
+  offered_r04:
+    ref: FR1
+    kind: R
+    value: 4
+    unit: req_per_second
+    display: 0
+    source: TARGET_RATE in scripts/load.js, the swept axis. A setting rather than a reading, and registered because D8 divides by it
+
+  offered_r12:
+    ref: FR2
+    kind: R
+    value: 12
+    unit: req_per_second
+    display: 0
+    source: TARGET_RATE in scripts/load.js
+
+  offered_r24:
+    ref: FR3
+    kind: R
+    value: 24
+    unit: req_per_second
+    display: 0
+    source: TARGET_RATE in scripts/load.js
+
+  offered_r32:
+    ref: FR4
+    kind: R
+    value: 32
+    unit: req_per_second
+    display: 0
+    source: TARGET_RATE in scripts/load.js
+
+  offered_r40:
+    ref: FR5
+    kind: R
+    value: 40
+    unit: req_per_second
+    display: 0
+    source: TARGET_RATE in scripts/load.js
+
+  served_r04:
+    ref: FM1
+    kind: M
+    value: 4.01
+    unit: req_per_second
+    source: M1, http_reqs.rate from the k6 summary, run rate-04
+
+  served_r12:
+    ref: FM2
+    kind: M
+    value: 11.99
+    unit: req_per_second
+    source: M1, run rate-12
+
+  served_r24:
+    ref: FM3
+    kind: M
+    value: 23.97
+    unit: req_per_second
+    source: M1, run rate-24
+
+  served_r32_invalid:
+    ref: FM4
+    kind: M
+    value: 26.35
+    unit: req_per_second
+    source: M1, ledger #05 - excluded from the curve fit, it ran against one replica. Registered anyway, because the document prints it to explain why it was excluded
+
+  served_r32:
+    ref: FM5
+    kind: M
+    value: 29.46
+    unit: req_per_second
+    source: M1, ledger #06, the re-run at four replicas
+    appears_in: [report.md, execution.md]
+
+  served_r40:
+    ref: FM6
+    kind: M
+    value: 19.72
+    unit: req_per_second
+    source: M1, run rate-40
+
+  p95_r04:
+    ref: FM7
+    kind: M
+    value: 97.6
+    unit: milliseconds
+    display: 0
+    source: M2, http_req_duration.p(95) from the k6 summary, run rate-04
+
+  p95_r12:
+    ref: FM8
+    kind: M
+    value: 195.0
+    unit: milliseconds
+    display: 0
+    source: M2, run rate-12
+
+  p95_r24:
+    ref: FM9
+    kind: M
+    value: 411.7
+    unit: milliseconds
+    display: 0
+    source: M2, run rate-24
+    appears_in: [report.md, execution.md]
+
+  p95_r32_invalid:
+    ref: FM10
+    kind: M
+    value: 4680.4
+    unit: milliseconds
+    display: 0
+    source: M2, ledger #05, the excluded one-replica run
+
+  p95_r32:
+    ref: FM11
+    kind: M
+    value: 3754.6
+    unit: milliseconds
+    display: 0
+    source: M2, ledger #06
+
+  p95_r40:
+    ref: FM12
+    kind: M
+    value: 10000.6
+    unit: milliseconds
+    display: 0
+    source: M2, run rate-40; pinned at the 10 s client timeout
+
+  unserved_r04:
+    ref: FM13
+    kind: M
+    value: 0
+    unit: percent
+    display: 1
+    source: M3, http_req_failed.value, run rate-04
+
+  unserved_r12:
+    ref: FM14
+    kind: M
+    value: 0
+    unit: percent
+    display: 1
+    source: M3, run rate-12
+
+  unserved_r24:
+    ref: FM15
+    kind: M
+    value: 0
+    unit: percent
+    display: 1
+    source: M3, run rate-24
+
+  unserved_r32_invalid:
+    ref: FM16
+    kind: M
+    value: 0.52
+    unit: percent
+    display: 1
+    source: M3, ledger #05, the excluded one-replica run
+
+  unserved_r32:
+    ref: FM17
+    kind: M
+    value: 0.22
+    unit: percent
+    display: 1
+    source: M3, ledger #06
+
+  unserved_r40:
+    ref: FM18
+    kind: M
+    value: 21.23
+    unit: percent
+    display: 1
+    source: M3, run rate-40
+
+  share_r04:
+    ref: FD1
+    kind: D
+    formula: served_r04 / offered_r04 * 100
+    unit: percent
+    display: 0
+    group: served_share
+
+  share_r12:
+    ref: FD2
+    kind: D
+    formula: served_r12 / offered_r12 * 100
+    unit: percent
+    display: 0
+    group: served_share
+
+  share_r24:
+    ref: FD3
+    kind: D
+    formula: served_r24 / offered_r24 * 100
+    unit: percent
+    display: 0
+    group: served_share
+
+  share_r32_invalid:
+    ref: FD4
+    kind: D
+    formula: served_r32_invalid / offered_r32 * 100
+    unit: percent
+    display: 0
+    group: served_share
+
+  share_r32:
+    ref: FD5
+    kind: D
+    formula: served_r32 / offered_r32 * 100
+    unit: percent
+    display: 0
+    group: served_share
+
+  share_r40:
+    ref: FD6
+    kind: D
+    formula: served_r40 / offered_r40 * 100
+    unit: percent
+    display: 0
+    group: served_share
+    appears_in: [report.md, execution.md]
+
+allow: []
+
+retired: []

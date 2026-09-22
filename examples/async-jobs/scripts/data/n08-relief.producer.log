@@ -1,0 +1,6 @@
+enqueueing 400 unit(s) at 40.0/s into jobs:work
+  100/400 · 2.5s
+  200/400 · 5.0s
+  300/400 · 7.5s
+  400/400 · 10.0s
+done · 400 unit(s) in 10.0s (40.0/s offered)
