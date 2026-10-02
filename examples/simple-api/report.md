@@ -69,10 +69,20 @@ four, which is a *Held constant*. See `execution.md` §3 note #05.
 
 ### 3.2 Chart
 
-Not rendered — the example has no charting step, and a chart of five points
-adds nothing the table does not already show. In a real report this is where
-the throughput plateau and the latency curve would be drawn together, because
-the point of the finding is that they turn at different rates.
+`assets/frontier-api.svg` — rendered by `report-kit charts` from
+`charts/frontier-api.csv`, which transcribes §3.1 above and nothing else.
+
+**One panel, not two.** The kit's api chart draws a replica panel under the
+latency one wherever the CSV names a `replicas_⟨tier⟩` column. This example
+leaves it out: `M4` counts scrape targets rather than replicas and overshoots
+during rollover (`execution.md` §2), so charting it would assert something the
+run did not measure. A column that would mislead is better absent than drawn,
+and the chart loses a panel rather than the reader losing the plot. The `$/1k`
+column is absent for the reason §4 is: there is no price basis.
+
+**The invalid run is in the CSV with `excluded` set.** The chart drops it and
+the file still carries it — the same rule the ledger follows, that a point which
+ran is recorded and whether it is read is a separate decision.
 
 ### 3.3 Knee · sweet spot · waste boundary
 

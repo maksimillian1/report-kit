@@ -27,8 +27,8 @@ library is not copied: it stays a dependency, and each point record carries the
 ## Profiles
 
 What `report-kit init` writes. `report.md`, `figures.yaml`, `methodology.md`,
-`formats.md`, `API.md` and `runners.md` land in both; only the execution layout
-differs.
+`formats.md`, `charts.md`, `API.md` and `runners.md` land in both, as do
+`charts/` and `assets/`; only the execution layout differs.
 
 ### A · Minimal — one execution
 
@@ -36,8 +36,9 @@ differs.
 report/
 ├── report.md
 ├── figures.yaml                # every number the documents print, resolved in one place
-├── methodology.md              # the rules · formats.md · API.md · runners.md — reference, not edited
-├── assets/                     # charts, once something renders one
+├── methodology.md              # the rules · formats.md · charts.md · API.md · runners.md — reference, not edited
+├── charts/                     # one CSV per chart — ← report-kit charts reads these
+├── assets/                     # the SVGs it renders, plus a manifest per surface
 └── execution/
     ├── index.md                # 1 Givens · 2 Plan · 3 Journal · 4 Results
     ├── concepts.md             # optional — when the block outgrows index.md
@@ -52,7 +53,8 @@ report/
 report/
 ├── report.md
 ├── figures.yaml                # every number the documents print, resolved in one place
-├── methodology.md              # + formats.md · API.md · runners.md
+├── methodology.md              # + formats.md · charts.md · API.md · runners.md
+├── charts/
 ├── assets/
 └── executions/
     ├── 00-baseline/            # 1 Plan · 2 Results
@@ -97,6 +99,7 @@ One command, installed with the package:
 | `report-kit init` | write the report skeleton for a layout |
 | `report-kit new-point` | copy a runner and its inputs into one execution |
 | `report-kit figures` | resolve `figures.yaml`, and fail when a number drifts |
+| `report-kit charts` | render the charts from `charts/*.csv`, and say what the columns can and cannot draw |
 | `report-kit export-metrics` | re-export a window whose metrics are aging out |
 | `report-kit inspect-metrics` | read back what an export actually captured |
 | `report-kit node-cost` | what the nodes cost during a window, the same day |
@@ -120,8 +123,10 @@ place would silently change what earlier points of the same sweep measured.
 
 Standard library only, except: `PyYAML` for `env.py` — the one module in the
 package that needs a package at all, and installed for you — `boto3` for
-`cloud/aws_s3.py` (`pip install "report-kit[s3]"`), and the `aws` / `kubectl`
-/ `git` CLIs for the modules that shell out to them.
+`cloud/aws_s3.py` (`pip install "report-kit[s3]"`), `matplotlib` for
+`tools/charts/` (`pip install "report-kit[charts]"`, and only to *render*:
+`charts --list` and `charts --check` draw nothing and need neither), and the
+`aws` / `kubectl` / `git` CLIs for the modules that shell out to them.
 Prometheus is assumed as the metrics backend and spoken to directly, rather
 than hidden behind an interface with one implementation.
 
@@ -130,6 +135,7 @@ than hidden behind an interface with one implementation.
 | | |
 | :--- | :--- |
 | [formats.md](src/report_kit/templates/formats.md) | how a number is written so a script can verify it: how a ref attaches to the digits, which shapes a scan ignores on purpose, and the three states a number can be in |
+| [charts.md](src/report_kit/templates/charts.md) | how a number gets into a picture: what a chart CSV may hold, which panels a chart keeps when a column is absent, and the three rules the renderer will not let you override |
 | [runners.md](src/report_kit/templates/runners.md) | which profile fits your workload, **exactly what inputs to provide** (`env.yaml`, `series.txt`, `guards.txt`, the freeze), the exit-code contract |
 | [API.md](src/report_kit/API.md) | the library module by module: what is pure, what talks to a cluster, the one seam to patch when testing |
 | [examples/simple-api/scripts/README.md](examples/simple-api/scripts/README.md) | *(repo only)* how to run the api example, and an honest table of what a local cluster can and cannot exercise |

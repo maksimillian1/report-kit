@@ -1,0 +1,6 @@
+n_set,throughput,run,unit,period,duration,note
+1,4.23,n01-long,units,s,283.7,baseline
+2,8.18,n02-long,units,s,146.7,"sweet spot: 97% per-worker efficiency, still essentially linear"
+4,14.22,n04-long,units,s,84.4,"past the knee: per-worker efficiency down to 84%"
+8,23.85,n08-long,units,s,50.3,"still climbing at the top of the grid; 70% per-worker efficiency"
+8,22.51,n08-long-b,units,s,53.3,"the same ceiling run twice: 22.51 against 23.85, the grid's own +/-6% spread"

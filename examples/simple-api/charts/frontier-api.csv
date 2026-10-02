@@ -1,0 +1,7 @@
+offered_rps,p95_ms,run,unit,served_rps,error_pct,excluded,note
+4,98,rate-04,requests,4.01,0,,headroom
+12,195,rate-12,requests,11.99,0,,headroom
+24,412,rate-24,requests,23.97,0,,"at the knee: last rate served in full, p95 still under half a second"
+32,4680,rate-32,requests,26.35,0.5,1,"invalid, and carried rather than deleted: ran against one replica instead of four, which is a Held constant (execution.md Journal #05)"
+32,3755,rate-32,requests,29.46,0.2,,"past the knee: throughput peaks here and is already unusable"
+40,10001,rate-40,requests,19.72,21.2,,"saturated, CPU-bound: throughput falls while offered load rises"

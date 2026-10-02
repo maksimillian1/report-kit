@@ -55,9 +55,13 @@
 
 ### 3.2 Chart — throughput plateau vs unit-cost curve
 
-`assets/⟨name⟩.svg` — from `executions/⟨NN⟩/data/⟨file⟩`.
+`assets/frontier-jobs.svg` ⟨or `frontier-api.svg` on a serving path⟩ — rendered by
+`report-kit charts` from `charts/frontier-jobs.csv`, whose cells transcribe §3.1 above.
+What may go in that CSV and where each cell has to come from → `charts.md`.
 
 ### 3.3 Knee · sweet spot · waste boundary
+
+`assets/tradeoff-jobs.svg` — the same CSV, plotted as what each step of throughput costs.
 
 ⟨One sentence: what you pay extra to run at the knee, what throughput you give up at the
 sweet spot.⟩
@@ -82,6 +86,9 @@ sweet spot.⟩
 | A · Shared | ⟨⟩ | ⟨⟩ | ⟨⟩ |
 | **C · Total** | `A + B` | ⟨⟩ ᴰ | — |
 
+`assets/floor-blocks.svg` — from `charts/floor-blocks.csv`. One bar: what leaves with the
+feature, and what does not.
+
 ⟨One sentence: Block B against its reference value.⟩
 
 ### 4.2 Marginal — unit economics at the sweet spot
@@ -90,7 +97,12 @@ sweet spot.⟩
 | :--- | :--- | :--- |
 | ⟨⟩ | ⟨⟩ ᴰ | ⟨%⟩ |
 
+`assets/split-jobs.svg` — from `charts/split-jobs.csv`: per-workload cost at each step of
+the axis, against the capacity nothing claimed.
+
 ### 4.3 Amortization — effective $/unit across monthly volumes
+
+`assets/amortization-⟨unit⟩.svg` — from `charts/amortization.csv`, one chart per unit.
 
 ⟨The volume at which floor share drops below half, and the effective $/unit at two or three
 volumes around it.⟩

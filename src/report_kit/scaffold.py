@@ -40,6 +40,7 @@ ROOT_FILES = {
     "templates/methodology.md": "methodology.md",
     "templates/formats.md": "formats.md",
     "templates/runners.md": "runners.md",
+    "templates/charts.md": "charts.md",
     "API.md": "API.md",
 }
 
@@ -89,8 +90,12 @@ def init(target: Path, profile: str, force: bool = False) -> int:
         _copy(package / "templates" / name, target / name)
         written.append(f"{name}/")
 
-    # Charts land here once something renders one. Created empty so the path
-    # in report.md resolves from the first revision rather than the second.
+    # A chart's input is a working file the author fills, so it is copied like
+    # report.md rather than referenced: five header-only CSVs under `charts/`.
+    # The SVGs land in `assets/`, created empty so the path in report.md
+    # resolves from the first revision rather than the second.
+    _copy(package / "templates" / "charts", target / "charts")
+    written.append("charts/")
     (target / "assets").mkdir(exist_ok=True)
     written.append("assets/")
 

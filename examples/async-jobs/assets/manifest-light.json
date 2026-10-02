@@ -1,0 +1,9 @@
+[
+  {
+    "chart": "jobs-frontier",
+    "svg": "frontier-jobs.svg",
+    "theme": "light",
+    "source": "charts/frontier-jobs.csv",
+    "source_sha256_12": "0401d792a5d6"
+  }
+]

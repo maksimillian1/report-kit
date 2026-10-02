@@ -1,0 +1,9 @@
+[
+  {
+    "chart": "api-frontier",
+    "svg": "frontier-api.svg",
+    "theme": "light",
+    "source": "charts/frontier-api.csv",
+    "source_sha256_12": "ddce9e98bd46"
+  }
+]

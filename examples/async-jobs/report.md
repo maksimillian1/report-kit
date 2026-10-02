@@ -81,10 +81,20 @@ short enough that the autoscaler's ramp was most of the measurement. See
 
 ### 3.2 Chart
 
-Not rendered — the example has no charting step. In a real report this is
-where drain time and per-worker efficiency would be drawn against pool
-ceiling on one pair of axes, because the finding is that they diverge: the
-first keeps improving while the second is already falling.
+`assets/frontier-jobs.svg` — rendered by `report-kit charts` from
+`charts/frontier-jobs.csv`, which transcribes §3.1 above.
+
+Two things this example settles about the chart's contract. The x-axis is
+**concurrency set**, not reached: this execution recorded the ceiling it gave
+the pool and never measured a time-weighted mean, so `n_reached` is absent and
+the axis falls back and relabels itself. And there is **one panel**, because
+`usd_per_1m_units` is absent for the reason §4 is — a local cluster has no
+price basis. A sweep that measured throughput and never priced it charts its
+throughput.
+
+The repeat at ceiling 8<!--FR8--> is in the CSV as its own row, which is why the
+line ends in a short vertical drop: that is the grid's own
+±6<!--FD13--> % spread, drawn rather than described.
 
 ### 3.3 Knee · sweet spot · waste boundary
 
