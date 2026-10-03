@@ -128,13 +128,14 @@ def span(values) -> float:
     return max(present) / min(present)
 
 
-def log_axes(table: Table) -> tuple[bool, bool]:
-    """(log x, log y)."""
-    if table.x is None:
-        return False, False
-    log_x = span(table.x.values) > LINEAR_MAX_SPAN
-    widest = max((span(c.values) for c in table.series), default=1.0)
-    return log_x, log_x and widest > LOG_Y_MIN_SPAN
+def log_x(table: Table) -> bool:
+    return table.x is not None and span(table.x.values) > LINEAR_MAX_SPAN
+
+
+def log_y(table: Table, group: Group) -> bool:
+    """Per panel: one wide panel must not drag a narrow neighbour onto a log axis."""
+    widest = max((span(c.values) for c in group.columns), default=1.0)
+    return log_x(table) and widest > LOG_Y_MIN_SPAN
 
 
 def subtotals(values) -> tuple:

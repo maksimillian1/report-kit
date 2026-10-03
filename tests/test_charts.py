@@ -128,15 +128,24 @@ def test_a_thousands_separator_is_read(tmp_path):
 def test_log_follows_how_wide_the_axis_is(tmp_path, values, wide):
     path = write(tmp_path / "f.csv", "x,y", "s,$",
                  f"{values[0]},1", f"{values[1]},100")
-    log_x, _ = table.log_axes(table.with_axis(table.read(path)))
-    assert log_x is wide
+    assert table.log_x(table.with_axis(table.read(path))) is wide
 
 
 def test_y_follows_x_into_log_only_when_it_is_also_wide(tmp_path):
-    wide = write(tmp_path / "w.csv", "x,y", "s,$", "1000,1", "1000000,100")
-    narrow = write(tmp_path / "n.csv", "x,y", "s,$", "1000,1", "1000000,2")
-    assert table.log_axes(table.with_axis(table.read(wide))) == (True, True)
-    assert table.log_axes(table.with_axis(table.read(narrow))) == (True, False)
+    wide = table.with_axis(table.read(write(
+        tmp_path / "w.csv", "x,y", "s,$", "1000,1", "1000000,100")))
+    narrow = table.with_axis(table.read(write(
+        tmp_path / "n.csv", "x,y", "s,$", "1000,1", "1000000,2")))
+    assert table.log_y(wide, wide.panels[0])
+    assert not table.log_y(narrow, narrow.panels[0])
+
+
+def test_each_panel_decides_its_own_log_y(tmp_path):
+    data = table.with_axis(table.read(write(
+        tmp_path / "f.csv", "x,cost,share", "n,$,%",
+        "10000,0.05,99.99", "1000000,0.0005,99.3", "1000000000,0.000004,12.5")))
+    cost, share = data.panels
+    assert table.log_y(data, cost) and not table.log_y(data, share)
 
 
 def test_a_subtotal_is_a_row_restating_the_running_total():
@@ -479,6 +488,16 @@ def test_points_draws_the_marks_without_joining_them(monkeypatch):
     charts.canvas.plt.close(fig)
 
 
+def test_a_narrow_panel_stays_linear_beside_a_wide_one(monkeypatch, tmp_path):
+    path = write(tmp_path / "f.csv", "x,cost,share", "n,$,%",
+                 "10000,0.05,99.99", "1000000,0.0005,99.3",
+                 "1000000000,0.000004,12.5")
+    fig = drawn(monkeypatch, path)
+    assert [ax.get_yscale() for ax in fig.axes] == ["log", "linear"]
+    assert all(ax.get_xscale() == "log" for ax in fig.axes)
+    charts.canvas.plt.close(fig)
+
+
 def test_a_mark_x_crosses_every_panel(monkeypatch):
     fig = drawn(monkeypatch, FIXTURES / "amortization.csv", mark_x=(100.0, "x"))
     for ax in fig.axes:
@@ -501,6 +520,14 @@ def test_text_is_emitted_as_text_so_the_fonts_resolve_later(tmp_path, monkeypatc
     run(str(FIXTURES / "floor.csv"), "--kind", "parts")
     svg = (tmp_path / "charts" / "floor.svg").read_text(encoding="utf-8")
     assert "IBM Plex Mono" in svg and "<text" in svg
+
+
+def test_rendering_twice_writes_the_same_bytes(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    run(str(FIXTURES / "failover.csv"), "--kind", "line")
+    first = (tmp_path / "charts" / "failover.svg").read_bytes()
+    run(str(FIXTURES / "failover.csv"), "--kind", "line")
+    assert (tmp_path / "charts" / "failover.svg").read_bytes() == first
 
 
 def test_a_draw_called_directly_loads_its_own_backend(tmp_path):

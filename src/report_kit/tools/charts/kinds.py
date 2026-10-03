@@ -108,7 +108,7 @@ def label_points(fig, frame, data: table.Table, column: table.Column,
 def line(data: table.Table, theme: dict, out: Path, theme_name: str,
          marks: Marks = NO_MARKS) -> list[Path]:
     data = table.with_axis(data)
-    log_x, log_y = table.log_axes(data)
+    log_x = table.log_x(data)
     panels = data.panels + data.aside
     fig, axes = new_figure(len(panels))
     frames = axes if len(panels) > 1 else (axes,)
@@ -118,12 +118,15 @@ def line(data: table.Table, theme: dict, out: Path, theme_name: str,
     for panel, (frame, group) in enumerate(zip(frames, panels)):
         ink = (theme[PANEL_INK[panel]] if panel < len(PANEL_INK)
                else ramp(theme, panel))
+        log_y = table.log_y(data, group)
         plot_panel(frame, group, ink, xs, present, theme, marks, log_x, log_y)
+        headroom_log(frame, top=2.0 if log_y else 1.0,
+                     right=1.6 if log_x else 1.0)
+        headroom(frame, top=0.0 if log_y else 0.26,
+                 right=0.0 if log_x else 0.07)
 
     last = frames[-1]
     for frame in frames:
-        (headroom_log(frame, top=2.0, right=1.6) if log_x
-         else headroom(frame, top=0.26, right=0.07))
         style_axis(frame, theme, ticks=frame is last)
     axis_label(last, axis_title(data.x))
     draw_rule(frames[0], marks.rule, theme)

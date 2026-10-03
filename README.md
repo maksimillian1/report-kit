@@ -10,7 +10,7 @@ copies to your report's root.
 ## Installation
 
 ```bash
-pip install "report-kit @ git+https://github.com/maksimillian1/report-kit@v0.2"
+pip install "report-kit @ git+https://github.com/maksimillian1/report-kit@v0.3.1"
 
 report-kit init docs/report            # 2+ executions
 report-kit init docs/report --minimal  # a single execution
@@ -291,6 +291,7 @@ Four gates. Each has failed before, which is why they are run and not assumed:
 
 ```bash
 pip install -e ".[dev]"
+git config core.hooksPath .githooks  # pytest before every commit; a skipped test fails it
 report-kit selftest                  # both runner templates + node-cost, faked cluster
 pytest                               # scaffolding, and the registry's arithmetic and marks
 report-kit figures --path examples/simple-api/figures.yaml check
