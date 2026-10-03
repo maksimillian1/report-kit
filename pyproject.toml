@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "report-kit"
-version = "0.2.0"
+version = "0.3.0"
 description = "Measurement tooling and templates for engineering reports"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -15,8 +15,12 @@ dependencies = ["PyYAML>=6"]
 # aws CLI instead, so the common case installs nothing extra.
 [project.optional-dependencies]
 s3 = ["boto3>=1.28"]
-# The test suite only. Nothing the package imports at run time depends on it.
-dev = ["pytest>=8"]
+# matplotlib is needed by tools/charts/ alone, and only to render: `charts
+# --format` and `charts --check` draw nothing.
+charts = ["matplotlib>=3.7"]
+# The test suite only. matplotlib is here too: without it test_charts.py skips
+# as a whole and the suite still reports green.
+dev = ["pytest>=8", "matplotlib>=3.7"]
 
 [project.scripts]
 report-kit = "report_kit.cli:main"

@@ -13,6 +13,7 @@ the library by path, so a green run in one of these is also proof that
 | :--- | :--- | :--- |
 | [`simple-api/`](simple-api/) | api — request/response | complete: a local cluster, six runs, and the two documents they support |
 | [`async-jobs/`](async-jobs/) | jobs — queue/worker | complete for the **measurement loop**: a queue, a pool that scales to zero, ten runs. Node autoscaling, interruption and cost stay untested — see below |
+| [`tenant-platform/`](tenant-platform/) | none — charts only | **invented numbers**, no cluster and no execution: one CSV per chart shape and flag, for the cost and time-axis charts the two real examples cannot produce |
 
 The jobs row used to read *none*, on the argument that a local cluster cannot
 autoscale nodes, cannot have an instance taken away, and cannot price

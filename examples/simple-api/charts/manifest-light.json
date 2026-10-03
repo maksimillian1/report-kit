@@ -1,0 +1,9 @@
+[
+  {
+    "svg": "latency.svg",
+    "kind": "line",
+    "theme": "light",
+    "source": "charts/latency.csv",
+    "source_sha256_12": "48ef66eb9c50"
+  }
+]

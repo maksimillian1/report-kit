@@ -89,10 +89,8 @@ def init(target: Path, profile: str, force: bool = False) -> int:
         _copy(package / "templates" / name, target / name)
         written.append(f"{name}/")
 
-    # Charts land here once something renders one. Created empty so the path
-    # in report.md resolves from the first revision rather than the second.
-    (target / "assets").mkdir(exist_ok=True)
-    written.append("assets/")
+    # No charts/ here: `report-kit charts new --kind <shape>` writes a file
+    # when one is wanted, the way new-point copies one runner.
 
     print(f"{ARROW} {profile} layout → {target}")
     for name in written:

@@ -8,6 +8,9 @@ meta:
 scan:
   - report.md
   - ⟨executions/NN-name/index.md⟩
+  # The chart inputs are scanned like any other document, so a value this
+  # report retires is caught where it survives in a picture. See formats.md.
+  - charts/*.csv
 
 figures:
   ⟨recorded_name⟩:

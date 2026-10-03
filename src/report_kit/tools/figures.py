@@ -130,13 +130,9 @@ Value = float | Pending
 def find_registry(explicit: str | os.PathLike | None = None,
                   start: str | os.PathLike | None = None,
                   ) -> tuple[pathlib.Path, pathlib.Path]:
-    """The report root and the registry file inside it.
-
-    The root is whatever directory holds `figures.yaml`, because every `scan`
-    entry and every `appears_in` path is written relative to it. Deriving it
-    from this file's own location on disk would work only while the tool lived
-    inside the report it checked; installed as a command it has to be found.
-    """
+    """The report root and the registry file inside it. The root is whatever
+    directory holds `figures.yaml`, because every `scan` entry and every
+    `appears_in` path is relative to it."""
     if explicit:
         path = pathlib.Path(explicit).expanduser().resolve()
         if not path.is_file():
@@ -323,12 +319,8 @@ class Registry:
         return [n.id for n in ast.walk(tree) if isinstance(n, ast.Name)]
 
     def effective_kind(self, name: str, _seen: tuple[str, ...] = ()) -> str:
-        """The kind a figure prints as — the weakest input decides.
-
-        A derived figure with an estimate anywhere upstream prints ᴱ however
-        many steps sit between, so nobody has to remember to downgrade a mark
-        by hand.
-        """
+        """The kind a figure prints as: the weakest input decides, so a
+        derived figure with an estimate anywhere upstream prints ᴱ."""
         kind = self.spec(name).get("kind", "?")
         if kind != "D":
             return kind
@@ -363,12 +355,8 @@ class Registry:
         return f"{value:,.{decimals}f}"
 
     def groups(self) -> dict[str, list[str]]:
-        """Figures by group, groups in the order they first appear.
-
-        The file's order is the author's, and a fixed list here would bake one
-        report's subjects — a floor, a sweep, a campaign — into a tool meant
-        for any of them.
-        """
+        """Figures by group, in the order the file puts them: a fixed list
+        here would bake one report's subjects into a general tool."""
         grouped: dict[str, list[str]] = {}
         for name, spec in self.figures.items():
             grouped.setdefault(str(spec.get("group", DEFAULT_GROUP)),
@@ -378,12 +366,9 @@ class Registry:
     # -- documents --------------------------------------------------------
 
     def documents(self) -> list[Document]:
-        """Every file `scan` names, read once, each one only once.
-
-        Entries overlap freely — `report.md` beside `*.md` is the obvious
-        case — and a file counted twice would double the marked-number count,
-        which is the one number that notices a ref orphaned by a delete.
-        """
+        """Every file `scan` names, each read once. Entries overlap freely,
+        and a file counted twice would double the marked-number count, which
+        is the one number that notices a ref orphaned by a delete."""
         seen, docs = set(), []
         for entry in self.scan:
             for path in self._match(str(entry)):
@@ -672,17 +657,12 @@ def validate(registry: Registry) -> tuple[list[str], list[str]]:
 
 def renumber(path: str | os.PathLike,
              kinds: dict[str, str] | None = None) -> dict[str, int]:
-    """Rewrite every ref so the sequence per kind follows file order.
-
-    Refs are assigned by the tool precisely so that changing a kind stays
-    cheap. `kinds` reclassifies figures in the same pass, which is how
-    `retype` works — the ref and kind lines are emitted from the parsed
-    registry rather than edited in place, so a figure whose `kind:` is
-    missing, commented or oddly spaced is handled like any other.
+    """Rewrite every ref so the sequence per kind follows file order. `kinds`
+    reclassifies in the same pass, which is how `retype` works.
 
     Refuses rather than half-applies: a figure the rewriter cannot see keeps
-    its old ref while everything after it shifts, which silently orphans every
-    mark pointing at either one.
+    its old ref while everything after it shifts, orphaning every mark that
+    points at either one.
     """
     path = pathlib.Path(path)
     text = path.read_text()
@@ -748,9 +728,8 @@ def retype(name: str, kind: str, path: str | os.PathLike) -> dict[str, int]:
 
 # ---------------------------------------------------------------- the command
 
-# `constants.EXIT_*` numbers what a *runner* did — a preflight refusal, an
-# export gap — and says nothing about a checker. These three are this
-# command's own contract, and the report's CI reads them.
+# Not `constants.EXIT_*`, which numbers what a runner did. These three are
+# this command's own contract, and the report's CI reads them.
 EXIT_OK = 0
 EXIT_FAILED = 1
 EXIT_USAGE = 2

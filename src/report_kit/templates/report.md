@@ -6,7 +6,7 @@
 - **System under test** — commit `⟨sha⟩` · ⟨date⟩
 - **Envelope** — ⟨workload profile⟩ · ⟨scale range⟩ · ⟨topology⟩
 - **Executions** — ⟨`00-baseline` · `01-⟨name⟩` · …⟩
-- **Raw data** — `executions/⟨…⟩/data/` · charts in `assets/`
+- **Raw data** — `executions/⟨…⟩/data/` · charts in `charts/`
 - **Figures** — measured unless marked: ᴰ derived · ᴿ recorded · ᴱ estimated
 - **Supersedes** — ⟨v(n-1) · date · —⟩
 - **Changes** — ⟨one line⟩
@@ -55,9 +55,15 @@
 
 ### 3.2 Chart — throughput plateau vs unit-cost curve
 
-`assets/⟨name⟩.svg` — from `executions/⟨NN⟩/data/⟨file⟩`.
+`charts/⟨name⟩.svg` — `kind: line` in `charts/charts.yaml`, drawn by `report-kit charts --all`,
+from a CSV whose cells transcribe §3.1 above. Two panels, because throughput and unit cost
+are different units. The format is `report-kit charts --format`; what may go in a cell is
+`formats.md`.
 
 ### 3.3 Knee · sweet spot · waste boundary
+
+`charts/⟨name⟩.svg` — the same shape with throughput as the axis, so the picture is what
+each step of throughput costs.
 
 ⟨One sentence: what you pay extra to run at the knee, what throughput you give up at the
 sweet spot.⟩
@@ -82,6 +88,9 @@ sweet spot.⟩
 | A · Shared | ⟨⟩ | ⟨⟩ | ⟨⟩ |
 | **C · Total** | `A + B` | ⟨⟩ ᴰ | — |
 
+`charts/⟨name⟩.svg` — `kind: parts`. One bar: what leaves with the feature, and what
+does not.
+
 ⟨One sentence: Block B against its reference value.⟩
 
 ### 4.2 Marginal — unit economics at the sweet spot
@@ -90,7 +99,15 @@ sweet spot.⟩
 | :--- | :--- | :--- |
 | ⟨⟩ | ⟨⟩ ᴰ | ⟨%⟩ |
 
+`charts/⟨name⟩.svg` — `kind: bars`: per-component cost at each step, with capacity
+nothing claimed in its own bar beside the stack (`⟨unit⟩ aside`).
+
+⟨Where a total is built from parts, `kind: waterfall` shows which part moved it.⟩
+
 ### 4.3 Amortization — effective $/unit across monthly volumes
+
+`charts/⟨name⟩.svg` — `kind: line`. Log scales come from the data: a volume axis
+spanning decades goes log without anything saying so, and `mark_x` marks the crossover.
 
 ⟨The volume at which floor share drops below half, and the effective $/unit at two or three
 volumes around it.⟩

@@ -1,0 +1,5 @@
+tier,compute,database,cache,egress,standby
+label,$/tenant/month,$/tenant/month,$/tenant/month,$/tenant/month,$/tenant/month aside
+free,3,2,1,0.5,2
+pro,12,8,3,1.5,6
+enterprise,40,30,8,4,20

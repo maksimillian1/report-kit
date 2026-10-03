@@ -81,10 +81,17 @@ short enough that the autoscaler's ramp was most of the measurement. See
 
 ### 3.2 Chart
 
-Not rendered — the example has no charting step. In a real report this is
-where drain time and per-worker efficiency would be drawn against pool
-ceiling on one pair of axes, because the finding is that they diverge: the
-first keeps improving while the second is already falling.
+`charts/drain.svg` — `report-kit charts --all`, kind `line` in `charts/charts.yaml`, from a CSV
+that transcribes §3.1 above.
+
+One panel, because `units/s` is the only unit in the file. A sweep that measured
+throughput and never priced it charts its throughput; the cost panel would have
+appeared on its own had there been a column in dollars, and §4 says why there is
+not.
+
+The repeat at ceiling 8<!--FR8--> is its own row, which is why the line ends in a
+short vertical drop: that is the grid's own ±6<!--FD13--> % spread, drawn rather
+than described.
 
 ### 3.3 Knee · sweet spot · waste boundary
 

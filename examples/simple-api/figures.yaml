@@ -15,6 +15,7 @@ meta:
 scan:
   - report.md
   - execution.md
+  - charts/*.csv
 
 figures:
   offered_r04:

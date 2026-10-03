@@ -1,0 +1,71 @@
+[
+  {
+    "svg": "amortization.svg",
+    "kind": "line",
+    "theme": "light",
+    "mark_x": [
+      100.0,
+      "break-even at the pro plan"
+    ],
+    "source": "charts/amortization.csv",
+    "source_sha256_12": "0f61e7f48031"
+  },
+  {
+    "svg": "failover.svg",
+    "kind": "line",
+    "theme": "light",
+    "rule": [
+      300.0,
+      "p99 target"
+    ],
+    "mark_x": [
+      20.0,
+      "primary lost"
+    ],
+    "source": "charts/failover.csv",
+    "source_sha256_12": "5a865305fac3"
+  },
+  {
+    "svg": "floor-resize.svg",
+    "kind": "bars",
+    "theme": "light",
+    "source": "charts/floor-resize.csv",
+    "source_sha256_12": "9196f6d4374b"
+  },
+  {
+    "svg": "floor.svg",
+    "kind": "parts",
+    "theme": "light",
+    "source": "charts/floor.csv",
+    "source_sha256_12": "32bfef74fc8b"
+  },
+  {
+    "svg": "isolation.svg",
+    "kind": "line",
+    "theme": "light",
+    "points": true,
+    "source": "charts/isolation.csv",
+    "source_sha256_12": "23c80077d697"
+  },
+  {
+    "svg": "margin.svg",
+    "kind": "waterfall",
+    "theme": "light",
+    "source": "charts/margin.csv",
+    "source_sha256_12": "dfa619e5f3f5"
+  },
+  {
+    "svg": "monthly-bill.svg",
+    "kind": "bars",
+    "theme": "light",
+    "source": "charts/monthly-bill.csv",
+    "source_sha256_12": "ba3b9265787c"
+  },
+  {
+    "svg": "tier-cost.svg",
+    "kind": "bars",
+    "theme": "light",
+    "source": "charts/tier-cost.csv",
+    "source_sha256_12": "2c2c39bf89ff"
+  }
+]

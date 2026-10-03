@@ -215,14 +215,38 @@ Two things sit beside this library, and the split between them is the point:
   body of `main()`, readable top to bottom. The copy is deliberate: a runner
   edited in place would change what the earlier points of the same sweep
   measured.
-- **`tools/`** — `figures`, `export_metrics`, `inspect_metrics`, `node_cost`,
-  `selftest`, reached as `report-kit <name>`. Generic CLIs that **work
-  unedited** in any project, and the reason `cli.py` imports a subcommand only
-  after the arguments are parsed. A tool's model sits above its `cmd_*`
-  functions and prints nothing, so `from report_kit.tools.figures import
-  Registry` gets a script a value rather than a page. Generic CLIs that **work unedited** in any
-  project, and the reason `cli.py` imports a subcommand only after the
-  arguments are parsed.
+- **`tools/`** — `figures`, `charts`, `export_metrics`, `inspect_metrics`,
+  `node_cost`, `selftest`, reached as `report-kit <name>`. Generic CLIs that
+  **work unedited** in any project, and the reason `cli.py` imports a
+  subcommand only after the arguments are parsed. A tool's model sits above its
+  `cmd_*` functions and prints nothing, so `from report_kit.tools.figures
+  import Registry` gets a script a value rather than a page. `charts` defers
+  one import further: matplotlib is loaded by `canvas.load_backend()` at render
+  time, so `--format` and `--check` work without it.
+
+  **`charts` deliberately does not read `figures.yaml`.** The CSVs are the
+  consuming report's, and whether a cell still matches what the documents print
+  is the registry's question — answered by putting `charts/*.csv` in its `scan`,
+  where `retired` already lives and can name the figure that replaced the stale
+  value. A second resolver inside the renderer would have been a worse answer to
+  a question that was already solved. What `charts` asserts is narrower and
+  entirely its own: given these columns, what can be drawn, and whether each
+  SVG was drawn from the CSV and the `charts.yaml` entry as they stand now.
+
+  **A tool becomes a directory when its halves stop sharing a reason to
+  change.** `charts/` is the one that has: the CSV format (`table.py`), the
+  shapes (`kinds.py`), the per-chart spec `charts/charts.yaml` (`spec.py`), the
+  surface (`canvas.py`) and the label geometry (`labels.py`) move for different
+  reasons and are read on different days. Its `__init__.py` is the command and
+  nothing else. The rest of `tools/`
+  is one file each, and should stay that way until the same thing is true of
+  it.
+
+  One rule that directory inherits from the seam above: the four matplotlib
+  names `load_backend()` binds are module globals on `canvas`, so every other
+  module says `canvas.plt`. A `from .canvas import plt` would capture `None` at
+  import time and fail at the first draw — the same mistake as
+  `from .shell import sh_json`.
 
 `runners.md` explains which profile to start from and what to change. If you
 are writing a new measurement script, start there, not from a blank file.

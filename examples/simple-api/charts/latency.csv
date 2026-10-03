@@ -1,0 +1,7 @@
+point,offered,p95,served
+label,req/s,ms,req/s
+rate-04,4,98,4.01
+rate-12,12,195,11.99
+rate-24,24,412,23.97
+rate-32,32,3755,29.46
+rate-40,40,10001,19.72

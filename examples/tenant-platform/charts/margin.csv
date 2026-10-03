@@ -1,0 +1,8 @@
+step,amount
+label,$/tenant/month
+pro plan price,49
+less infrastructure,-13
+gross margin,36
+less support,-10
+less payment fees,-2
+net margin,24

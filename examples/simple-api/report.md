@@ -69,10 +69,17 @@ four, which is a *Held constant*. See `execution.md` §3 note #05.
 
 ### 3.2 Chart
 
-Not rendered — the example has no charting step, and a chart of five points
-adds nothing the table does not already show. In a real report this is where
-the throughput plateau and the latency curve would be drawn together, because
-the point of the finding is that they turn at different rates.
+`charts/latency.svg` — `report-kit charts --all`, kind `line` in `charts/charts.yaml`, from a
+CSV that transcribes §3.1 above and nothing else.
+
+Two panels, because `ms` and `req/s` are different units and the renderer never
+puts two scales on one frame. `M4` is absent on purpose: it counts scrape
+targets rather than replicas and overshoots during rollover (`execution.md` §2),
+so charting it would assert something the run did not measure. The `$/1k` column
+is absent for the reason §4 is — there is no price basis.
+
+The invalid run is absent too. A chart CSV holds only what is drawn, and the
+ledger is where a point that ran is recorded whether or not it is read.
 
 ### 3.3 Knee · sweet spot · waste boundary
 
