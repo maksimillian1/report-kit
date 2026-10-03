@@ -173,7 +173,7 @@ second consumer forces it:
 | `executions/00-baseline/` | a second execution would copy the system description |
 | `executions/NN-⟨name⟩/` | a second execution exists, then numbering |
 | `concepts.md` · `metrics.md` | the block outgrows one screen inside `index.md` |
-| `charts/` · `assets/` | a chart is wanted: one CSV in, one SVG out |
+| `charts/` | the first chart: one CSV in, its SVG generated beside it |
 
 Why shared material cannot simply live in the first benchmark: the second one starts
 depending on it, and you cannot add the second without editing something already frozen.
@@ -229,7 +229,8 @@ A chart sits one step to the side of that path. It is drawn from a CSV under `ch
 transcribes what the documents already print, so it is a view of the report rather than a
 second reading of the system, and the two must not be confused: `data/` holds what an
 authority returned, `charts/` holds what a renderer needs. Both are committed, and the
-rendered asset records which CSV produced it. `charts.md` is the contract.
+rendered asset records which CSV produced it. `formats.md` says what may go
+in a cell, and `report-kit charts --format` the shape of the file.
 
 ---
 

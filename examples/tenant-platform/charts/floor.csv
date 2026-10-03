@@ -1,0 +1,6 @@
+part,amount
+label,$/month
+primary region,1800
+standby region,1200
+control plane and monitoring,600
+cross-region replication,400

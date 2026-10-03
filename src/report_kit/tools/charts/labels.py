@@ -1,9 +1,4 @@
-"""Where a label goes, decided by measuring rather than by a fixed offset.
-
-An annotation is offset in points, which the data limits know nothing about, so
-a fixed offset puts a label off the canvas or on top of its neighbour. See
-`charts.md` for what this guarantees a reader.
-"""
+"""Where a label goes, decided by measuring rather than by a fixed offset."""
 
 from __future__ import annotations
 
@@ -25,8 +20,6 @@ LABEL_CANDIDATES = tuple(
 )
 
 ABOVE = (0, LABEL_DY, "center")
-BESIDE = (LABEL_DX, LABEL_DY, "left")
-BESIDE_BELOW = (LABEL_DX, -LABEL_DY, "left")
 RULE_HALF_W = 12
 
 
@@ -50,8 +43,8 @@ def rule_obstacle(ax, x_data: float, renderer):
 
 def measure_candidates(ax, text: str, xy, theme: dict, colour, renderer,
                        first=None) -> list:
-    """Every candidate placement as (spec, box). Each one is drawn to measure it,
-    because matplotlib reports a text extent only for an attached artist."""
+    # Drawn to be measured: matplotlib reports an extent only for an attached
+    # artist.
     measured = []
     order = LABEL_CANDIDATES if first is None else (first,) + LABEL_CANDIDATES
     for dx, dy, ha in order:

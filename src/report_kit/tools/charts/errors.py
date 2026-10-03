@@ -4,8 +4,8 @@ from __future__ import annotations
 
 
 class ChartError(Exception):
-    """The environment or the arguments make every chart impossible."""
+    """The run stops."""
 
 
 class Skip(Exception):
-    """One chart has no usable rows. Reported on stderr; the rest render."""
+    """One chart stops. Reported on stderr; the rest render."""

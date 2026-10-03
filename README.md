@@ -27,8 +27,8 @@ library is not copied: it stays a dependency, and each point record carries the
 ## Profiles
 
 What `report-kit init` writes. `report.md`, `figures.yaml`, `methodology.md`,
-`formats.md`, `charts.md`, `API.md` and `runners.md` land in both, as do
-`charts/` and `assets/`; only the execution layout differs.
+`formats.md`, `API.md` and `runners.md` land in both; only the execution
+layout differs.
 
 ### A · Minimal — one execution
 
@@ -36,9 +36,12 @@ What `report-kit init` writes. `report.md`, `figures.yaml`, `methodology.md`,
 report/
 ├── report.md
 ├── figures.yaml                # every number the documents print, resolved in one place
-├── methodology.md              # the rules · formats.md · charts.md · API.md · runners.md — reference, not edited
-├── charts/                     # one CSV per chart — ← report-kit charts reads these
-├── assets/                     # the SVGs it renders, plus a manifest per surface
+├── methodology.md              # the rules · formats.md · API.md · runners.md — reference, not edited
+├── charts/                     # created on first use — ← report-kit charts --all
+│   ├── index.txt               # one line per chart: file, kind, flags
+│   ├── <name>.csv              # what you write: a view of numbers the documents print
+│   └── <name>.svg              # generated beside it; --all deletes any it no longer draws
+├── assets/                     # optional — hand-drawn images; the kit never writes here
 └── execution/
     ├── index.md                # 1 Givens · 2 Plan · 3 Journal · 4 Results
     ├── concepts.md             # optional — when the block outgrows index.md
@@ -53,9 +56,8 @@ report/
 report/
 ├── report.md
 ├── figures.yaml                # every number the documents print, resolved in one place
-├── methodology.md              # + formats.md · charts.md · API.md · runners.md
-├── charts/
-├── assets/
+├── methodology.md              # + formats.md · API.md · runners.md
+├── charts/                     # as in A
 └── executions/
     ├── 00-baseline/            # 1 Plan · 2 Results
     │   ├── index.md
@@ -99,7 +101,7 @@ One command, installed with the package:
 | `report-kit init` | write the report skeleton for a layout |
 | `report-kit new-point` | copy a runner and its inputs into one execution |
 | `report-kit figures` | resolve `figures.yaml`, and fail when a number drifts |
-| `report-kit charts` | render the charts from `charts/*.csv`, and say what the columns can and cannot draw |
+| `report-kit charts` | draw a CSV: four shapes, two surfaces, no knowledge of your report |
 | `report-kit export-metrics` | re-export a window whose metrics are aging out |
 | `report-kit inspect-metrics` | read back what an export actually captured |
 | `report-kit node-cost` | what the nodes cost during a window, the same day |
@@ -112,7 +114,7 @@ What the repository holds:
 | [src/report_kit/](src/report_kit/) | the **library you import** — windows, polling, Prometheus export, guard evaluation, the point record |
 | [src/report_kit/templates/](src/report_kit/templates/) | what `init` and `new-point` **copy into a project**: the report and execution documents, the number registry, and the two runners |
 | [src/report_kit/tools/](src/report_kit/tools/) | **run as-is**, as the subcommands above |
-| [examples/](examples/) | *(repo only)* worked executions, one directory each — [simple-api/](examples/simple-api/) for the api profile and [async-jobs/](examples/async-jobs/) for the jobs one. Each is a local cluster, the runs, and the `execution.md` / `report.md` they produced |
+| [examples/](examples/) | *(repo only)* worked directories — [simple-api/](examples/simple-api/) and [async-jobs/](examples/async-jobs/) are real local-cluster runs with the `execution.md` / `report.md` they produced; [tenant-platform/](examples/tenant-platform/) is an invented multi-tenant SaaS, one CSV per chart shape and flag, **with invented numbers**, because neither cluster is billed for and the cost shapes need a priced platform |
 
 **A runner is copied, not imported.** It lands in the execution's `scripts/`
 beside its own `env.yaml`, `series.txt` and `guards.txt`, because the axis is
@@ -125,7 +127,7 @@ Standard library only, except: `PyYAML` for `env.py` — the one module in the
 package that needs a package at all, and installed for you — `boto3` for
 `cloud/aws_s3.py` (`pip install "report-kit[s3]"`), `matplotlib` for
 `tools/charts/` (`pip install "report-kit[charts]"`, and only to *render*:
-`charts --list` and `charts --check` draw nothing and need neither), and the
+`charts --format` and `charts --check` draw nothing and need neither), and the
 `aws` / `kubectl` / `git` CLIs for the modules that shell out to them.
 Prometheus is assumed as the metrics backend and spoken to directly, rather
 than hidden behind an interface with one implementation.
@@ -134,8 +136,8 @@ than hidden behind an interface with one implementation.
 
 | | |
 | :--- | :--- |
-| [formats.md](src/report_kit/templates/formats.md) | how a number is written so a script can verify it: how a ref attaches to the digits, which shapes a scan ignores on purpose, and the three states a number can be in |
-| [charts.md](src/report_kit/templates/charts.md) | how a number gets into a picture: what a chart CSV may hold, which panels a chart keeps when a column is absent, and the three rules the renderer will not let you override |
+| [formats.md](src/report_kit/templates/formats.md) | how a number is written so a script can verify it: how a ref attaches to the digits, which shapes a scan ignores on purpose, the three states a number can be in, and what may go in a chart CSV |
+| `report-kit charts --format` | the chart CSV format itself, printed by the tool so it cannot fall out of step. A worked file per shape is in [examples/tenant-platform/](examples/tenant-platform/) |
 | [runners.md](src/report_kit/templates/runners.md) | which profile fits your workload, **exactly what inputs to provide** (`env.yaml`, `series.txt`, `guards.txt`, the freeze), the exit-code contract |
 | [API.md](src/report_kit/API.md) | the library module by module: what is pure, what talks to a cluster, the one seam to patch when testing |
 | [examples/simple-api/scripts/README.md](examples/simple-api/scripts/README.md) | *(repo only)* how to run the api example, and an honest table of what a local cluster can and cannot exercise |

@@ -222,7 +222,7 @@ Two things sit beside this library, and the split between them is the point:
   `cmd_*` functions and prints nothing, so `from report_kit.tools.figures
   import Registry` gets a script a value rather than a page. `charts` defers
   one import further: matplotlib is loaded by `canvas.load_backend()` at render
-  time, so `--list` and `--check` work without it.
+  time, so `--format` and `--check` work without it.
 
   **`charts` deliberately does not read `figures.yaml`.** The CSVs are the
   consuming report's, and whether a cell still matches what the documents print
@@ -233,10 +233,10 @@ Two things sit beside this library, and the split between them is the point:
   entirely its own: given these columns, what can be drawn.
 
   **A tool becomes a directory when its halves stop sharing a reason to
-  change.** `charts/` is the one that has: the data contract, the checks, the
-  surface, the label geometry and the two drawing modules move for different
-  reasons and are read on different days. Its `__init__.py` is the command and
-  nothing else, and its docstring carries the module map. The rest of `tools/`
+  change.** `charts/` is the one that has: the CSV format (`table.py`), the
+  shapes (`kinds.py`), the surface (`canvas.py`) and the label geometry
+  (`labels.py`) move for different reasons and are read on different days. Its
+  `__init__.py` is the command, `charts/index.txt` included, and nothing else. The rest of `tools/`
   is one file each, and should stay that way until the same thing is true of
   it.
 

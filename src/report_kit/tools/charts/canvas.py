@@ -1,14 +1,12 @@
 """Size, type, palette, and the helpers that put an axis or a label on a figure.
 
-`load_backend()` binds matplotlib into four module globals, so every other
-module must reach them as `canvas.plt`, `canvas.Bbox` — a `from .canvas import
-plt` captures `None` at import time and fails at the first draw. Same rule
-`API.md` states for `shell.sh_json`. Why the import is deferred at all, and the
-surface the sizes here serve: `charts.md`.
+`load_backend()` rebinds matplotlib into module globals, so reach them as
+`canvas.plt` and `canvas.Bbox`: `from .canvas import plt` captures `None`.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 
@@ -24,7 +22,6 @@ TYPE_BODY = 34
 TYPE_AXIS = 38
 TYPE_LABEL = 34
 
-# Lists, not strings: matplotlib writes them out as a CSS font stack.
 FONT_SANS = ["Poppins", "sans-serif"]
 FONT_MONO = ["IBM Plex Mono", "monospace"]
 
@@ -35,9 +32,12 @@ HAIRLINE = 1.6
 GUTTER_IN = 16 / 72
 NOTE_PAD = 16
 
-# `ramp` runs away from its own surface, so its steps are ordered differently
-# per theme rather than being one palette with a swapped ink.
-THEMES = {
+THEME_KEYS = ("ink", "secondary", "rule", "series", "cost", "muted", "ramp",
+              "hatch_face", "hatch_edge")
+RAMP_STEPS = 3
+THEME_FILE = "themes.json"
+
+DEFAULT_THEMES = {
     "light": {
         "ink": "#0b1320",
         "secondary": "#1c3f60",
@@ -62,12 +62,36 @@ THEMES = {
     },
 }
 
+
+def load_themes(root: Path) -> dict:
+    themes = {name: dict(theme) for name, theme in DEFAULT_THEMES.items()}
+    path = root / "charts" / THEME_FILE
+    if not path.exists():
+        return themes
+    try:
+        given = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ChartError(f"{path}: {exc}") from exc
+    if not isinstance(given, dict):
+        raise ChartError(f"{path}: expected an object of theme name to colours")
+    for name, theme in given.items():
+        merged = {**themes.get(name, {}), **theme}
+        missing = [k for k in THEME_KEYS if k not in merged]
+        if missing:
+            raise ChartError(f"{path}: theme {name!r} is missing "
+                             f"{', '.join(missing)}")
+        if len(merged["ramp"]) != RAMP_STEPS:
+            raise ChartError(f"{path}: theme {name!r} needs {RAMP_STEPS} ramp "
+                             f"steps, got {len(merged['ramp'])}")
+        themes[name] = merged
+    return themes
+
 plt = None
-FuncFormatter = LogFormatterSciNotation = Bbox = None
+FuncFormatter = Bbox = None
 
 
 def load_backend() -> None:
-    global plt, FuncFormatter, LogFormatterSciNotation, Bbox
+    global plt, FuncFormatter, Bbox
     if plt is not None:
         return
     try:
@@ -78,14 +102,13 @@ def load_backend() -> None:
     matplotlib.use("Agg")
     import matplotlib.pyplot
     from matplotlib.ticker import FuncFormatter as _FF
-    from matplotlib.ticker import LogFormatterSciNotation as _LF
     from matplotlib.transforms import Bbox as _Bbox
 
     # The named fonts are resolved by whatever opens the SVG, so this machine
     # not having them is expected rather than a warning.
     logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
     plt = matplotlib.pyplot
-    FuncFormatter, LogFormatterSciNotation, Bbox = _FF, _LF, _Bbox
+    FuncFormatter, Bbox = _FF, _Bbox
 
 
 def configure(theme: dict) -> None:
@@ -110,9 +133,7 @@ def configure(theme: dict) -> None:
 
 
 def new_figure(rows: int = 1, height_ratios=None):
-    # Every chart starts here, so this is where the backend is guaranteed to be
-    # loaded. Without it a draw function called directly by a script fails on a
-    # None global instead of saying what is missing.
+    # A draw function called directly by a script reaches the backend only here.
     load_backend()
     fig, axes = plt.subplots(
         rows, 1, figsize=(CANVAS_W / DPI, CANVAS_H / DPI), dpi=DPI,
@@ -195,12 +216,6 @@ def panel_label(ax, text: str, theme: dict) -> None:
 
 def axis_label(ax, text: str) -> None:
     ax.set_xlabel(text, fontsize=TYPE_AXIS, fontfamily=FONT_SANS, labelpad=18)
-
-
-def hollow(ax, x, y, colour: str, marker: str = "o") -> None:
-    """A mark drawn off the line: on the chart, and not part of the series."""
-    ax.plot(x, y, marker=marker, markersize=MARKER_SZ, markerfacecolor="none",
-            markeredgecolor=colour, markeredgewidth=HAIRLINE * 1.6, zorder=3)
 
 
 def thousands(value, _pos):

@@ -1,0 +1,8 @@
+amortization.csv  line --mark-x 100 break-even at the pro plan
+failover.csv      line --rule 300 p99 target --mark-x 20 primary lost
+isolation.csv     line --points
+tier-cost.csv     bars
+floor-resize.csv  bars
+monthly-bill.csv  bars
+floor.csv         parts
+margin.csv        waterfall

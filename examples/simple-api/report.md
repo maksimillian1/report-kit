@@ -69,20 +69,17 @@ four, which is a *Held constant*. See `execution.md` §3 note #05.
 
 ### 3.2 Chart
 
-`assets/frontier-api.svg` — rendered by `report-kit charts` from
-`charts/frontier-api.csv`, which transcribes §3.1 above and nothing else.
+`charts/latency.svg` — `report-kit charts --all`, kind `line` in `charts/index.txt`, from a
+CSV that transcribes §3.1 above and nothing else.
 
-**One panel, not two.** The kit's api chart draws a replica panel under the
-latency one wherever the CSV names a `replicas_⟨tier⟩` column. This example
-leaves it out: `M4` counts scrape targets rather than replicas and overshoots
-during rollover (`execution.md` §2), so charting it would assert something the
-run did not measure. A column that would mislead is better absent than drawn,
-and the chart loses a panel rather than the reader losing the plot. The `$/1k`
-column is absent for the reason §4 is: there is no price basis.
+Two panels, because `ms` and `req/s` are different units and the renderer never
+puts two scales on one frame. `M4` is absent on purpose: it counts scrape
+targets rather than replicas and overshoots during rollover (`execution.md` §2),
+so charting it would assert something the run did not measure. The `$/1k` column
+is absent for the reason §4 is — there is no price basis.
 
-**The invalid run is in the CSV with `excluded` set.** The chart drops it and
-the file still carries it — the same rule the ledger follows, that a point which
-ran is recorded and whether it is read is a separate decision.
+The invalid run is absent too. A chart CSV holds only what is drawn, and the
+ledger is where a point that ran is recorded whether or not it is read.
 
 ### 3.3 Knee · sweet spot · waste boundary
 

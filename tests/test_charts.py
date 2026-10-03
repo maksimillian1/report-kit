@@ -1,29 +1,31 @@
-"""The chart contract: what `--check` says, and what the renderer decides.
+"""The frozen CSV format, and the four shapes drawn from it.
 
     pytest tests/test_charts.py
 
-Three halves. The first is the grading — a problem costs an exit code, a note
-does not — because that line is the whole difference between a utility and a
-gatekeeper, and the CSVs belong to the consumer. The second is what a chart
-will draw from partial data: a sweep that never priced itself, one that
-recorded only the ceiling it was given, a split with no fleet figure. The third
-renders, and is skipped where matplotlib is not installed.
+The format half needs no matplotlib and is where the value is: what the file
+decides on its own is the whole design. The render half is skipped where
+matplotlib is not installed.
 
-Nothing here checks a value against `figures.yaml`. That is the registry's
-question, answered by putting `charts/*.csv` in its `scan`.
+Shapes and conventions that `examples/tenant-platform/` already demonstrates are
+asserted here against those same files, so an example that stops working fails a
+test rather than going quietly stale.
 """
 
 from __future__ import annotations
 
 import contextlib
 import io
+import json
 from pathlib import Path
 
 import pytest
 
 from report_kit.tools import charts
+from report_kit.tools.charts import table
 
 matplotlib = pytest.importorskip("matplotlib", reason="charts extra not installed")
+
+FIXTURES = Path(__file__).resolve().parent.parent / "examples" / "tenant-platform" / "charts"
 
 
 def run(*argv):
@@ -42,387 +44,467 @@ def write(path: Path, *lines: str) -> Path:
     return path
 
 
-JOBS_HEADER = ("n_set,n_reached,throughput,usd_per_1m_units,unit,"
-               "usd_per_run,unit_count,dominated")
-JOBS_ROWS = ("10,9.0,0.76,44700,docs,4.47,100,1",
-             "25,19.5,1.62,24900,docs,2.49,100,",
-             "50,32.6,2.27,44300,docs,4.43,100,")
+# ------------------------------------------------------------------- format
 
-REGISTRY = """\
-scan:
-  - report.md
-
-figures:
-  cost_n10:
-    ref: FD1
-    kind: D
-    formula: 4.47
-    unit: usd
-    display: 2
-  cost_per_1m_n10:
-    ref: FD2
-    kind: D
-    formula: 44700
-    unit: usd
-    display: 0
-"""
+def test_the_units_row_is_required(tmp_path):
+    path = write(tmp_path / "f.csv", "a,b", "1,2", "3,4")
+    with pytest.raises(charts.Skip, match="must be the units row"):
+        table.read(path)
 
 
-# ------------------------------------------------------------------ contract
-
-def test_list_prints_every_schema_and_needs_no_data():
-    code, out, _ = run("--list")
-    assert code == 0
-    for name in charts.SCHEMA:
-        assert name in out
-    assert "ignored, not rejected" in out
-    assert "figures.yaml's question" in out
+def test_a_unit_is_required_for_every_column(tmp_path):
+    path = write(tmp_path / "f.csv", "a,b,c", "label,$", "x,1,2")
+    with pytest.raises(charts.Skip, match="a unit for every column"):
+        table.read(path)
 
 
-def test_no_schema_asks_a_report_to_register_a_particular_column():
-    """The kit does not decide what a consuming report registers. Row 7 of
-    TECH-DEBT.md was this key; it is gone, and nothing replaced it."""
-    for spec in charts.SCHEMA.values():
-        assert "figures" not in spec
+def test_a_file_with_no_data_rows_says_so(tmp_path):
+    path = write(tmp_path / "f.csv", "a,b", "label,$")
+    with pytest.raises(charts.Skip, match="no rows yet"):
+        table.read(path)
 
 
-def test_every_chart_has_a_csv_and_a_drawing_function():
-    """One table pairs them, so the only drift left is a CSV with no schema."""
-    for csv_name, draw in charts.CHART.values():
-        assert csv_name in charts.SCHEMA
-        assert callable(draw)
+def test_a_file_with_nothing_numeric_says_so(tmp_path):
+    path = write(tmp_path / "f.csv", "a,b", "label,label", "x,y")
+    with pytest.raises(charts.Skip, match="no numeric column"):
+        table.read(path)
 
 
-def test_a_draw_function_called_directly_loads_its_own_backend():
-    """API.md promises the model is importable. A caller that never ran the
-    command must not meet `NoneType has no attribute subplots`."""
+def test_the_units_row_sorts_labels_from_series(tmp_path):
+    path = write(tmp_path / "f.csv", "name,note,x,y",
+                 "label,label,s,$", "first,ok,1,10", "second,ok,2,20")
+    data = table.read(path)
+    assert [c.name for c in data.labels] == ["name", "note"]
+    assert [c.name for c in data.series] == ["x", "y"]
+
+
+def test_a_non_numeric_column_is_a_label_whatever_its_unit(tmp_path):
+    path = write(tmp_path / "f.csv", "name,x", "$,s", "first,1")
+    assert [c.name for c in table.read(path).labels] == ["name"]
+
+
+def test_columns_sharing_a_unit_share_a_group(tmp_path):
+    path = write(tmp_path / "f.csv", "x,a,b,c", "s,ms,ms,$",
+                 "1,10,11,100", "2,20,21,200")
+    groups = {g.unit: [c.name for c in g.columns] for g in table.read(path).groups}
+    assert groups == {"s": ["x"], "ms": ["a", "b"], "$": ["c"]}
+
+
+def test_an_aside_unit_is_its_own_group(tmp_path):
+    path = write(tmp_path / "f.csv", "step,a,spare", "label,$,$ aside",
+                 "first,1,4")
+    data = table.read(path)
+    assert [g.unit for g in data.panels] == ["$"]
+    assert [g.title for g in data.aside] == ["$"]
+
+
+def test_the_first_series_column_becomes_the_axis(tmp_path):
+    path = write(tmp_path / "f.csv", "n,reached,rate", "label,concurrency,docs/min",
+                 "N=1,9.0,0.7", "N=2,19.0,1.6")
+    data = table.with_axis(table.read(path))
+    assert data.x.name == "reached"
+    assert [c.name for c in data.series] == ["rate"]
+
+
+def test_a_file_whose_only_number_would_be_the_axis_is_refused(tmp_path):
+    path = write(tmp_path / "f.csv", "name,x", "label,s", "first,1", "second,2")
+    with pytest.raises(charts.Skip, match="nothing is left to plot"):
+        table.with_axis(table.read(path))
+
+
+def test_an_empty_cell_is_a_gap_not_a_zero(tmp_path):
+    path = write(tmp_path / "f.csv", "x,y", "s,$", "1,10", "2,", "3,30")
+    assert table.read(path).series[1].values == (10.0, None, 30.0)
+
+
+def test_a_thousands_separator_is_read(tmp_path):
+    path = write(tmp_path / "f.csv", "x,y", "s,$", "1,\"44,707\"")
+    assert table.read(path).series[1].values == (44707.0,)
+
+
+# ---------------------------------------------- what the file decides itself
+
+@pytest.mark.parametrize("values,wide", [((1, 7), False), ((1000, 1_000_000), True)])
+def test_log_follows_how_wide_the_axis_is(tmp_path, values, wide):
+    path = write(tmp_path / "f.csv", "x,y", "s,$",
+                 f"{values[0]},1", f"{values[1]},100")
+    log_x, _ = table.log_axes(table.with_axis(table.read(path)))
+    assert log_x is wide
+
+
+def test_y_follows_x_into_log_only_when_it_is_also_wide(tmp_path):
+    wide = write(tmp_path / "w.csv", "x,y", "s,$", "1000,1", "1000000,100")
+    narrow = write(tmp_path / "n.csv", "x,y", "s,$", "1000,1", "1000000,2")
+    assert table.log_axes(table.with_axis(table.read(wide))) == (True, True)
+    assert table.log_axes(table.with_axis(table.read(narrow))) == (True, False)
+
+
+def test_a_subtotal_is_a_row_restating_the_running_total():
+    assert table.subtotals((2.4505, 2.8783, 5.3288, -0.9582, 4.3706)) == (
+        False, False, True, False, True)
+
+
+def test_a_row_that_only_looks_like_a_subtotal_is_a_step():
+    assert table.subtotals((5.0, 5.0)) == (False, True)
+    assert table.subtotals((5.0, 3.0, 2.0)) == (False, False, False)
+
+
+def test_the_tail_of_a_long_stack_folds_into_one_segment():
+    from report_kit.tools.charts.kinds import fold
+    columns = [table.Column(n, "$", (v,))
+               for n, v in (("a", 5), ("b", 4), ("c", 3), ("d", 2), ("e", 1))]
+    folded = fold(columns, 3)
+    assert [c.name for c in folded] == ["a", "b", "other"]
+    assert folded[-1].values == (6,)
+
+
+def test_a_stack_within_the_ramp_is_left_alone():
+    from report_kit.tools.charts.kinds import fold
+    columns = [table.Column(n, "$", (1,)) for n in ("a", "b", "c")]
+    assert [c.name for c in fold(columns, 3)] == ["a", "b", "c"]
+
+
+# -------------------------------------------------------------- the command
+
+def test_format_prints_the_contract_and_needs_no_file():
+    code, out, _ = run("--format")
+    assert code == charts.EXIT_OK
+    for kind in charts.KINDS:
+        assert kind in out
+    assert "line 2" in out and "aside" in out
+
+
+def test_a_kind_is_required_to_draw(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    code, _, err = run(str(FIXTURES / "floor.csv"))
+    assert code == charts.EXIT_USAGE
+    assert "--kind is the one thing the file cannot say" in err
+
+
+def test_new_writes_a_skeleton_the_reader_then_accepts(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    for kind in charts.KINDS:
+        code, _, err = run("new", "--kind", kind)
+        assert code == charts.EXIT_OK, err
+        table.read(tmp_path / "charts" / f"{kind}.csv")
+    code, out, _ = run("--check")
+    assert code == charts.EXIT_OK, out
+
+
+def test_new_never_overwrites(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    run("new", "--kind", "parts")
+    (tmp_path / "charts" / "parts.csv").write_text("mine\n", encoding="utf-8")
+    code, out, _ = run("new", "--kind", "parts")
+    assert code == charts.EXIT_OK and "left alone" in out
+    assert (tmp_path / "charts" / "parts.csv").read_text(encoding="utf-8") == "mine\n"
+
+
+def test_check_reports_without_drawing(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    files = sorted(FIXTURES.glob("*.csv"))
+    code, out, _ = run("--check", *[str(p) for p in files])
+    assert code == charts.EXIT_OK
+    assert out.count("note:") == len(files)
+    assert not (tmp_path / "charts").exists()
+
+
+def test_check_fails_on_a_file_it_cannot_read(tmp_path, monkeypatch):
+    broken = write(tmp_path / "b.csv", "a,b", "1,2", "3,4")
+    monkeypatch.chdir(tmp_path)
+    code, out, _ = run("--check", str(broken))
+    assert code == charts.EXIT_FAILED
+    assert "must be the units row" in out
+
+
+def test_an_unknown_theme_names_the_ones_there_are(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    code, _, err = run(str(FIXTURES / "floor.csv"), "--kind", "parts",
+                       "--theme", "chartreuse")
+    assert code == charts.EXIT_USAGE
+    assert "light" in err and "navy" in err
+
+
+def test_a_theme_file_replaces_or_adds_one(tmp_path, monkeypatch):
+    theme = dict(charts.DEFAULT_THEMES["light"], cost="#123456")
+    write(tmp_path / "charts" / "themes.json", json.dumps({"print": theme}))
+    monkeypatch.chdir(tmp_path)
+    code, out, err = run(str(FIXTURES / "floor.csv"), "--kind", "parts",
+                         "--theme", "print")
+    assert code == charts.EXIT_OK, err
+    assert "floor-print.svg" in out
+
+
+def test_a_theme_missing_a_key_is_refused(tmp_path, monkeypatch):
+    write(tmp_path / "charts" / "themes.json", json.dumps({"half": {"ink": "#000"}}))
+    monkeypatch.chdir(tmp_path)
+    code, _, err = run(str(FIXTURES / "floor.csv"), "--kind", "parts",
+                       "--theme", "half")
+    assert code == charts.EXIT_USAGE
+    assert "is missing" in err
+
+
+def test_a_rule_wants_a_number_first(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    code, _, err = run(str(FIXTURES / "failover.csv"), "--kind", "line",
+                       "--rule", "soon")
+    assert code == charts.EXIT_USAGE
+    assert "wants a number first" in err
+
+
+def test_a_mark_x_wants_a_number_first(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    code, _, err = run(str(FIXTURES / "failover.csv"), "--kind", "line",
+                       "--mark-x", "later")
+    assert code == charts.EXIT_USAGE
+    assert "--mark-x wants a number first" in err
+
+
+@pytest.mark.parametrize("flag", [["--rule", "1"], ["--mark-x", "1"],
+                                  ["--points"]])
+def test_a_mark_is_refused_by_a_shape_that_cannot_draw_it(tmp_path,
+                                                          monkeypatch, flag):
+    monkeypatch.chdir(tmp_path)
+    code, _, err = run(str(FIXTURES / "floor.csv"), "--kind", "parts", *flag)
+    assert code == charts.EXIT_USAGE
+    assert "draw on line only" in err
+
+
+# ------------------------------------------------------- the four shapes
+
+@pytest.mark.parametrize("name,kind", [
+    ("amortization.csv", "line"), ("failover.csv", "line"),
+    ("isolation.csv", "line"), ("tier-cost.csv", "bars"),
+    ("floor-resize.csv", "bars"), ("monthly-bill.csv", "bars"),
+    ("floor.csv", "parts"), ("margin.csv", "waterfall")])
+def test_every_example_still_renders_on_both_surfaces(tmp_path, monkeypatch,
+                                                      name, kind):
+    monkeypatch.chdir(tmp_path)
+    for theme in ("light", "navy"):
+        code, out, err = run(str(FIXTURES / name), "--kind", kind,
+                             "--theme", theme)
+        assert code == charts.EXIT_OK, err
+        suffix = "" if theme == "light" else "-navy"
+        assert (tmp_path / "charts" / f"{Path(name).stem}{suffix}.svg").exists()
+
+
+def test_several_csvs_render_in_one_call(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    code, out, err = run(str(FIXTURES / "amortization.csv"),
+                         str(FIXTURES / "failover.csv"), "--kind", "line")
+    assert code == charts.EXIT_OK, err
+    assert (tmp_path / "charts" / "amortization.svg").exists()
+    assert (tmp_path / "charts" / "failover.svg").exists()
+    entries = json.loads((tmp_path / "charts" / "manifest-light.json").read_text())
+    assert [e["svg"] for e in entries] == ["amortization.svg", "failover.svg"]
+    assert entries[0]["source_sha256_12"] == table.sha256(FIXTURES / "amortization.csv")
+
+
+def test_separate_calls_keep_each_others_manifest_entries(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    run(str(FIXTURES / "floor.csv"), "--kind", "parts")
+    run(str(FIXTURES / "failover.csv"), "--kind", "line", "--mark-x", "20", "lost")
+    entries = json.loads((tmp_path / "charts" / "manifest-light.json").read_text())
+    assert [e["svg"] for e in entries] == ["failover.svg", "floor.svg"]
+    assert entries[0]["mark_x"] == [20.0, "lost"]
+    assert "mark_x" not in entries[1]
+
+
+def indexed(tmp_path, *lines):
+    for name in ("floor.csv", "failover.csv"):
+        (tmp_path / "charts").mkdir(exist_ok=True)
+        (tmp_path / "charts" / name).write_bytes((FIXTURES / name).read_bytes())
+    return write(tmp_path / "charts" / "index.txt", *lines)
+
+
+def test_all_draws_every_indexed_chart_on_every_theme(tmp_path, monkeypatch):
+    indexed(tmp_path, "# the example", "floor.csv parts",
+            "failover.csv line --mark-x 20 primary lost")
+    monkeypatch.chdir(tmp_path)
+    code, _, err = run("--all")
+    assert code == charts.EXIT_OK, err
+    for name in ("floor", "failover", "floor-navy", "failover-navy"):
+        assert (tmp_path / "charts" / f"{name}.svg").exists()
+    entries = json.loads((tmp_path / "charts" / "manifest-light.json").read_text())
+    assert [e["svg"] for e in entries] == ["failover.svg", "floor.svg"]
+    assert entries[0]["mark_x"] == [20.0, "primary lost"]
+
+
+def test_all_replaces_the_manifest_so_a_dropped_chart_leaves(tmp_path,
+                                                             monkeypatch):
+    indexed(tmp_path, "floor.csv parts", "failover.csv line")
+    monkeypatch.chdir(tmp_path)
+    run("--all", "--theme", "light")
+    write(tmp_path / "charts" / "index.txt", "floor.csv parts")
+    run("--all", "--theme", "light")
+    entries = json.loads((tmp_path / "charts" / "manifest-light.json").read_text())
+    assert [e["svg"] for e in entries] == ["floor.svg"]
+
+
+def test_all_deletes_an_svg_no_index_line_draws(tmp_path, monkeypatch):
+    indexed(tmp_path, "floor.csv parts", "failover.csv line")
+    monkeypatch.chdir(tmp_path)
+    run("--all")
+    write(tmp_path / "charts" / "index.txt", "floor.csv parts")
+    code, out, err = run("--all")
+    assert code == charts.EXIT_OK, err
+    assert not list((tmp_path / "charts").glob("failover*.svg"))
+    assert (tmp_path / "charts" / "floor-navy.svg").exists()
+    assert "removed" in out
+
+
+def test_every_svg_says_it_is_generated_and_from_what(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    run(str(FIXTURES / "floor.csv"), "--kind", "parts")
+    head = (tmp_path / "charts" / "floor.svg").read_text(encoding="utf-8")[:300]
+    assert "generated by report-kit charts from floor.csv" in head
+
+
+def test_all_without_an_index_says_where_it_looked(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    code, _, err = run("--all")
+    assert code == charts.EXIT_USAGE
+    assert "charts/index.txt" in err
+
+
+def test_all_takes_nothing_the_index_already_says(tmp_path, monkeypatch):
+    indexed(tmp_path, "floor.csv parts")
+    monkeypatch.chdir(tmp_path)
+    code, _, err = run("--all", "--kind", "line")
+    assert code == charts.EXIT_USAGE
+    assert "from charts/index.txt" in err
+
+
+@pytest.mark.parametrize("line,said", [
+    ("floor.csv", "needs a kind"), ("floor.csv pie", "needs a kind"),
+    ("floor.csv parts --points", "draw on line only"),
+    ("failover.csv line --colour red", "not a flag here")])
+def test_a_bad_index_line_is_named_by_its_number(tmp_path, monkeypatch,
+                                                 line, said):
+    indexed(tmp_path, "floor.csv parts", line)
+    monkeypatch.chdir(tmp_path)
+    code, _, err = run("--all")
+    assert code == charts.EXIT_USAGE
+    assert "index.txt:2" in err and said in err
+
+
+def test_check_names_a_csv_the_index_leaves_out(tmp_path, monkeypatch):
+    indexed(tmp_path, "floor.csv parts")
+    monkeypatch.chdir(tmp_path)
+    code, out, _ = run("--check")
+    assert code == charts.EXIT_FAILED
+    assert "failover.csv: not in index.txt" in out
+
+
+def test_check_passes_an_index_that_covers_every_csv(tmp_path, monkeypatch):
+    indexed(tmp_path, "floor.csv parts", "failover.csv line")
+    monkeypatch.chdir(tmp_path)
+    code, out, _ = run("--check")
+    assert code == charts.EXIT_OK, out
+
+
+def test_the_example_index_covers_the_example(monkeypatch):
+    monkeypatch.chdir(FIXTURES.parent)
+    code, out, _ = run("--check")
+    assert code == charts.EXIT_OK, out
+
+
+def drawn(monkeypatch, path, **marks):
+    """The figure a shape builds, kept open instead of saved."""
+    figures = []
+    monkeypatch.setattr(charts.kinds, "save",
+                        lambda fig, *_: figures.append(fig) or Path("x.svg"))
+    charts.canvas.load_backend()
+    charts.canvas.configure(charts.DEFAULT_THEMES["light"])
+    charts.kinds.line(table.read(path), charts.DEFAULT_THEMES["light"],
+                      Path("."), "light", charts.kinds.Marks(**marks))
+    return figures[0]
+
+
+def test_an_empty_cell_breaks_the_line(monkeypatch):
+    fig = drawn(monkeypatch, FIXTURES / "failover.csv")
+    p95 = fig.axes[0].lines[0].get_ydata()
+    assert any(value != value for value in p95)
+    charts.canvas.plt.close(fig)
+
+
+def test_points_draws_the_marks_without_joining_them(monkeypatch):
+    fig = drawn(monkeypatch, FIXTURES / "isolation.csv", join=False)
+    assert all(line.get_linestyle() == "None" for line in fig.axes[0].lines)
+    charts.canvas.plt.close(fig)
+
+
+def test_a_mark_x_crosses_every_panel(monkeypatch):
+    fig = drawn(monkeypatch, FIXTURES / "amortization.csv", mark_x=(100.0, "x"))
+    for ax in fig.axes:
+        assert any(list(line.get_xdata()) == [100.0, 100.0] for line in ax.lines)
+    charts.canvas.plt.close(fig)
+
+
+def test_one_unreadable_file_does_not_stop_the_others(tmp_path, monkeypatch):
+    broken = write(tmp_path / "b.csv", "a,b", "1,2", "3,4")
+    monkeypatch.chdir(tmp_path)
+    code, out, err = run(str(broken), str(FIXTURES / "floor.csv"),
+                         "--kind", "parts")
+    assert code == charts.EXIT_OK
+    assert "skipped — b.csv" in err
+    assert (tmp_path / "charts" / "floor.svg").exists()
+
+
+def test_text_is_emitted_as_text_so_the_fonts_resolve_later(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    run(str(FIXTURES / "floor.csv"), "--kind", "parts")
+    svg = (tmp_path / "charts" / "floor.svg").read_text(encoding="utf-8")
+    assert "IBM Plex Mono" in svg and "<text" in svg
+
+
+def test_a_draw_called_directly_loads_its_own_backend(tmp_path):
     charts.canvas.plt = None
-    fig, _ = charts.new_figure()
+    fig, _ = charts.canvas.new_figure()
     assert charts.canvas.plt is not None
     charts.canvas.plt.close(fig)
 
 
-def test_a_column_the_tool_does_not_read_is_a_note_not_a_failure(tmp_path):
-    """The CSV is the consumer's. An extra column is named once, then ignored."""
-    path = write(tmp_path / "frontier-jobs.csv",
-                 JOBS_HEADER + ",surprise", JOBS_ROWS[0] + ",1")
-    problems, notes = charts.validate(path)
-    assert problems == []
-    assert notes == ["frontier-jobs.csv: surprise is not a column this tool "
-                     "reads"]
-
-
-def test_a_missing_required_column_fails(tmp_path):
-    path = write(tmp_path / "floor-blocks.csv", "block", "B")
-    problems, _ = charts.validate(path)
-    assert any("required column absent — usd_per_month" in p for p in problems)
-
-
-def test_a_non_numeric_required_cell_fails(tmp_path):
-    path = write(tmp_path / "floor-blocks.csv", "block,usd_per_month", "B,soon")
-    problems, _ = charts.validate(path)
-    assert any("usd_per_month is not a number" in p for p in problems)
-
-
-def test_a_naming_column_is_not_asked_to_be_a_number(tmp_path):
-    path = write(tmp_path / "floor-blocks.csv", "block,usd_per_month", "B,10")
-    problems, _ = charts.validate(path)
-    assert problems == []
-
-
-def test_the_templates_placeholder_is_named_as_such(tmp_path):
-    path = write(tmp_path / "split-jobs.csv",
-                 "n_set,⟨workload⟩,unused_fleet", "10,1.0,2.0")
-    problems, notes = charts.validate(path)
-    assert problems == []
-    assert any("still the template's placeholder" in n for n in notes)
-
-
-def test_a_header_only_file_is_reported_without_failing(tmp_path):
-    """The ordinary state of a first revision, and it costs no exit code."""
-    path = write(tmp_path / "split-jobs.csv", "n_set,⟨workload⟩,unused_fleet")
-    problems, notes = charts.validate(path)
-    assert problems == []
-    assert any("header only, no rows yet" in n for n in notes)
-    assert any("placeholder" in n for n in notes)
-
-
-def test_an_unschemad_filename_says_so_without_failing(tmp_path):
-    path = write(tmp_path / "invented.csv", "a,b", "1,2")
-    problems, notes = charts.validate(path)
-    assert problems == []
-    assert notes == ["invented.csv: no schema — this tool draws nothing from it"]
-
-
-# ------------------------------------------------------------------- derived
-
-def test_a_derived_column_that_disagrees_with_its_inputs_is_reported(tmp_path):
-    path = write(tmp_path / "frontier-jobs.csv", JOBS_HEADER,
-                 "10,9.0,0.76,90000,docs,4.47,100,")
-    problems, _ = charts.validate(path)
-    assert any("usd_per_1m_units states 90,000" in p for p in problems)
-    assert any("usd_per_run / unit_count * 1e6 gives 44,700" in p
-               for p in problems)
-
-
-def test_a_derived_column_inside_tolerance_passes(tmp_path):
-    path = write(tmp_path / "frontier-jobs.csv", JOBS_HEADER, *JOBS_ROWS)
-    problems, _ = charts.validate(path)
-    assert problems == []
-
-
-def test_a_derived_column_with_an_input_missing_is_not_guessed_at(tmp_path):
-    path = write(tmp_path / "frontier-jobs.csv", JOBS_HEADER,
-                 "10,9.0,0.76,90000,docs,,,")
-    problems, _ = charts.validate(path)
-    assert problems == []
-
-
-def test_the_open_split_schema_sums_whatever_the_header_names(tmp_path):
-    path = write(tmp_path / "split-jobs.csv",
-                 "n_set,alpha,beta,gamma,workload_total,unused_fleet",
-                 "10,0.5,0.3,0.2,1.0,4.0",
-                 "25,0.5,0.3,0.2,9.9,4.0")
-    problems, _ = charts.validate(path)
-    assert problems == [
-        "split-jobs.csv:3: workload_total states 9.9, workload_total = every "
-        "workload column added up gives 1 (890.0% apart)"]
-
-
-def test_an_open_split_schema_with_no_workload_column_says_so(tmp_path):
-    path = write(tmp_path / "split-jobs.csv", "n_set,unused_fleet", "10,4.0")
-    problems, notes = charts.validate(path)
-    assert problems == []
-    assert any("no workload column yet" in n for n in notes)
-
-
-# ------------------------------------------------- what partial data still draws
-
-def test_a_sweep_that_was_never_priced_still_gets_one_panel(tmp_path,
-                                                            monkeypatch):
-    """`usd_per_1m_units` is optional, so a report with no price basis — both
-    worked examples — charts its throughput rather than nothing."""
-    write(tmp_path / "charts" / "frontier-jobs.csv",
-          "n_set,n_reached,throughput\n1,1.0,4.23\n2,1.9,8.18\n")
-    monkeypatch.chdir(tmp_path)
-    assert charts.validate(tmp_path / "charts" / "frontier-jobs.csv") == ([], [])
-    code, out, err = run("jobs-frontier")
-    assert code == charts.EXIT_OK, err
-    assert (tmp_path / "assets" / "frontier-jobs.svg").exists()
-
-
-def test_the_axis_falls_back_to_the_ceiling_that_was_set(tmp_path):
-    """A run that recorded only what it was given, not what it held."""
-    rows = [{"n_set": "1", "n_reached": ""}, {"n_set": "2", "n_reached": ""}]
-    assert charts.jobs_axis(rows) == ("n_set", "concurrency set")
-    rows[1]["n_reached"] = "1.9"
-    assert charts.jobs_axis(rows)[0] == "n_reached"
-
-
-def test_a_split_with_no_fleet_figure_still_draws_its_workloads(tmp_path,
-                                                                monkeypatch):
-    write(tmp_path / "charts" / "split-jobs.csv",
-          "n_set,alpha,beta\n10,0.5,0.3\n25,0.4,0.2\n")
-    monkeypatch.chdir(tmp_path)
-    code, _, err = run("jobs-split")
-    assert code == charts.EXIT_OK, err
-    assert (tmp_path / "assets" / "split-jobs.svg").exists()
-
-
-def test_the_tradeoff_skips_rather_than_invents_a_price(tmp_path, monkeypatch):
-    write(tmp_path / "charts" / "frontier-jobs.csv",
-          "n_set,throughput\n1,4.23\n2,8.18\n")
-    monkeypatch.chdir(tmp_path)
-    code, _, err = run("jobs-tradeoff")
-    assert code == charts.EXIT_OK
-    assert "needs throughput and usd_per_1m_units" in err
-    assert not (tmp_path / "assets" / "tradeoff-jobs.svg").exists()
-
-
-# --------------------------------------------------------------- open series
-
-def test_replica_series_come_from_the_header():
-    spec = charts.SCHEMA["frontier-api.csv"]
-    header = ["offered_rps", "p95_ms", "replicas_api", "replicas_tei", "note"]
-    assert charts.series_columns(spec, header) == [
-        ("replicas_api", "api"), ("replicas_tei", "tei")]
-
-
-def test_a_placeholder_series_is_not_taken_for_a_real_one():
-    spec = charts.SCHEMA["frontier-api.csv"]
-    assert charts.series_columns(spec, ["replicas_⟨tier⟩"]) == []
-
-
-def test_split_segments_rank_by_total_and_fold_the_remainder():
-    rows = [{"a": "1", "b": "5", "c": "3", "d": "0.5"},
-            {"a": "1", "b": "5", "c": "3", "d": "0.5"}]
-    segments = charts.split_segments(rows, ["a", "b", "c", "d"])
-    assert [key for key, _ in segments] == ["b", "c", "other"]
-    assert segments[-1][1] == [1.5, 1.5]      # a + d, per row
-
-
-def test_a_unit_is_read_from_the_first_row_and_defaults():
-    assert charts.unit_of([{"unit": "events"}]) == "events"
-    assert charts.unit_of([{"unit": ""}]) == "unit"
-    assert charts.unit_of([]) == "unit"
-
-
-@pytest.mark.parametrize("plural,one", [("docs", "doc"), ("queries", "query"),
-                                        ("events", "event"), ("unit", "unit")])
-def test_a_unit_is_singularised_for_a_per_unit_axis(plural, one):
-    assert charts.singular(plural) == one
-
-
-# ------------------------------------------------------------------ renderer
-
-@pytest.fixture
-def rendered(tmp_path):
-    """One of each chart, from data thin enough to reason about."""
-    write(tmp_path / "charts" / "frontier-jobs.csv", JOBS_HEADER, *JOBS_ROWS)
-    write(tmp_path / "charts" / "split-jobs.csv",
-          "n_set,alpha,beta,gamma,workload_total,unused_fleet",
-          "10,0.5,0.3,0.2,1.0,4.0", "25,0.4,0.3,0.2,0.9,3.0")
-    write(tmp_path / "charts" / "frontier-api.csv",
-          "offered_rps,p95_ms,unit,replicas_api,replicas_tei,reference_ms,"
-          "reference_note,p95_converged_ms",
-          "50,2418,queries,2,3,2000,stub,", "500,7934,queries,3,16,,,2425")
-    write(tmp_path / "charts" / "floor-blocks.csv",
-          "block,usd_per_month", "B,534.12", "A,343.42")
-    write(tmp_path / "charts" / "amortization.csv",
-          "unit,volume,effective_usd_per_unit,floor_share_pct,crossover_volume",
-          "docs,1000,0.559,95.6,21472", "docs,1000000,0.0254,2.1,")
-    return tmp_path
-
-
-def test_all_renders_every_chart_on_both_surfaces(rendered, monkeypatch):
-    monkeypatch.chdir(rendered)
-    for theme in ("light", "navy"):
-        code, _, err = run("all", "--theme", theme)
-        assert code == charts.EXIT_OK, err
-    names = {p.name for p in (rendered / "assets").iterdir()}
-    assert names == {
-        "frontier-jobs.svg", "tradeoff-jobs.svg", "split-jobs.svg",
-        "frontier-api.svg", "floor-blocks.svg", "amortization-docs.svg",
-        "manifest-light.json",
-        "frontier-jobs-navy.svg", "tradeoff-jobs-navy.svg",
-        "split-jobs-navy.svg", "frontier-api-navy.svg",
-        "floor-blocks-navy.svg", "amortization-docs-navy.svg",
-        "manifest-navy.json"}
-
-
-def test_the_manifest_records_the_csv_it_drew_from(rendered, monkeypatch):
-    monkeypatch.chdir(rendered)
-    run("floor", "--theme", "light")
-    import json
-    entry = json.loads((rendered / "assets" / "manifest-light.json").read_text())
-    assert entry[0]["chart"] == "floor"
-    assert entry[0]["source_sha256_12"] == charts.sha256(
-        rendered / "charts" / "floor-blocks.csv")
-
-
-def test_text_is_emitted_as_text_so_the_fonts_resolve_later(rendered,
-                                                            monkeypatch):
-    monkeypatch.chdir(rendered)
-    run("floor")
-    svg = (rendered / "assets" / "floor-blocks.svg").read_text()
-    assert "IBM Plex Mono" in svg and "<text" in svg
-
-
-def test_a_csv_with_no_usable_row_is_skipped_and_the_rest_still_render(
-        rendered, monkeypatch):
-    write(rendered / "charts" / "floor-blocks.csv", "block,usd_per_month",
-          "B,534.12")
-    monkeypatch.chdir(rendered)
-    code, out, err = run("all")
-    assert code == charts.EXIT_OK
-    assert "needs blocks A and B" in err
-    assert "frontier-jobs.svg" in out
-
-
-def test_check_fails_on_a_problem_and_not_on_a_note(rendered, monkeypatch):
-    monkeypatch.chdir(rendered)
-    clean, out, _ = run("floor", "--check")
-    assert (clean, out.strip().endswith("across 1 file(s)")) == (charts.EXIT_OK,
-                                                                 True)
-    write(rendered / "charts" / "floor-blocks.csv",
-          "block,usd_per_month,surprise", "B,534.12,1")
-    noted, out, _ = run("floor", "--check")
-    assert noted == charts.EXIT_OK
-    assert "note: floor-blocks.csv: surprise is not a column" in out
-    write(rendered / "charts" / "floor-blocks.csv", "block", "B")
-    broken, out, _ = run("floor", "--check")
-    assert broken == charts.EXIT_FAILED
-    assert "required column absent — usd_per_month" in out
-
-
-def test_all_refuses_a_single_data_path(rendered, monkeypatch):
-    monkeypatch.chdir(rendered)
-    code, _, err = run("all", "--data", "charts/floor-blocks.csv")
-    assert code == charts.EXIT_USAGE
-    assert "cannot be combined with 'all'" in err
-
-
 # --- what the label placement guarantees ------------------------------------
 
-def placements(fig, ax):
-    """Every annotation on one axis as a display box, layout settled."""
-    renderer = charts.renderer_for(fig)
-    return [a.get_window_extent(renderer) for a in ax.texts]
-
-
 def crowded_axis():
-    """Two marks a hair apart, each wanting a label wider than the gap."""
-    charts.load_backend()
-    charts.configure(charts.THEMES["light"])
-    fig, ax = charts.new_figure()
+    charts.canvas.load_backend()
+    charts.canvas.configure(charts.DEFAULT_THEMES["light"])
+    fig, ax = charts.canvas.new_figure()
     ax.plot([1.0, 1.02], [1.0, 1.01], marker="o")
-    renderer = charts.renderer_for(fig)
+    renderer = charts.labels.renderer_for(fig)
     obstacles = []
     for x, y in ((1.0, 1.0), (1.02, 1.01)):
-        charts.place_label(ax, "a label of some width", (x, y),
-                           charts.THEMES["light"], renderer, obstacles)
+        charts.labels.place_label(ax, "a label of some width", (x, y),
+                                  charts.DEFAULT_THEMES["light"], renderer,
+                                  obstacles)
     return fig, ax
 
 
+def placements(fig, ax):
+    renderer = charts.labels.renderer_for(fig)
+    return [a.get_window_extent(renderer) for a in ax.texts]
+
+
 def test_two_labels_on_neighbouring_marks_do_not_overlap():
-    fig, ax = crowded_axis()
-    first, second = placements(fig, ax)
-    assert not first.overlaps(second), (
-        "labels on adjacent marks landed on each other — the candidate rows "
-        "are what stop that, so one of them stopped working")
+    first, second = placements(*crowded_axis())
+    assert not first.overlaps(second)
 
 
 def test_a_label_stays_inside_the_frame():
     fig, ax = crowded_axis()
-    frame = ax.get_window_extent(charts.renderer_for(fig))
+    frame = ax.get_window_extent(charts.labels.renderer_for(fig))
     for box in placements(fig, ax):
-        assert charts.within(frame, box)
+        assert charts.labels.within(frame, box)
 
 
 def test_a_label_is_placed_even_where_nothing_is_clear():
-    charts.load_backend()
-    charts.configure(charts.THEMES["light"])
-    fig, ax = charts.new_figure()
+    charts.canvas.load_backend()
+    charts.canvas.configure(charts.DEFAULT_THEMES["light"])
+    fig, ax = charts.canvas.new_figure()
     ax.plot([1.0], [1.0], marker="o")
-    renderer = charts.renderer_for(fig)
-    obstacles = [ax.get_window_extent(renderer)]      # the whole frame is taken
-    charts.place_label(ax, "nowhere to go", (1.0, 1.0),
-                       charts.THEMES["light"], renderer, obstacles)
-    assert len(ax.texts) == 1, "a label with no free position was dropped"
-
-
-def test_a_soft_obstacle_yields_before_a_hard_one_does():
-    """A rule may end up behind a label; another label may not."""
-    charts.load_backend()
-    charts.configure(charts.THEMES["light"])
-    fig, ax = charts.new_figure()
-    ax.plot([1.0, 2.0], [1.0, 2.0], marker="o")
-    renderer = charts.renderer_for(fig)
-    rule = charts.rule_obstacle(ax, 1.5, renderer)
-    obstacles = []
-    charts.place_label(ax, "first", (1.5, 1.5), charts.THEMES["light"],
-                       renderer, obstacles, soft=[rule])
-    charts.place_label(ax, "second", (1.5, 1.5), charts.THEMES["light"],
-                       renderer, obstacles, soft=[rule])
-    first, second = placements(fig, ax)
-    assert not first.overlaps(second)
+    renderer = charts.labels.renderer_for(fig)
+    charts.labels.place_label(ax, "nowhere to go", (1.0, 1.0),
+                              charts.DEFAULT_THEMES["light"], renderer,
+                              [ax.get_window_extent(renderer)])
+    assert len(ax.texts) == 1

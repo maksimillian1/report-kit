@@ -1,0 +1,9 @@
+[
+  {
+    "svg": "drain-navy.svg",
+    "kind": "line",
+    "theme": "navy",
+    "source": "charts/drain.csv",
+    "source_sha256_12": "2c5371fb78e4"
+  }
+]

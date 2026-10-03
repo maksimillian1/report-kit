@@ -2,7 +2,7 @@
 
     report-kit init docs/report --full
     report-kit new-point docs/report/executions/01-load --profile api
-    report-kit charts all --out assets
+    report-kit charts charts/failover.csv --kind line
     report-kit export-metrics --start … --end …
     report-kit inspect-metrics data/r-200.jsonl --settle-on M4
     report-kit node-cost --last 40m --nodepool apps-compute
@@ -27,7 +27,7 @@ TOOLS = {
     "figures": ("report_kit.tools.figures",
                 "resolve figures.yaml, and fail when a number drifts"),
     "charts": ("report_kit.tools.charts",
-               "render the charts from charts/*.csv, and check them first"),
+               "draw a CSV: four shapes, two surfaces, no report knowledge"),
     "export-metrics": ("report_kit.tools.export_metrics",
                        "re-export a window whose metrics are aging out"),
     "inspect-metrics": ("report_kit.tools.inspect_metrics",

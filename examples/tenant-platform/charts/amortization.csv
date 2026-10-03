@@ -1,0 +1,6 @@
+tenants,usd_per_tenant,floor_share
+tenants,$/tenant/month,%
+10,409,97.8
+100,49,81.6
+1000,13,30.8
+10000,9.4,4.3

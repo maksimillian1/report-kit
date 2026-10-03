@@ -1,0 +1,5 @@
+model,usd_per_tenant,p99,blast_radius
+label,$/tenant/month,ms,tenants
+silo,120,180,1
+bridge,35,240,50
+pool,13,410,1000

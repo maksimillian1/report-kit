@@ -140,3 +140,34 @@ Four classes stay semantic. Each needs a habit, not a pattern.
 
 The first three share one shape: a number that should be in the registry and is not. The tool
 reports it as unclassified rather than guessing; the fix is always to register it.
+
+## Numbers in a chart CSV
+
+A chart is drawn from a CSV by `report-kit charts`. The format is
+`report-kit charts --format` and a worked file per shape is in
+`examples/tenant-platform/`; what follows is the part that is about numbers.
+
+**A chart CSV is a view, not a reading and not a result.** An execution's
+`data/` holds what an authority returned (`methodology.md` §2), `figures.yaml`
+holds every number a document prints, and a chart CSV transcribes what the
+documents already print so that a renderer needs no knowledge of the report.
+Nothing in one is a new claim.
+
+**Copy, never compute**, and put only what is drawn in the file. If a document
+states `$44,200`, write `44200`.
+
+**An unknown value is an empty cell** — never a plausible number, never one from
+an earlier revision. A row missing what the shape plots is dropped, and a
+caveat that changes what a figure means goes in a label column.
+
+**Drift is caught here, not by the renderer.** Add the CSVs to `scan`:
+
+```yaml
+scan:
+  - report.md
+  - charts/*.csv
+```
+
+`report-kit figures check` then reads them with the prose, and a value this
+report has retired is named where it survives in a picture, together with the
+figure that replaced it.
