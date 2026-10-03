@@ -69,7 +69,7 @@ four, which is a *Held constant*. See `execution.md` §3 note #05.
 
 ### 3.2 Chart
 
-`charts/latency.svg` — `report-kit charts --all`, kind `line` in `charts/index.txt`, from a
+`charts/latency.svg` — `report-kit charts --all`, kind `line` in `charts/charts.yaml`, from a
 CSV that transcribes §3.1 above and nothing else.
 
 Two panels, because `ms` and `req/s` are different units and the renderer never

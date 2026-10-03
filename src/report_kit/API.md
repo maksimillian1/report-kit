@@ -230,13 +230,15 @@ Two things sit beside this library, and the split between them is the point:
   where `retired` already lives and can name the figure that replaced the stale
   value. A second resolver inside the renderer would have been a worse answer to
   a question that was already solved. What `charts` asserts is narrower and
-  entirely its own: given these columns, what can be drawn.
+  entirely its own: given these columns, what can be drawn, and whether each
+  SVG was drawn from the CSV and the `charts.yaml` entry as they stand now.
 
   **A tool becomes a directory when its halves stop sharing a reason to
   change.** `charts/` is the one that has: the CSV format (`table.py`), the
-  shapes (`kinds.py`), the surface (`canvas.py`) and the label geometry
-  (`labels.py`) move for different reasons and are read on different days. Its
-  `__init__.py` is the command, `charts/index.txt` included, and nothing else. The rest of `tools/`
+  shapes (`kinds.py`), the per-chart spec `charts/charts.yaml` (`spec.py`), the
+  surface (`canvas.py`) and the label geometry (`labels.py`) move for different
+  reasons and are read on different days. Its `__init__.py` is the command and
+  nothing else. The rest of `tools/`
   is one file each, and should stay that way until the same thing is true of
   it.
 

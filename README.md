@@ -38,7 +38,7 @@ report/
 ├── figures.yaml                # every number the documents print, resolved in one place
 ├── methodology.md              # the rules · formats.md · API.md · runners.md — reference, not edited
 ├── charts/                     # created on first use — ← report-kit charts --all
-│   ├── index.txt               # one line per chart: file, kind, flags
+│   ├── charts.yaml             # one entry per chart: kind, rule, mark_x, points
 │   ├── <name>.csv              # what you write: a view of numbers the documents print
 │   └── <name>.svg              # generated beside it; --all deletes any it no longer draws
 ├── assets/                     # optional — hand-drawn images; the kit never writes here

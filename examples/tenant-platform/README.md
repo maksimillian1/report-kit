@@ -15,15 +15,15 @@ flags those two never reach.
 
 ## What each file proves
 
-`charts/index.txt` names every file with its kind and flags, so the whole
+`charts/charts.yaml` gives every file its kind and marks, so the whole
 directory renders with one command:
 
 ```bash
-report-kit charts --all       # every line of charts/index.txt, both surfaces
-report-kit charts --check     # each file drawable, and none left out of the index
+report-kit charts --all       # every entry of charts/charts.yaml, both surfaces
+report-kit charts --check     # drawable, none left out, no SVG older than its CSV
 ```
 
-| File | Kind and flags | The rule it shows |
+| File | Kind and marks (as the `--kind` flags) | The rule it shows |
 | :--- | :--- | :--- |
 | `amortization.csv` | `line --mark-x 100 break-even at the pro plan` | x spans 1000×, so both axes go log without a flag; `--mark-x` draws one vertical line through every panel |
 | `failover.csv` | `line --rule 300 p99 target --mark-x 20 primary lost` | time on the x axis; `p95` and `p99` share a unit, so they share a panel and differ by line style; the empty cells at 20 s break the line rather than bridge the outage |
@@ -43,4 +43,4 @@ made each SVG.
 The edge cases are in `tests/test_charts.py`: a missing units row, a file whose
 only numeric column would be the axis, a theme replaced through
 `charts/themes.json`, a flag given to a shape that cannot draw it, a bad line
-in `index.txt`, and several CSVs rendered in one call.
+in `charts.yaml`, a stale SVG, and several CSVs rendered in one call.

@@ -233,10 +233,13 @@ def ink_on(fill: str) -> str:
     return INK_ON_LIGHT if luminance > 0.4 else INK_ON_DARK
 
 
+def svg_name(chart: str, theme_name: str) -> str:
+    return f"{chart}.svg" if theme_name == "light" else f"{chart}-{theme_name}.svg"
+
+
 def save(fig, out: Path, name: str, theme_name: str) -> Path:
     out.mkdir(parents=True, exist_ok=True)
-    suffix = "" if theme_name == "light" else f"-{theme_name}"
-    path = out / f"{name}{suffix}.svg"
+    path = out / svg_name(name, theme_name)
     # No bbox_inches="tight": cropping would change the viewBox and break the
     # one-unit-is-one-slide-pixel contract the type sizes depend on.
     fig.savefig(path, format="svg")

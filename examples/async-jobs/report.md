@@ -81,7 +81,7 @@ short enough that the autoscaler's ramp was most of the measurement. See
 
 ### 3.2 Chart
 
-`charts/drain.svg` — `report-kit charts --all`, kind `line` in `charts/index.txt`, from a CSV
+`charts/drain.svg` — `report-kit charts --all`, kind `line` in `charts/charts.yaml`, from a CSV
 that transcribes §3.1 above.
 
 One panel, because `units/s` is the only unit in the file. A sweep that measured
