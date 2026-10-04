@@ -52,7 +52,7 @@ what the units row decides
 
 what the file decides on its own
   the x axis   the first numeric column that is not a label
-  log scales   an axis wider than 25x goes log, and y follows x past 10x
+  log scales   an x wider than 25x goes log; each panel's y follows past 10x
   a subtotal   a waterfall row restating the running total
   a gap        an empty cell; a line breaks there rather than bridging it
 

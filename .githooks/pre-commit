@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+python=".venv/bin/python"
+[[ -x "$python" ]] || python="python3"
+
+if ! output="$("$python" -m pytest -q -p no:cacheprovider 2>&1)"; then
+    printf '%s\n' "$output"
+    exit 1
+fi
+if grep -qE '[0-9]+ skipped' <<<"$output"; then
+    printf '%s\n' "$output" | tail -3
+    echo 'pre-commit: tests were skipped; pip install -e ".[dev]" and commit again'
+    exit 1
+fi
+printf '%s\n' "$output" | tail -1

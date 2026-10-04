@@ -36,6 +36,7 @@ THEME_KEYS = ("ink", "secondary", "rule", "series", "cost", "muted", "ramp",
               "hatch_face", "hatch_edge")
 RAMP_STEPS = 3
 THEME_FILE = "themes.json"
+SVG_SALT = "report-kit"
 
 DEFAULT_THEMES = {
     "light": {
@@ -115,6 +116,7 @@ def configure(theme: dict) -> None:
     plt.rcParams.update(
         {
             "svg.fonttype": "none",          # keep text as text
+            "svg.hashsalt": SVG_SALT,        # stable ids: an unchanged chart is an unchanged file
             "font.family": "sans-serif",
             "font.sans-serif": FONT_SANS + ["DejaVu Sans"],
             "text.color": theme["ink"],
@@ -242,6 +244,6 @@ def save(fig, out: Path, name: str, theme_name: str) -> Path:
     path = out / svg_name(name, theme_name)
     # No bbox_inches="tight": cropping would change the viewBox and break the
     # one-unit-is-one-slide-pixel contract the type sizes depend on.
-    fig.savefig(path, format="svg")
+    fig.savefig(path, format="svg", metadata={"Date": None})
     plt.close(fig)
     return path
