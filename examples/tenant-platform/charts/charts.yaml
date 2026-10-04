@@ -1,3 +1,6 @@
+themes:
+  light: {}
+  navy: {}
 amortization:
   kind: line
   mark_x: {at: 100, text: break-even at the pro plan}
@@ -5,6 +8,7 @@ failover:
   kind: line
   rule: {at: 300, text: p99 target}
   mark_x: {at: 20, text: primary lost}
+  themes: [light]
 isolation:
   kind: line
   points: true

@@ -196,7 +196,7 @@ def test_new_writes_a_skeleton_the_reader_then_accepts(tmp_path, monkeypatch):
         code, _, err = run("new", "--kind", kind)
         assert code == charts.EXIT_OK, err
         table.read(tmp_path / "charts" / f"{kind}.csv")
-    entries = charts.spec.read_spec()
+    entries = charts.spec.read_spec().entries
     assert [(e.name, e.kind) for e in entries] == [(k, k) for k in charts.KINDS]
 
 
@@ -234,23 +234,31 @@ def test_an_unknown_theme_names_the_ones_there_are(tmp_path, monkeypatch):
     assert "light" in err and "navy" in err
 
 
-def test_a_theme_file_replaces_or_adds_one(tmp_path, monkeypatch):
-    theme = dict(charts.DEFAULT_THEMES["light"], cost="#123456")
-    write(tmp_path / "charts" / "themes.json", json.dumps({"print": theme}))
+def test_a_spec_theme_overrides_or_adds_one(tmp_path, monkeypatch):
+    specified(tmp_path, "themes:", "  light: {cost: '#123456'}",
+              "  print:", *[f"    {key}: {value!r}" for key, value in
+                            charts.DEFAULT_THEMES["light"].items()],
+              "floor:", "  kind: parts")
     monkeypatch.chdir(tmp_path)
+    given = charts.spec.read_spec().themes
+    assert given["light"]["cost"] == "#123456" and "print" in given
     code, out, err = run(str(FIXTURES / "floor.csv"), "--kind", "parts",
                          "--theme", "print")
     assert code == charts.EXIT_OK, err
     assert "floor-print.svg" in out
 
 
-def test_a_theme_missing_a_key_is_refused(tmp_path, monkeypatch):
-    write(tmp_path / "charts" / "themes.json", json.dumps({"half": {"ink": "#000"}}))
+@pytest.mark.parametrize("lines,said", [
+    (("  half: {ink: '#000'}",), "themes.half is not built in, so it needs"),
+    (("  light: {colour: red}",), "unknown key colour"),
+    (("  light: {ramp: ['#000']}",), "ramp needs 3 colours"),
+    (("  light: red",), "expected colours under the name")])
+def test_a_bad_theme_is_named(tmp_path, monkeypatch, lines, said):
+    specified(tmp_path, "themes:", *lines, "floor:", "  kind: parts")
     monkeypatch.chdir(tmp_path)
-    code, _, err = run(str(FIXTURES / "floor.csv"), "--kind", "parts",
-                       "--theme", "half")
+    code, _, err = run("--all")
     assert code == charts.EXIT_USAGE
-    assert "is missing" in err
+    assert said in err
 
 
 def test_a_rule_wants_a_number_first(tmp_path, monkeypatch):
@@ -304,19 +312,16 @@ def test_several_csvs_render_in_one_call(tmp_path, monkeypatch):
     assert code == charts.EXIT_OK, err
     assert (tmp_path / "charts" / "amortization.svg").exists()
     assert (tmp_path / "charts" / "failover.svg").exists()
-    entries = json.loads((tmp_path / "charts" / "manifest-light.json").read_text())
-    assert [e["svg"] for e in entries] == ["amortization.svg", "failover.svg"]
-    assert entries[0]["source_sha256_12"] == table.sha256(FIXTURES / "amortization.csv")
+    assert not list((tmp_path / "charts").glob("*.json"))
 
 
-def test_separate_calls_keep_each_others_manifest_entries(tmp_path, monkeypatch):
+def test_the_stamp_records_the_csv_and_what_drew_it(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    run(str(FIXTURES / "floor.csv"), "--kind", "parts")
     run(str(FIXTURES / "failover.csv"), "--kind", "line", "--mark-x", "20", "lost")
-    entries = json.loads((tmp_path / "charts" / "manifest-light.json").read_text())
-    assert [e["svg"] for e in entries] == ["failover.svg", "floor.svg"]
-    assert entries[0]["mark_x"] == [20.0, "lost"]
-    assert "mark_x" not in entries[1]
+    csv, spec = charts.stamp.read(tmp_path / "charts" / "failover.svg")
+    assert csv == table.sha256(FIXTURES / "failover.csv")
+    marks = charts.kinds.Marks(mark_x=(20.0, "lost"))
+    assert spec == charts.stamp.spec_hash("line", marks, charts.DEFAULT_THEMES["light"])
 
 
 FAILOVER = ("failover:", "  kind: line",
@@ -337,20 +342,26 @@ def test_all_draws_every_chart_on_every_theme(tmp_path, monkeypatch):
     assert code == charts.EXIT_OK, err
     for name in ("floor", "failover", "floor-navy", "failover-navy"):
         assert (tmp_path / "charts" / f"{name}.svg").exists()
-    entries = json.loads((tmp_path / "charts" / "manifest-light.json").read_text())
-    assert [e["svg"] for e in entries] == ["failover.svg", "floor.svg"]
-    assert entries[0]["mark_x"] == [20.0, "primary lost"]
+    assert not list((tmp_path / "charts").glob("*.json"))
 
 
-def test_all_replaces_the_manifest_so_a_dropped_chart_leaves(tmp_path,
-                                                             monkeypatch):
-    specified(tmp_path, "floor:", "  kind: parts", "failover:", "  kind: line")
+def test_all_draws_only_the_themes_the_spec_lists(tmp_path, monkeypatch):
+    specified(tmp_path, "themes:", "  light: {}", "floor:", "  kind: parts")
     monkeypatch.chdir(tmp_path)
-    run("--all", "--theme", "light")
-    write(tmp_path / "charts" / "charts.yaml", "floor:", "  kind: parts")
-    run("--all", "--theme", "light")
-    entries = json.loads((tmp_path / "charts" / "manifest-light.json").read_text())
-    assert [e["svg"] for e in entries] == ["floor.svg"]
+    code, _, err = run("--all")
+    assert code == charts.EXIT_OK, err
+    assert sorted(p.name for p in (tmp_path / "charts").glob("*.svg")) == ["floor.svg"]
+
+
+def test_dropping_a_theme_removes_its_svgs(tmp_path, monkeypatch):
+    specified(tmp_path, "floor:", "  kind: parts")
+    monkeypatch.chdir(tmp_path)
+    run("--all")
+    write(tmp_path / "charts" / "charts.yaml", "themes:", "  light: {}",
+          "floor:", "  kind: parts")
+    code, out, _ = run("--all")
+    assert code == charts.EXIT_OK and "removed" in out
+    assert not (tmp_path / "charts" / "floor-navy.svg").exists()
 
 
 def test_all_deletes_an_svg_no_entry_draws(tmp_path, monkeypatch):
@@ -455,6 +466,72 @@ def test_check_fails_when_an_svg_is_missing(tmp_path, monkeypatch):
     code, out, _ = run("--check")
     assert code == charts.EXIT_FAILED
     assert "floor: not drawn on navy" in out
+
+
+def test_a_chart_draws_only_its_own_themes(tmp_path, monkeypatch):
+    specified(tmp_path, "floor:", "  kind: parts", *FAILOVER, "  themes: [light]")
+    monkeypatch.chdir(tmp_path)
+    code, _, err = run("--all")
+    assert code == charts.EXIT_OK, err
+    drawn = sorted(p.name for p in (tmp_path / "charts").glob("*.svg"))
+    assert drawn == ["failover.svg", "floor-navy.svg", "floor.svg"]
+    code, out, _ = run("--check")
+    assert code == charts.EXIT_OK, out
+
+
+def test_narrowing_a_charts_themes_removes_the_dropped_svg(tmp_path, monkeypatch):
+    specified(tmp_path, *FAILOVER)
+    monkeypatch.chdir(tmp_path)
+    run("--all")
+    write(tmp_path / "charts" / "charts.yaml", *FAILOVER, "  themes: [light]")
+    code, out, _ = run("--check")
+    assert code == charts.EXIT_FAILED and "failover-navy.svg: no entry or theme" in out
+    run("--all")
+    assert not (tmp_path / "charts" / "failover-navy.svg").exists()
+
+
+@pytest.mark.parametrize("lines,said", [
+    (("  themes: [print]",), "themes names print, which the spec does not define"),
+    (("  themes: light",), "themes is a list of theme names"),
+    (("  themes: []",), "themes is a list of theme names")])
+def test_a_bad_chart_themes_list_is_named(tmp_path, monkeypatch, lines, said):
+    specified(tmp_path, *FAILOVER, *lines)
+    monkeypatch.chdir(tmp_path)
+    code, _, err = run("--all")
+    assert code == charts.EXIT_USAGE
+    assert "failover" in err and said in err
+
+
+def test_check_fails_when_a_theme_colour_changed_after_drawing(tmp_path,
+                                                             monkeypatch):
+    specified(tmp_path, "themes:", "  light: {}", "floor:", "  kind: parts")
+    monkeypatch.chdir(tmp_path)
+    run("--all")
+    write(tmp_path / "charts" / "charts.yaml", "themes:",
+          "  light: {cost: '#123456'}", "floor:", "  kind: parts")
+    code, out, _ = run("--check")
+    assert code == charts.EXIT_FAILED
+    assert "charts.yaml changed since floor.svg was drawn" in out
+
+
+def test_check_names_an_svg_nothing_draws(tmp_path, monkeypatch):
+    specified(tmp_path, "themes:", "  light: {}", "floor:", "  kind: parts")
+    monkeypatch.chdir(tmp_path)
+    run("--all")
+    write(tmp_path / "charts" / "sketch.svg", "<svg/>")
+    code, out, _ = run("--check")
+    assert code == charts.EXIT_FAILED
+    assert "sketch.svg: no entry or theme of charts.yaml draws it" in out
+
+
+def test_check_names_an_svg_without_a_stamp(tmp_path, monkeypatch):
+    specified(tmp_path, "themes:", "  light: {}", "floor:", "  kind: parts")
+    monkeypatch.chdir(tmp_path)
+    run("--all")
+    write(tmp_path / "charts" / "floor.svg", "<svg/>")
+    code, out, _ = run("--check")
+    assert code == charts.EXIT_FAILED
+    assert "floor.svg: no report-kit stamp" in out
 
 
 def test_the_example_spec_covers_the_example_and_is_current(monkeypatch):
