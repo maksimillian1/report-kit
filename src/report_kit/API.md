@@ -235,9 +235,10 @@ Two things sit beside this library, and the split between them is the point:
 
   **A tool becomes a directory when its halves stop sharing a reason to
   change.** `charts/` is the one that has: the CSV format (`table.py`), the
-  shapes (`kinds.py`), the per-chart spec `charts/charts.yaml` (`spec.py`), the
-  surface (`canvas.py`) and the label geometry (`labels.py`) move for different
-  reasons and are read on different days. Its `__init__.py` is the command and
+  shapes (`kinds.py`), `charts/charts.yaml` (`spec.py`), drawing (`render.py`),
+  the SVG's stamp (`stamp.py`), `--check` (`check.py`), the surface
+  (`canvas.py`) and the label geometry (`labels.py`) move for different reasons
+  and are read on different days. Its `__init__.py` is the command and
   nothing else. The rest of `tools/`
   is one file each, and should stay that way until the same thing is true of
   it.

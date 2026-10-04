@@ -1,9 +1,0 @@
-[
-  {
-    "svg": "latency-navy.svg",
-    "kind": "line",
-    "theme": "navy",
-    "source": "charts/latency.csv",
-    "source_sha256_12": "48ef66eb9c50"
-  }
-]

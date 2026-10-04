@@ -10,7 +10,7 @@ copies to your report's root.
 ## Installation
 
 ```bash
-pip install "report-kit @ git+https://github.com/maksimillian1/report-kit@v0.3.1"
+pip install "report-kit @ git+https://github.com/maksimillian1/report-kit@v0.3.2"
 
 report-kit init docs/report            # 2+ executions
 report-kit init docs/report --minimal  # a single execution
@@ -38,7 +38,7 @@ report/
 ├── figures.yaml                # every number the documents print, resolved in one place
 ├── methodology.md              # the rules · formats.md · API.md · runners.md — reference, not edited
 ├── charts/                     # created on first use — ← report-kit charts --all
-│   ├── charts.yaml             # one entry per chart: kind, rule, mark_x, points
+│   ├── charts.yaml             # one entry per chart (kind, rule, mark_x, points), and themes
 │   ├── <name>.csv              # what you write: a view of numbers the documents print
 │   └── <name>.svg              # generated beside it; --all deletes any it no longer draws
 ├── assets/                     # optional — hand-drawn images; the kit never writes here

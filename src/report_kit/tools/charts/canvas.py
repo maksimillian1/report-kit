@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
 
@@ -35,7 +34,6 @@ NOTE_PAD = 16
 THEME_KEYS = ("ink", "secondary", "rule", "series", "cost", "muted", "ramp",
               "hatch_face", "hatch_edge")
 RAMP_STEPS = 3
-THEME_FILE = "themes.json"
 SVG_SALT = "report-kit"
 
 DEFAULT_THEMES = {
@@ -63,29 +61,6 @@ DEFAULT_THEMES = {
     },
 }
 
-
-def load_themes(root: Path) -> dict:
-    themes = {name: dict(theme) for name, theme in DEFAULT_THEMES.items()}
-    path = root / "charts" / THEME_FILE
-    if not path.exists():
-        return themes
-    try:
-        given = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        raise ChartError(f"{path}: {exc}") from exc
-    if not isinstance(given, dict):
-        raise ChartError(f"{path}: expected an object of theme name to colours")
-    for name, theme in given.items():
-        merged = {**themes.get(name, {}), **theme}
-        missing = [k for k in THEME_KEYS if k not in merged]
-        if missing:
-            raise ChartError(f"{path}: theme {name!r} is missing "
-                             f"{', '.join(missing)}")
-        if len(merged["ramp"]) != RAMP_STEPS:
-            raise ChartError(f"{path}: theme {name!r} needs {RAMP_STEPS} ramp "
-                             f"steps, got {len(merged['ramp'])}")
-        themes[name] = merged
-    return themes
 
 plt = None
 FuncFormatter = Bbox = None
