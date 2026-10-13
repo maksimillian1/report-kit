@@ -61,7 +61,7 @@ the saturation below would never have appeared.
 
 - **Varied parameter** — offered arrival rate, `TARGET_RATE` in `scripts/load.js`
 - **Candidate grid** — 4 · 12 · 24 · 32 · 40 req/s
-- **Sweep order** — 4, 24, 12, then 40, then 32 — ends and middle first, the rest placed by the shape (`methodology.md` §7)
+- **Sweep order** — 4, 24, 12, then 40, then 32 — ends and middle first, the rest placed by the shape (`methodology.md` §6)
 - **Held constant** — image, CPU limits, HPA bounds, node, 45 s of load per point, no other workload on the node
 
 ### Expected
@@ -101,7 +101,7 @@ and the throughput ceiling should coincide near 20.
 
 **#04 before #05** — the first three points said the range was wrong rather than
 that the curve had a minimum: throughput tracked the offered rate at all of
-them and latency was still climbing at the top. `methodology.md` §7 calls that
+them and latency was still climbing at the top. `methodology.md` §6 calls that
 "extend it", so 40 was run before the refinement point, and it was 40 that
 produced the collapse.
 

@@ -4,7 +4,7 @@
 
 - **Report** — `⟨system⟩` · v⟨n⟩ · ⟨date⟩
 - **System under test** — commit `⟨sha⟩` · ⟨date⟩
-- **Envelope** — ⟨workload profile⟩ · ⟨scale range⟩ · ⟨topology⟩
+- **Scope** — ⟨workload profile⟩ · ⟨scale range⟩ · ⟨topology⟩
 - **Executions** — ⟨`00-baseline` · `01-⟨name⟩` · …⟩
 - **Raw data** — `executions/⟨…⟩/data/` · charts in `charts/`
 - **Figures** — measured unless marked: ᴰ derived · ᴿ recorded · ᴱ estimated
@@ -15,11 +15,11 @@
 
 ## Coverage
 
-| Area | Status | Evidence | Cost of absence | Since |
-| :--- | :--- | :--- | :--- | :--- |
-| ⟨⟩ | ⟨measured⟩ | ⟨`01-⟨name⟩` §3⟩ | ⟨what this would have supported⟩ | ⟨v1⟩ |
-| ⟨⟩ | ⟨declared, not measured⟩ | — | ⟨⟩ | ⟨v1⟩ |
-| ⟨⟩ | ⟨out of scope⟩ | — | ⟨⟩ | ⟨v1⟩ |
+| Area | Status | Evidence |
+| :--- | :--- | :--- |
+| ⟨⟩ | ⟨measured⟩ | ⟨`01-⟨name⟩` §3⟩ |
+| ⟨⟩ | ⟨declared, not measured⟩ | ⟨one clause: why the area could matter⟩ |
+| ⟨⟩ | ⟨out of scope⟩ | ⟨one clause: why the area could matter⟩ |
 
 ---
 
@@ -35,12 +35,12 @@
 
 ---
 
-## 2. Workload Contract & Envelope
+## 2. Test Setup & Scope
 
 - **Unit of work** — ⟨definition, including the moment a unit counts as done⟩
 - **Workload fixture** — ⟨profile · distribution · arrival pattern · frozen at ⟨date⟩ `⟨sha⟩`⟩
 - **Denominator** — ⟨N⟩, from ⟨`00-baseline` §2⟩
-- **Envelope** — ⟨conditions under which these numbers hold⟩
+- **Scope** — ⟨conditions under which these numbers hold⟩
 - **Metric sources** — ⟨instruments the figures are read from⟩
 
 ---

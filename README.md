@@ -10,7 +10,7 @@ copies to your report's root.
 ## Installation
 
 ```bash
-pip install "report-kit @ git+https://github.com/maksimillian1/report-kit@v0.3.2"
+pip install "report-kit @ git+https://github.com/maksimillian1/report-kit@v0.3.3"
 
 report-kit init docs/report            # 2+ executions
 report-kit init docs/report --minimal  # a single execution
@@ -171,7 +171,7 @@ rather than the system, and says how that was caught.
 ## Order of operations — first revision
 
 Every step below is forward-only: skip it and the figure cannot be reconstructed later
-(`methodology.md` §6). Steps 1–6 are preparation, not runs — they produce a freeze commit
+(`methodology.md` §5). Steps 1–6 are preparation, not runs — they produce a freeze commit
 and a journal note.
 
 1. **Freeze the system.** Tag the commit under test. Nothing below survives a rebuild.

@@ -605,6 +605,11 @@ class TestLoading:
          "must be strings"),
         ("figures:\n  a: {ref: FM1, kind: M, value: 1, source: s}\n"
          "scan: x.md\n", "must be a list"),
+        ("figures:\n  a: {ref: FM1, kind: M, value: 1, source: s}\n"
+         "  a: {ref: FM2, kind: M, value: 2, source: s}\n",
+         "'a' appears twice, at lines 2 and 3"),
+        ("figures:\n  a:\n    ref: FM1\n    kind: M\n    value: 1\n"
+         "    value: 2\n    source: s\n", "'value' appears twice"),
     ])
     def test_a_malformed_one_is_a_figure_error(self, registry_file, text,
                                                message):
@@ -744,6 +749,19 @@ class TestCommand:
                                                  message):
         code, _, err = run("--path", str(registry_file(text)), "check")
         assert code == 2 and message in err
+
+    def test_validate_refuses_a_figure_defined_twice(self, registry_file):
+        text = REGISTRY_TEXT.replace(
+            "  total:", "  alpha:\n    ref: FM3\n    kind: M\n    value: 99\n"
+            "    source: a second alpha\n\n  total:")
+        code, _, err = run("--path", str(registry_file(text)), "validate")
+        assert code == 2 and "'alpha' appears twice" in err
+
+    def test_a_merge_key_may_still_be_overridden(self, registry_file):
+        text = ("base: &base {kind: M, source: s}\n"
+                "figures:\n  a: {<<: *base, ref: FM1, value: 1, source: own}\n")
+        assert Registry.load(explicit=registry_file(text)
+                             ).figures["a"]["source"] == "own"
 
     def test_a_registry_that_is_not_there_exits_two(self, tmp_path):
         assert run("--path", str(tmp_path / "nope.yaml"), "check")[0] == 2
