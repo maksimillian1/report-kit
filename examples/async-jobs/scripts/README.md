@@ -7,7 +7,7 @@ what produced every number in `../execution.md` and `../report.md`.
 ```bash
 ./up.sh                                              # kind + KEDA + workload (~3 min)
 ./point.py --run n01-long --n 1 --count 1200         # ends first,
-./point.py --run n08-long --n 8 --count 1200         #   methodology.md §7
+./point.py --run n08-long --n 8 --count 1200         #   methodology.md §6
 ./point.py --run n02-long --n 2 --count 1200         # then the middle
 ./point.py --run n04-long --n 4 --count 1200         # then place the rest by the shape
 ./point.py --run n08-long-b --n 8 --count 1200       # a repeat, to size the noise

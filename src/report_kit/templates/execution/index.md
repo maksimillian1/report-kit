@@ -49,7 +49,7 @@
 - **Region · currency** — ⟨⟩
 - **Covers** — ⟨every resource class any figure will price⟩
 
-### Envelope → report §2
+### Scope → report §2
 
 - **Platform** — ⟨⟩. Re-measure on: ⟨⟩
 - **Scale range** — ⟨⟩. Re-measure on: ⟨⟩

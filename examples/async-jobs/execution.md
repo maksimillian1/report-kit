@@ -78,7 +78,7 @@ never build a backlog, and the backlog is what this execution measures.
 
 - **Varied parameter** — the **worker pool ceiling**, `maxReplicaCount` on the ScaledObject, patched per point by `scripts/point.py`
 - **Candidate grid** — 1 · 2 · 4 · 8
-- **Sweep order** — 1, 8, then 2, then 4 — ends and middle first, the rest placed by the shape (`methodology.md` §7)
+- **Sweep order** — 1, 8, then 2, then 4 — ends and middle first, the rest placed by the shape (`methodology.md` §6)
 - **Held constant** — images, unit cost, retry share, offered rate, shared-tier HPA bounds, node, and **the unit count within a pass**
 
 ### Expected
@@ -222,7 +222,7 @@ Every point: 1,200<!--FR1--> units offered at a constant 40<!--FR2--> units/s,
 
 ### Saturation
 
-**No tier is claimed, and that is the result.** `methodology.md` §7's reading
+**No tier is claimed, and that is the result.** `methodology.md` §6's reading
 of three points is explicit: *still falling at the top → the range was wrong,
 extend it*. Efficiency is decaying (100<!--FD6--> → 97<!--FD7--> →
 84<!--FD8--> → 70<!--FD9--> %) but capacity is still rising, so this grid ends

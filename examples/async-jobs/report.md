@@ -12,15 +12,15 @@ Legend — ᴰ derived · ᴱ estimated · ᴿ recorded during the run · ᴱˣ 
 
 ## Coverage
 
-| Area | Status | Evidence | Cost of absence | Since |
-| :--- | :--- | :--- | :--- | :--- |
-| Drain time vs worker pool ceiling | measured | `execution.md` §4 | — | v1 |
-| Whether the shared tier is the constraint | **measured, and it is not** | `execution.md` §4, refs D10 / M6 | — | v1 |
-| Where the pool's saturation point is | **not found** | `execution.md` §4 Saturation | the grid ends before the system does; sizing above `n = 8` is unsupported | v1 |
-| Ramp vs contention above `n = 4` | **declared, not separated** | `execution.md` §4 | the missing 30<!--FD17--> % of per-worker efficiency has two candidate causes and no verdict | v1 |
-| Cost per unit drained | **declared, not measured** | — | no price basis exists for a local cluster | v1 |
-| Behaviour under worker loss | **out of scope** | — | a pod killed mid-unit would be caught by `G1`; it never happened, so nothing is claimed | v1 |
-| Node autoscaling and instance interruption | **out of scope** | — | kind cannot create or reclaim nodes; the real jobs profile's validity logic stays untested | v1 |
+| Area | Status | Evidence |
+| :--- | :--- | :--- |
+| Drain time vs worker pool ceiling | measured | `execution.md` §4 |
+| Whether the shared tier is the constraint | **measured, and it is not** | `execution.md` §4, refs D10 / M6 |
+| Where the pool's saturation point is | **not found** | `execution.md` §4 Saturation · the grid ends before the system does; sizing above `n = 8` is unsupported |
+| Ramp vs contention above `n = 4` | **declared, not separated** | `execution.md` §4 · the missing 30<!--FD17--> % of per-worker efficiency has two candidate causes and no verdict |
+| Cost per unit drained | **declared, not measured** | No price basis exists for a local cluster |
+| Behaviour under worker loss | **out of scope** | A pod killed mid-unit would be caught by `G1`; it never happened, so nothing is claimed |
+| Node autoscaling and instance interruption | **out of scope** | `kind` cannot create or reclaim nodes; the real jobs profile's validity logic stays untested |
 
 ---
 
@@ -43,7 +43,7 @@ belong to one laptop.
 
 ---
 
-## 2. Workload Contract & Envelope
+## 2. Test Setup & Scope
 
 One unit is one queue message: 150<!--FR3--> ms of worker time, then one call
 to the shared tier costing 60<!--FR4--> ms of its time. One unit in twenty fails after the burn
@@ -56,7 +56,7 @@ could not build a backlog, and the backlog is the thing under test.
 
 | | |
 | :--- | :--- |
-| Envelope | worker pool 0–8, `600m` CPU limit each; shared tier 1–2 replicas at `500m` |
+| Scope | worker pool 0–8, `600m` CPU limit each; shared tier 1–2 replicas at `500m` |
 | Unit cost of work | 150<!--FR3--> ms worker + 60<!--FR4--> ms shared tier, both wall-clock |
 | Measured range | pool ceiling 1<!--FR5--> – 8<!--FR8-->, 1,200<!--FR1--> units per point, 40<!--FR2--> units/s offered |
 | Not covered | pool ceilings above 8, unit counts scaled per point, a non-deterministic failure share, sustained arrival rates above the drain rate |

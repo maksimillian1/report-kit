@@ -12,13 +12,13 @@ Legend — ᴰ derived · ᴱ estimated · ᴿ recorded during the run · ᴱˣ 
 
 ## Coverage
 
-| Area | Status | Evidence | Cost of absence | Since |
-| :--- | :--- | :--- | :--- | :--- |
-| Throughput and latency vs offered load | measured | `execution.md` §4 | — | v1 |
-| Saturation mechanism | measured | `execution.md` §4 Saturation | — | v1 |
-| Cost per unit | **declared, not measured** | — | no price basis exists for a local cluster; the whole of §4 below | v1 |
-| Behaviour above `maxReplicas: 4` | **out of scope** | — | the curve describes one autoscaler configuration, not the service | v1 |
-| Reliability under instance loss | **out of scope** | — | a single-node local cluster cannot lose a node | v1 |
+| Area | Status | Evidence |
+| :--- | :--- | :--- |
+| Throughput and latency vs offered load | measured | `execution.md` §4 |
+| Saturation mechanism | measured | `execution.md` §4 Saturation |
+| Cost per unit | **declared, not measured** | No price basis exists for a local cluster; the whole of §4 below |
+| Behaviour above `maxReplicas: 4` | **out of scope** | The curve describes one autoscaler configuration, not the service |
+| Reliability under instance loss | **out of scope** | A single-node local cluster cannot lose a node |
 
 ---
 
@@ -36,7 +36,7 @@ time out; the usable ceiling is the latency knee, not the throughput one.
 
 ---
 
-## 2. Workload Contract & Envelope
+## 2. Test Setup & Scope
 
 One unit is one `GET /` answered with status 200. Load is offered at a
 **constant arrival rate** — requests depart on schedule regardless of whether
@@ -45,7 +45,7 @@ the client's willingness to wait.
 
 | | |
 | :--- | :--- |
-| Envelope | 1–4 replicas, `200m` CPU each, HPA target 50 % utilisation |
+| Scope | 1–4 replicas, `200m` CPU each, HPA target 50 % utilisation |
 | Unit cost of work | ~40 ms of server CPU per request |
 | Measured range | 4<!--FR1--> – 40<!--FR5--> req/s offered, 45 s of load per point |
 | Not covered | sustained load beyond 45 s, concurrent workloads, more than 4 replicas |
@@ -115,7 +115,7 @@ it cannot see what would bind after it.
 
 **Not measured.** This example runs on a local single-node cluster, which has
 no price basis and no attribution tags. A dated price snapshot is one of the
-things `methodology.md` §6 calls unrecoverable, so the honest entry is an empty
+things `methodology.md` §5 calls unrecoverable, so the honest entry is an empty
 section with a reason rather than a plausible-looking table.
 
 In a real report, §3.1's throughput column would become $/1M units here, and

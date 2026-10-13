@@ -54,7 +54,7 @@
 - **Rate type** — ⟨EDP · Savings Plan · On-Demand list⟩
 - **Region & currency** — `⟨eu-central-1⟩` · ⟨USD⟩
 
-### Envelope → report §2
+### Scope → report §2
 
 - **Platform** — ⟨AWS EKS v1.30, x86_64⟩. Re-measure on ⟨ARM64 migration, minor K8s upgrade⟩
 - **Scale range** — ⟨0 to 10,000 req/sec⟩. Re-measure on ⟨traffic above 10k req/sec⟩

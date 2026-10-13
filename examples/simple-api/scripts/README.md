@@ -9,7 +9,7 @@ Running the grid below is what produced every number in `../execution.md` and
 ./up.sh                                          # kind cluster + workload (~2 min)
 ./point.py --run rate-04 --rate 4  --duration 45s
 ./point.py --run rate-24 --rate 24 --duration 45s   # ends and middle first,
-./point.py --run rate-12 --rate 12 --duration 45s   #   methodology.md §7
+./point.py --run rate-12 --rate 12 --duration 45s   #   methodology.md §6
 ./point.py --run rate-40 --rate 40 --duration 45s   # the range was too small
 ./point.py --run rate-32 --rate 32 --duration 45s
 ./down.sh                                        # delete the cluster
