@@ -264,9 +264,27 @@ z
 " clip-path="url(#pdb2b58d8f8)" style="fill: #3d85c6"/>
    </g>
    <g id="text_13">
-    <text style="font-size: 34px; font-family: 'IBM Plex Mono', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Computer Modern Typewriter', 'Andale Mono', 'Nimbus Mono L', 'Courier New', 'Courier', 'Fixed', 'Terminal', monospace; text-anchor: middle; fill: #ffffff" x="1441.800854" y="619.312307" transform="rotate(-0 1441.800854 619.312307)">18,000.00</text>
+    <text style="font-size: 34px; font-family: 'IBM Plex Mono', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Computer Modern Typewriter', 'Andale Mono', 'Nimbus Mono L', 'Courier New', 'Courier', 'Fixed', 'Terminal', monospace; text-anchor: middle; fill: #ffffff" x="358.547428" y="850.914038" transform="rotate(-0 358.547428 850.914038)">2,250.00</text>
    </g>
    <g id="text_14">
+    <text style="font-size: 34px; font-family: 'IBM Plex Mono', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Computer Modern Typewriter', 'Andale Mono', 'Nimbus Mono L', 'Courier New', 'Courier', 'Fixed', 'Terminal', monospace; text-anchor: middle; fill: #ffffff" x="358.547428" y="759.008589" transform="rotate(-0 358.547428 759.008589)">4,000.00</text>
+   </g>
+   <g id="text_15">
+    <text style="font-size: 34px; font-family: 'IBM Plex Mono', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Computer Modern Typewriter', 'Andale Mono', 'Nimbus Mono L', 'Courier New', 'Courier', 'Fixed', 'Terminal', monospace; text-anchor: middle; fill: #ffffff" x="719.631903" y="817.828077" transform="rotate(-0 719.631903 817.828077)">4,500.00</text>
+   </g>
+   <g id="text_16">
+    <text style="font-size: 34px; font-family: 'IBM Plex Mono', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Computer Modern Typewriter', 'Andale Mono', 'Nimbus Mono L', 'Courier New', 'Courier', 'Fixed', 'Terminal', monospace; text-anchor: middle; fill: #ffffff" x="719.631903" y="692.836666" transform="rotate(-0 719.631903 692.836666)">4,000.00</text>
+   </g>
+   <g id="text_17">
+    <text style="font-size: 34px; font-family: 'IBM Plex Mono', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Computer Modern Typewriter', 'Andale Mono', 'Nimbus Mono L', 'Courier New', 'Courier', 'Fixed', 'Terminal', monospace; text-anchor: middle; fill: #ffffff" x="1080.716378" y="751.656153" transform="rotate(-0 1080.716378 751.656153)">9,000.00</text>
+   </g>
+   <g id="text_18">
+    <text style="font-size: 34px; font-family: 'IBM Plex Mono', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Computer Modern Typewriter', 'Andale Mono', 'Nimbus Mono L', 'Courier New', 'Courier', 'Fixed', 'Terminal', monospace; text-anchor: middle; fill: #ffffff" x="1080.716378" y="560.492819" transform="rotate(-0 1080.716378 560.492819)">4,000.00</text>
+   </g>
+   <g id="text_19">
+    <text style="font-size: 34px; font-family: 'IBM Plex Mono', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Computer Modern Typewriter', 'Andale Mono', 'Nimbus Mono L', 'Courier New', 'Courier', 'Fixed', 'Terminal', monospace; text-anchor: middle; fill: #ffffff" x="1441.800854" y="619.312307" transform="rotate(-0 1441.800854 619.312307)">18,000.00</text>
+   </g>
+   <g id="text_20">
     <text style="font-size: 34px; font-family: 'IBM Plex Mono', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Computer Modern Typewriter', 'Andale Mono', 'Nimbus Mono L', 'Courier New', 'Courier', 'Fixed', 'Terminal', monospace; text-anchor: middle; fill: #ffffff" x="1441.800854" y="295.805126" transform="rotate(-0 1441.800854 295.805126)">4,000.00</text>
    </g>
    <g id="legend_1">
@@ -278,7 +296,7 @@ L 689.028828 59.015313
 z
 " style="fill: #17364f"/>
     </g>
-    <g id="text_15">
+    <g id="text_21">
      <text style="font-size: 34px; font-family: 'IBM Plex Mono', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Computer Modern Typewriter', 'Andale Mono', 'Nimbus Mono L', 'Courier New', 'Courier', 'Fixed', 'Terminal', monospace; text-anchor: start; fill: #0b1320" x="770.628828" y="82.815313" transform="rotate(-0 770.628828 82.815313)">usage</text>
     </g>
     <g id="patch_14">
@@ -289,7 +307,7 @@ L 927.374141 59.015313
 z
 " style="fill: #3d85c6"/>
     </g>
-    <g id="text_16">
+    <g id="text_22">
      <text style="font-size: 34px; font-family: 'IBM Plex Mono', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Computer Modern Typewriter', 'Andale Mono', 'Nimbus Mono L', 'Courier New', 'Courier', 'Fixed', 'Terminal', monospace; text-anchor: start; fill: #0b1320" x="1008.974141" y="82.815313" transform="rotate(-0 1008.974141 82.815313)">floor</text>
     </g>
    </g>

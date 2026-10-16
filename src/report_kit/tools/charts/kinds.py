@@ -177,7 +177,7 @@ def bars(data: table.Table, theme: dict, out: Path, theme_name: str,
                        label=column.name, zorder=3, **fill)
                 bottom = [b + v for b, v in zip(bottom, values)]
             if not group.aside:
-                label_tallest(ax, side, ordered, theme)
+                label_segments(ax, side, ordered, theme)
 
     ax.set_xticks(at)
     ax.set_xticklabels(ticks)
@@ -190,18 +190,19 @@ def bars(data: table.Table, theme: dict, out: Path, theme_name: str,
     return [save(fig, out, data.path.stem, theme_name)]
 
 
-def label_tallest(ax, at, ordered, theme: dict) -> None:
-    """The ramp's lightest step is under 3:1 against the surface, so the tallest
-    bar carries its own numbers."""
+def label_segments(ax, at, ordered, theme: dict) -> None:
+    """The ramp's lightest step is under 3:1 against the surface, so every
+    segment tall enough to hold its number carries it."""
     totals = [sum(c.values[i] or 0 for c in ordered) for i in range(len(at))]
-    tall = max(range(len(at)), key=lambda i: totals[i])
-    running = 0.0
-    for step, column in enumerate(ordered):
-        value = column.values[tall] or 0.0
-        mid, running = running + value / 2, running + value
-        if value >= MIN_LABELLED:
-            annotate(ax, f"{value:,.2f}", (at[tall], mid), (0, -12), theme,
-                     colour=ink_on(ramp(theme, step)), ha="center")
+    tallest = max(totals, default=0.0)
+    for bar, x in enumerate(at):
+        running = 0.0
+        for step, column in enumerate(ordered):
+            value = column.values[bar] or 0.0
+            mid, running = running + value / 2, running + value
+            if tallest and value / tallest >= MIN_LABELLED:
+                annotate(ax, f"{value:,.2f}", (x, mid), (0, -12), theme,
+                         colour=ink_on(ramp(theme, step)), ha="center")
 
 
 def parts(data: table.Table, theme: dict, out: Path, theme_name: str,

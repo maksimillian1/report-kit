@@ -10,7 +10,7 @@ copies to your report's root.
 ## Installation
 
 ```bash
-pip install "report-kit @ git+https://github.com/maksimillian1/report-kit@v0.3.3"
+pip install "report-kit @ git+https://github.com/maksimillian1/report-kit@v0.3.4"
 
 report-kit init docs/report            # 2+ executions
 report-kit init docs/report --minimal  # a single execution

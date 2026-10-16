@@ -614,6 +614,33 @@ def test_a_draw_called_directly_loads_its_own_backend(tmp_path):
     charts.canvas.plt.close(fig)
 
 
+# --- what a stacked bar labels ------------------------------------------------
+
+def segment_labels(*bars):
+    theme = charts.DEFAULT_THEMES["light"]
+    charts.canvas.load_backend()
+    charts.canvas.configure(theme)
+    fig, ax = charts.canvas.new_figure()
+    columns = [table.Column(f"part{i}", "$", values)
+               for i, values in enumerate(zip(*bars))]
+    charts.kinds.label_segments(ax, list(range(len(bars))), columns, theme)
+    labels = [text.get_text() for text in ax.texts]
+    charts.canvas.plt.close(fig)
+    return labels
+
+
+def test_every_bar_carries_its_own_numbers():
+    assert segment_labels((1800, 1200), (1500, 900)) == [
+        "1,800.00", "1,200.00", "1,500.00", "900.00"]
+
+
+@pytest.mark.parametrize("bars,labelled", [
+    (((4000, 90), (2000, 1000)), ["4,000.00", "2,000.00", "1,000.00"]),
+    (((0.06, 0.002), (0.03, 0.02)), ["0.06", "0.03", "0.02"])])
+def test_a_segment_is_labelled_by_its_share_of_the_tallest_bar(bars, labelled):
+    assert segment_labels(*bars) == labelled
+
+
 # --- what the label placement guarantees ------------------------------------
 
 def crowded_axis():
