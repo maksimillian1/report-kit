@@ -244,10 +244,12 @@ in: the point's own `.point.json`, or for a `ref:` the `.jsonl` beside it.
   cited moves (`methodology.md` §2, append, never insert). A label already taken takes the next
   letter: `n08`, `n08b`, `n08c`, never an `a` and nothing past `z`. A label is taken when a
   figure's `point:` key carries it or a name the template would produce already exists.
-  `--as <label>` names the point instead, and refuses a label already taken. A point whose
-  `guard_failures` or `empty_refs` is not empty is refused unless `--allow-invalid` is given. A
-  point whose `held:` fields differ is always refused: a different grid is never a repeat of this
-  one. A reading that is a gap writes nothing.
+  `--as <label>` names the point instead, and refuses a label already taken. A run file the
+  registry already reads, its `.point.json` or the `.jsonl` beside it named by any `from:`, is
+  refused whatever the flags: one measurement added twice is not a repeat, and a real repeat is a
+  new run with its own file. A point whose `guard_failures` or `empty_refs` is not empty is
+  refused unless `--allow-invalid` is given. A point whose `held:` fields differ is always
+  refused: a different grid is never a repeat of this one. A reading that is a gap writes nothing.
 - **`report-kit figures rename-point <old> <new>`** renames every figure whose `point:` is
   `<old>`, replacing the label where it stands whole in the name (`n08` never matches inside
   `n08b`), and rewrites every formula and `replaced_by:` that names one. Refs stay, so no document

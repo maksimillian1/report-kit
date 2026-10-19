@@ -10,6 +10,7 @@ has the rules; this module only computes.
 from __future__ import annotations
 
 import math
+import os
 import re
 from dataclasses import dataclass
 from typing import Callable
@@ -167,6 +168,22 @@ def filled(value: object, label: str) -> object:
     if isinstance(value, dict):
         return {key: filled(item, label) for key, item in value.items()}
     return value
+
+
+def run_files(point_file: str) -> set[str]:
+    """The point record and the export beside it, as `from: file` names them."""
+    files = {point_file}
+    if point_file.endswith(POINT_SUFFIX):
+        files.add(point_file[:-len(POINT_SUFFIX)] + ".jsonl")
+    return {os.path.normpath(name) for name in files}
+
+
+def readers(figures: dict[str, dict], point_file: str) -> list[str]:
+    """The figures whose `from:` already reads this run's record or export."""
+    files = run_files(point_file)
+    return [name for name, spec in figures.items()
+            if isinstance(spec.get("from"), dict)
+            and os.path.normpath(str(spec["from"].get("file"))) in files]
 
 
 def data_file(point_file: str, source: dict) -> str:

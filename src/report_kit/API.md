@@ -243,7 +243,11 @@ Two things sit beside this library, and the split between them is the point:
   and are read on different days. Its `__init__.py` is the command and
   nothing else. The rest of `tools/`
   is one file each, and should stay that way until the same thing is true of
-  it.
+  it. `figures` is halfway there: its point commands (`add-point`,
+  `rename-point`, `delete-point`) live in `figure_points.py` beside it, because
+  editing a registry and its documents as a set changes for other reasons than
+  resolving and checking one. `figure_points` builds on `figures`' model, so
+  `figures.main` imports it only once one of those commands is chosen.
 
   One rule that directory inherits from the seam above: the four matplotlib
   names `load_backend()` binds are module globals on `canvas`, so every other

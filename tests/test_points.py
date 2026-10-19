@@ -16,7 +16,7 @@ import pytest
 
 from report_kit import points
 from report_kit.points import PointError
-from report_kit.tools import figures
+from report_kit.tools import figure_points, figures
 from report_kit.tools.figures import FigureError, Registry
 
 GRID = """\
@@ -156,6 +156,24 @@ class TestAdd:
         code, _, err = add(grid, "first-pass", "--allow-invalid", count=40)
         assert code == 2 and "count is 40, the grid holds 100" in err
         assert grid.read_text() == GRID
+
+    @pytest.mark.parametrize("flags", [(), ("--as", "n09", "--allow-invalid")])
+    def test_the_same_run_file_twice_is_refused_whatever_the_flags(self, grid,
+                                                                    flags):
+        add(grid, "a")
+        once = grid.read_text()
+        code, _, err = add(grid, "a", *flags)
+        assert code == 2 and "data/a.point.json is already registered" in err
+        assert "drain_n08, peak_n08 read it" in err
+        assert grid.read_text() == once
+
+    def test_a_figure_that_reads_only_the_export_registers_the_run(self, grid):
+        grid.write_text(GRID.replace("retired: []", "  peak_by_hand:\n"
+                                     "    ref: FM1\n    kind: M\n    value: 7\n"
+                                     "    from: {file: data/a.jsonl, ref: M1, "
+                                     "reduce: max}\n\nretired: []"))
+        code, _, err = add(grid, "a")
+        assert code == 2 and "peak_by_hand read it" in err
 
     def test_a_gap_writes_nothing_and_exits_one(self, grid):
         code, out, _ = add(grid, "a", peak=None)
@@ -326,7 +344,7 @@ class TestDelete:
                                                         monkeypatch):
         path = shifting(tmp_path, SHIFTED)
         before = {p: p.read_text() for p in tmp_path.iterdir() if p.is_file()}
-        real = figures.rewrite_marks
+        real = figure_points.rewrite_marks
         calls = []
 
         def second_fails(text, refs):
@@ -335,7 +353,7 @@ class TestDelete:
                 raise FigureError("the second document cannot be rewritten")
             return real(text, refs)
 
-        monkeypatch.setattr(figures, "rewrite_marks", second_fails)
+        monkeypatch.setattr(figure_points, "rewrite_marks", second_fails)
         code, _, err = run("--path", str(path), "delete-point", "n01")
         assert code == 2 and "second document" in err
         assert {p: p.read_text() for p in tmp_path.iterdir() if p.is_file()} == before
