@@ -29,7 +29,7 @@ helpers live in `clock.py` rather than next to `Env` precisely so that
 importing a timestamp doesn't drag PyYAML in behind it — otherwise most of
 the package would transitively require it, and `report-kit export-metrics`
 would stop being a rescue path for a window whose metrics are aging out.
-Verified: with `yaml` unimportable, 23 of the 25 modules here still load.
+Verified: with `yaml` unimportable, 24 of the 26 modules here still load.
 The two that do not are `env.py` itself, by design, and `cloud/aws_s3.py`,
 which wants boto3 — and `report-kit export-metrics` still runs.
 
@@ -48,6 +48,7 @@ which wants boto3 — and `report-kit export-metrics` still runs.
 | `reporting.py` | image freeze, git facts, result block writing | mixed | `frozen_images`, `check_freeze`, `git_facts`, `md_table`, `write_point`, `report_validity`, `CONTAINER_PATHS` |
 | `jsonl.py` | reading the exported metrics `.jsonl`, and splitting a series at the instant it settled | pure | `load_lines`, `read_lines`, `parse_values`, `label_summary`, `changes`, `split`, `NOISY_LABELS` |
 | `evidence.py` | a figure's value read back out of a point record or an export — what `from:` in `figures.yaml` names | pure (reads files, prints nothing) | `read_source`, `reproduce`, `agrees`, `PointSource`, `ExportSource`, `Mask`, `EvidenceError`, `MissingEvidence` |
+| `points.py` | the `points:` template in `figures.yaml`: one run's figures, its label (n08, n08b …) and which figures belong to it | pure (prints nothing, no I/O) | `read_template`, `Template`, `base_label`, `free_label`, `labels_in_use`, `members`, `validity_problems`, `held_mismatches`, `expand`, `renamed`, `renamed_formula`, `PointError` |
 | `poll.py` | "retry until condition" and "until it has *held*" | pure (does no I/O itself) | `poll_until`, `wait_until_stable` |
 | `text.py` | filename sanitising, `{token}` substitution | pure | `safe_filename`, `fill` |
 | `window.py` | the measured interval as one object | pure | `Window` |
@@ -113,7 +114,7 @@ Two exceptions, both easier:
   `Mock()` instead of patching anything.
 - `poll.poll_until` takes the callable it polls, so hand it a fake `check`.
 
-Pure modules (`refs`, `jsonl`, `evidence`, `text`, `env`'s time helpers, `reporting`'s
+Pure modules (`refs`, `jsonl`, `evidence`, `points`, `text`, `env`'s time helpers, `reporting`'s
 `md_table`/`report_validity`) need no seam at all.
 
 ## Sync and concurrency: four shapes, no fifth

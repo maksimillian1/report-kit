@@ -219,3 +219,49 @@ A value rounded by hand to match a page no longer equals its evidence, and the c
 out, CI has no cluster, and a file is what a reviewer can open. A figure whose number lives nowhere
 in `data/` — a setting read from a manifest, a price from a bill — keeps its `source:` and no
 `from:`.
+
+## A point's figures, added and removed as a set
+
+Every point of a sweep adds the same handful of figures, and typing them per run is how two points
+end up registered two ways. A `points:` block in `figures.yaml` is that handful, written once:
+
+```yaml
+points:
+  axis: n                  # the point record field that names a point
+  label: "n{n:02d}"        # formatted from the record, where "24" counts as 24
+  held: {count: 1200}      # optional: every point of this grid matches these
+  figures:
+    drain_{point}:   {kind: M, unit: seconds, display: 1, from: {path: drain_window.seconds}}
+    peak_{point}:    {kind: M, unit: units, display: 0, from: {ref: M1, reduce: max}}
+    speedup_{point}: {kind: D, unit: ratio, formula: "rate_{point} / rate_n01"}
+```
+
+A template sets no `ref`, `value` or `point`, and its `from:` names no `file:`. The tool fills those
+in: the point's own `.point.json`, or for a `ref:` the `.jsonl` beside it.
+
+- **`report-kit figures add-point <run>.point.json`** appends the expanded figures at the end of
+  the `figures:` block, each with the next ref of its kind, and pulls their values. No ref already
+  cited moves (`methodology.md` §2, append, never insert). A label already taken takes the next
+  letter: `n08`, `n08b`, `n08c`, never an `a` and nothing past `z`. A label is taken when a
+  figure's `point:` key carries it or a name the template would produce already exists.
+  `--as <label>` names the point instead, and refuses a label already taken. A point whose
+  `guard_failures` or `empty_refs` is not empty is refused unless `--allow-invalid` is given. A
+  point whose `held:` fields differ is always refused: a different grid is never a repeat of this
+  one. A reading that is a gap writes nothing.
+- **`report-kit figures rename-point <old> <new>`** renames every figure whose `point:` is
+  `<old>`, replacing the label where it stands whole in the name (`n08` never matches inside
+  `n08b`), and rewrites every formula and `replaced_by:` that names one. Refs stay, so no document
+  changes.
+- **`report-kit figures delete-point <label>`** removes the point's figures, renumbers, and moves
+  every mark that shifted in every scanned document by an exact old → new map. Only the anchors
+  `<!--FM12-->` and `(FM12)` outside fenced code are touched, each matched whole, so `FM1` never
+  matches inside `FM12`. A point that a formula or a `retired` entry outside it still reads is
+  refused. So is a point whose refs a document marks: a cited run is carried as a row, not
+  deleted. `--force` lifts only that second refusal, and removes those marks, so their numbers
+  become unmarked prose.
+
+**Membership is the `point:` key and nothing else.** Two names that share a suffix are not a point,
+and a figure registered by hand carries no key, so none of the three commands touches it.
+
+**All or nothing.** Each command works out the new registry and every changed document first, and
+writes only when all of it succeeded.

@@ -12,6 +12,14 @@ scan:
   # report retires is caught where it survives in a picture. See formats.md.
   - charts/*.csv
 
+# Optional: the figures one run adds, so `report-kit figures add-point
+# data/<run>.point.json` registers a point instead of a person. formats.md.
+points:
+  axis: ⟨the point record field that names a point⟩
+  label: "⟨n{n:02d}⟩"
+  figures:
+    ⟨measured⟩_{point}: {kind: M, unit: ⟨unit⟩, from: {path: ⟨key.inside.it⟩}}
+
 figures:
   ⟨recorded_name⟩:
     ref: FR1

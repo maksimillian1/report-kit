@@ -269,6 +269,9 @@ one explicitly:
 ```bash
 report-kit figures check              # retired values, ref identity, coverage, evidence
 report-kit figures pull               # write each value from the data its from: names
+report-kit figures add-point data/n08.point.json  # one run's figures, from the points: template
+report-kit figures rename-point n08b n09          # a point's names and the formulas that use them
+report-kit figures delete-point n09               # remove, renumber, move every shifted mark
 report-kit figures validate           # the registry's own rules
 report-kit figures block_b_total      # one figure, bare value — by name or by ref
 report-kit figures orphans report.md  # currency tokens matching no figure
@@ -284,8 +287,10 @@ A measured figure can say where its value sits in a run's committed `data/` —
 `from: {file: …/data/r24.point.json, path: client.p95_ms}`, or a ref and a
 reduction over an exported `.jsonl`. `pull` then writes the value instead of a
 person typing it, and `check` fails the moment a stored value stops matching its
-evidence. The shapes and their rules are the last section of
-[formats.md](src/report_kit/templates/formats.md).
+evidence. A `points:` block goes one step further: it says once which figures a
+run adds, so `add-point` registers a whole point from its point record, and
+`delete-point` removes one without orphaning a single mark. Both are in the last
+two sections of [formats.md](src/report_kit/templates/formats.md).
 
 Fenced code blocks and inline code spans are skipped whole, so a price quoted
 inside an example command is not a claim the checker has to be told to ignore.

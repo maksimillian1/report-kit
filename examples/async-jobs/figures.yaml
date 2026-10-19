@@ -17,6 +17,24 @@ scan:
   - execution.md
   - charts/*.csv
 
+# What one point of the 1200-unit grid adds: `report-kit figures add-point
+# scripts/data/<run>.point.json`. A repeat of a label gets the next letter
+# (n08, n08b, n08c). The first pass ran 400 units and is refused by held:.
+# The figures below predate it and carry no point: key, so rename-point and
+# delete-point reach only the points add-point registers.
+points:
+  axis: n
+  label: "n{n:02d}"
+  held: {count: 1200, offered_rate: 40}
+  figures:
+    ceiling_{point}: {kind: R, unit: workers, display: 0, from: {path: n}, source: "maxReplicaCount, as the point record carries it"}
+    drain_{point}: {kind: M, unit: seconds, display: 1, from: {path: drain_window.seconds}, source: "D8, the point's drain"}
+    rate_{point}: {kind: M, unit: units_per_second, from: {path: drained_per_second}, source: "D9, units over the unrounded drain"}
+    tier_service_{point}: {kind: M, unit: milliseconds, display: 1, from: {ref: M7, per: M5, where: "M5 > 1", reduce: mean, scale: 1000}, source: "D10, M7 divided by M5 over samples where M5 > 1"}
+    peak_queue_{point}: {kind: M, unit: units, display: 0, from: {ref: M1, reduce: max}, source: "M1 peak, max work-queue depth over the window"}
+    speedup_{point}: {kind: D, unit: ratio, formula: "rate_{point} / rate_n01", group: speedup}
+    efficiency_{point}: {kind: D, unit: percent, display: 0, formula: "speedup_{point} / ceiling_{point} * 100", group: efficiency}
+
 figures:
   units_per_point:
     ref: FR1

@@ -18,6 +18,20 @@ scan:
   - execution.md
   - charts/*.csv
 
+# What one point of the sweep adds: `report-kit figures add-point
+# scripts/data/<run>.point.json`. A repeat of a rate gets the next letter
+# (r24, r24b). The figures below predate it and carry no point: key, so
+# rename-point and delete-point reach only the points add-point registers.
+points:
+  axis: rate
+  label: "r{rate:02d}"
+  figures:
+    offered_{point}: {kind: R, unit: req_per_second, display: 0, from: {path: rate}, source: TARGET_RATE in scripts/load.js}
+    served_{point}: {kind: M, unit: req_per_second, from: {path: client.served_per_second}, source: "M1, http_reqs.rate from the k6 summary"}
+    p95_{point}: {kind: M, unit: milliseconds, display: 0, from: {path: client.p95_ms}, source: "M2, http_req_duration.p(95) from the k6 summary"}
+    unserved_{point}: {kind: M, unit: percent, display: 1, from: {path: client.failed_share, scale: 100}, source: "M3, http_req_failed.value"}
+    share_{point}: {kind: D, unit: percent, display: 0, formula: "served_{point} / offered_{point} * 100", group: served_share}
+
 figures:
   offered_r04:
     ref: FR1
