@@ -198,6 +198,85 @@ class TestAdd:
         assert code != 0 and message in out + err
 
 
+def typed_by_hand(text):
+    """What add-point writes, as a person would have typed it before 0.4.0."""
+    return "".join(line for line in text.splitlines(keepends=True)
+                   if not line.startswith("    point:"))
+
+
+def adopt(grid, label, run_id, *flags):
+    return run("--path", str(grid), "adopt-point", label,
+               str(grid.parent / "data" / f"{run_id}.point.json"), *flags)
+
+
+class TestAdopt:
+    @pytest.fixture
+    def typed(self, grid):
+        add(grid, "a")
+        bound = grid.read_text()
+        grid.write_text(typed_by_hand(bound))
+        return grid, bound
+
+    def test_it_binds_hand_typed_figures_into_what_add_point_writes(self, typed):
+        grid, bound = typed
+        code, out, _ = adopt(grid, "n08", "a")
+        assert code == 0 and "FM1  drain_n08" in out and "refs unchanged" in out
+        assert grid.read_text() == bound
+        assert adopt(grid, "n08", "a")[0] == 0
+        assert grid.read_text() == bound
+
+    def test_the_prose_keys_are_the_authors(self, typed):
+        grid, _ = typed
+        grid.write_text(grid.read_text().replace("unit: seconds", "unit: s")
+                        .replace("display: 1", "display: 2"))
+        assert adopt(grid, "n08", "a")[0] == 0
+
+    @pytest.mark.parametrize("old, new, problem", [
+        ("formula: base_rate / drain_n08", "formula: base_rate / drain_n08 * 2",
+         "speedup_n08 computes base_rate / drain_n08 * 2, the template computes"),
+        ("a.point.json, path: drain.seconds", "a.point.json, path: drain.minutes",
+         "drain_n08 reads {file: data/a.point.json, path: drain.minutes}"),
+        ("kind: M\n    value: 7", "kind: E\n    value: 7",
+         "peak_n08 is kind E, the template makes it M"),
+    ])
+    def test_one_disagreement_refuses_and_writes_nothing(self, typed, old, new,
+                                                         problem):
+        grid, _ = typed
+        text = grid.read_text().replace(old, new)
+        assert text != grid.read_text()
+        grid.write_text(text)
+        code, _, err = adopt(grid, "n08", "a")
+        assert code == 2 and problem in err and "nothing was written" in err
+        assert grid.read_text() == text
+
+    def test_a_missing_figure_refuses(self, typed):
+        grid, _ = typed
+        text = grid.read_text()
+        start = text.index("  peak_n08:")
+        text = text[:start] + text[text.index("  speedup_n08:"):]
+        grid.write_text(text)
+        code, _, err = adopt(grid, "n08", "a")
+        assert code == 2 and "peak_n08 is missing" in err
+        assert grid.read_text() == text
+
+    def test_a_run_already_bound_to_another_label_refuses(self, grid):
+        add(grid, "a")
+        before = grid.read_text()
+        code, _, err = adopt(grid, "n09", "a")
+        assert code == 2 and "already bound to point n08" in err
+        assert grid.read_text() == before
+
+    def test_held_and_validity_apply_and_allow_invalid_passes_through(
+            self, typed):
+        grid, bound = typed
+        record(grid.parent, "a", count=40)
+        assert "the grid holds 100" in adopt(grid, "n08", "a")[2]
+        record(grid.parent, "a", guard_failures=["G1"])
+        assert "--allow-invalid" in adopt(grid, "n08", "a")[2]
+        assert adopt(grid, "n08", "a", "--allow-invalid")[0] == 0
+        assert grid.read_text() == bound
+
+
 RENAMING = """\
 figures:
   base_rate:
@@ -390,3 +469,9 @@ def test_both_examples_carry_a_points_template_that_validates():
     for name in ("simple-api", "async-jobs"):
         registry = Registry.load(explicit=examples / name / figures.REGISTRY)
         assert points.read_template(registry.points).figures, name
+
+
+def test_help_names_every_subcommand_main_dispatches():
+    for command in ("check", "pull", "validate", "orphans", "retype", "renumber",
+                    *figures.POINT_COMMANDS):
+        assert f"report-kit figures {command}" in figures.__doc__, command

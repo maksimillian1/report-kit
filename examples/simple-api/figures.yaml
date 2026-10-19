@@ -19,9 +19,10 @@ scan:
   - charts/*.csv
 
 # What one point of the sweep adds: `report-kit figures add-point
-# scripts/data/<run>.point.json`. A repeat of a rate gets the next letter
-# (r24, r24b). The figures below predate it and carry no point: key, so
-# rename-point and delete-point reach only the points add-point registers.
+# scripts/data/<run>.point.json`. A repeat of a rate gets the next letter, so
+# r32 is run rate-32, the excluded one-replica run, and r32b its re-run. Every
+# figure below belongs to one of the six points; the ones written before this
+# block were bound with `figures adopt-point`.
 points:
   axis: rate
   label: "r{rate:02d}"
@@ -36,6 +37,7 @@ figures:
   offered_r04:
     ref: FR1
     kind: R
+    point: r04
     value: 4
     from: {file: scripts/data/rate-04.point.json, path: rate}
     unit: req_per_second
@@ -45,6 +47,7 @@ figures:
   offered_r12:
     ref: FR2
     kind: R
+    point: r12
     value: 12
     from: {file: scripts/data/rate-12.point.json, path: rate}
     unit: req_per_second
@@ -54,15 +57,17 @@ figures:
   offered_r24:
     ref: FR3
     kind: R
+    point: r24
     value: 24
     from: {file: scripts/data/rate-24.point.json, path: rate}
     unit: req_per_second
     display: 0
     source: TARGET_RATE in scripts/load.js
 
-  offered_r32:
+  offered_r32b:
     ref: FR4
     kind: R
+    point: r32b
     value: 32
     from: {file: scripts/data/rate-32b.point.json, path: rate}
     unit: req_per_second
@@ -72,6 +77,7 @@ figures:
   offered_r40:
     ref: FR5
     kind: R
+    point: r40
     value: 40
     from: {file: scripts/data/rate-40.point.json, path: rate}
     unit: req_per_second
@@ -81,6 +87,7 @@ figures:
   served_r04:
     ref: FM1
     kind: M
+    point: r04
     value: 4.01
     from: {file: scripts/data/rate-04.point.json, path: client.served_per_second}
     unit: req_per_second
@@ -89,6 +96,7 @@ figures:
   served_r12:
     ref: FM2
     kind: M
+    point: r12
     value: 11.99
     from: {file: scripts/data/rate-12.point.json, path: client.served_per_second}
     unit: req_per_second
@@ -97,22 +105,25 @@ figures:
   served_r24:
     ref: FM3
     kind: M
+    point: r24
     value: 23.97
     from: {file: scripts/data/rate-24.point.json, path: client.served_per_second}
     unit: req_per_second
     source: M1, run rate-24
 
-  served_r32_invalid:
+  served_r32:
     ref: FM4
     kind: M
+    point: r32
     value: 26.35
     from: {file: scripts/data/rate-32.point.json, path: client.served_per_second}
     unit: req_per_second
     source: M1, ledger #05 - excluded from the curve fit, it ran against one replica. Registered anyway, because the document prints it to explain why it was excluded
 
-  served_r32:
+  served_r32b:
     ref: FM5
     kind: M
+    point: r32b
     value: 29.46
     from: {file: scripts/data/rate-32b.point.json, path: client.served_per_second}
     unit: req_per_second
@@ -122,6 +133,7 @@ figures:
   served_r40:
     ref: FM6
     kind: M
+    point: r40
     value: 19.72
     from: {file: scripts/data/rate-40.point.json, path: client.served_per_second}
     unit: req_per_second
@@ -130,6 +142,7 @@ figures:
   p95_r04:
     ref: FM7
     kind: M
+    point: r04
     value: 97.6
     from: {file: scripts/data/rate-04.point.json, path: client.p95_ms}
     unit: milliseconds
@@ -139,6 +152,7 @@ figures:
   p95_r12:
     ref: FM8
     kind: M
+    point: r12
     value: 195.0
     from: {file: scripts/data/rate-12.point.json, path: client.p95_ms}
     unit: milliseconds
@@ -148,6 +162,7 @@ figures:
   p95_r24:
     ref: FM9
     kind: M
+    point: r24
     value: 411.7
     from: {file: scripts/data/rate-24.point.json, path: client.p95_ms}
     unit: milliseconds
@@ -155,18 +170,20 @@ figures:
     source: M2, run rate-24
     appears_in: [report.md, execution.md]
 
-  p95_r32_invalid:
+  p95_r32:
     ref: FM10
     kind: M
+    point: r32
     value: 4680.4
     from: {file: scripts/data/rate-32.point.json, path: client.p95_ms}
     unit: milliseconds
     display: 0
     source: M2, ledger #05, the excluded one-replica run
 
-  p95_r32:
+  p95_r32b:
     ref: FM11
     kind: M
+    point: r32b
     value: 3754.6
     from: {file: scripts/data/rate-32b.point.json, path: client.p95_ms}
     unit: milliseconds
@@ -176,6 +193,7 @@ figures:
   p95_r40:
     ref: FM12
     kind: M
+    point: r40
     value: 10000.6
     from: {file: scripts/data/rate-40.point.json, path: client.p95_ms}
     unit: milliseconds
@@ -185,6 +203,7 @@ figures:
   unserved_r04:
     ref: FM13
     kind: M
+    point: r04
     value: 0
     from: {file: scripts/data/rate-04.point.json, path: client.failed_share, scale: 100}
     unit: percent
@@ -194,6 +213,7 @@ figures:
   unserved_r12:
     ref: FM14
     kind: M
+    point: r12
     value: 0
     from: {file: scripts/data/rate-12.point.json, path: client.failed_share, scale: 100}
     unit: percent
@@ -203,24 +223,27 @@ figures:
   unserved_r24:
     ref: FM15
     kind: M
+    point: r24
     value: 0
     from: {file: scripts/data/rate-24.point.json, path: client.failed_share, scale: 100}
     unit: percent
     display: 1
     source: M3, run rate-24
 
-  unserved_r32_invalid:
+  unserved_r32:
     ref: FM16
     kind: M
+    point: r32
     value: 0.52
     from: {file: scripts/data/rate-32.point.json, path: client.failed_share, scale: 100}
     unit: percent
     display: 1
     source: M3, ledger #05, the excluded one-replica run
 
-  unserved_r32:
+  unserved_r32b:
     ref: FM17
     kind: M
+    point: r32b
     value: 0.22
     from: {file: scripts/data/rate-32b.point.json, path: client.failed_share, scale: 100}
     unit: percent
@@ -230,6 +253,7 @@ figures:
   unserved_r40:
     ref: FM18
     kind: M
+    point: r40
     value: 21.23
     from: {file: scripts/data/rate-40.point.json, path: client.failed_share, scale: 100}
     unit: percent
@@ -239,6 +263,7 @@ figures:
   share_r04:
     ref: FD1
     kind: D
+    point: r04
     formula: served_r04 / offered_r04 * 100
     unit: percent
     display: 0
@@ -247,6 +272,7 @@ figures:
   share_r12:
     ref: FD2
     kind: D
+    point: r12
     formula: served_r12 / offered_r12 * 100
     unit: percent
     display: 0
@@ -255,23 +281,26 @@ figures:
   share_r24:
     ref: FD3
     kind: D
+    point: r24
     formula: served_r24 / offered_r24 * 100
     unit: percent
     display: 0
     group: served_share
 
-  share_r32_invalid:
+  share_r32:
     ref: FD4
     kind: D
-    formula: served_r32_invalid / offered_r32 * 100
+    point: r32
+    formula: served_r32 / offered_r32 * 100
     unit: percent
     display: 0
     group: served_share
 
-  share_r32:
+  share_r32b:
     ref: FD5
     kind: D
-    formula: served_r32 / offered_r32 * 100
+    point: r32b
+    formula: served_r32b / offered_r32b * 100
     unit: percent
     display: 0
     group: served_share
@@ -279,11 +308,22 @@ figures:
   share_r40:
     ref: FD6
     kind: D
+    point: r40
     formula: served_r40 / offered_r40 * 100
     unit: percent
     display: 0
     group: served_share
     appears_in: [report.md, execution.md]
+
+  offered_r32:
+    ref: FR6
+    kind: R
+    point: r32
+    value: 32
+    from: {file: scripts/data/rate-32.point.json, path: rate}
+    unit: req_per_second
+    display: 0
+    source: TARGET_RATE in scripts/load.js for run rate-32, the excluded one-replica run. Its own figure, so the point it belongs to reads its own record
 
 allow: []
 

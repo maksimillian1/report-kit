@@ -18,10 +18,12 @@ scan:
   - charts/*.csv
 
 # What one point of the 1200-unit grid adds: `report-kit figures add-point
-# scripts/data/<run>.point.json`. A repeat of a label gets the next letter
-# (n08, n08b, n08c). The first pass ran 400 units and is refused by held:.
-# The figures below predate it and carry no point: key, so rename-point and
-# delete-point reach only the points add-point registers.
+# scripts/data/<run>.point.json`. A repeat of a label gets the next letter, so
+# n08b is n08-long-b, the repeat of n08-long. The figures of the five grid
+# points written before this block were bound with `figures adopt-point`.
+# Everything else stays unbound on purpose: the held constants, the first
+# pass at 400 units (which held: refuses), window_n08 and the rate over it,
+# the estimates, and the comparisons that span several points.
 points:
   axis: n
   label: "n{n:02d}"
@@ -73,6 +75,7 @@ figures:
   ceiling_n01:
     ref: FR5
     kind: R
+    point: n01
     value: 1
     from: {file: scripts/data/n01-long.point.json, path: n}
     unit: workers
@@ -82,6 +85,7 @@ figures:
   ceiling_n02:
     ref: FR6
     kind: R
+    point: n02
     value: 2
     from: {file: scripts/data/n02-long.point.json, path: n}
     unit: workers
@@ -91,6 +95,7 @@ figures:
   ceiling_n04:
     ref: FR7
     kind: R
+    point: n04
     value: 4
     from: {file: scripts/data/n04-long.point.json, path: n}
     unit: workers
@@ -100,15 +105,17 @@ figures:
   ceiling_n08:
     ref: FR8
     kind: R
+    point: n08
     value: 8
     from: {file: scripts/data/n08-long.point.json, path: n}
     unit: workers
     display: 0
-    source: maxReplicaCount, points n08-long and n08-long-b
+    source: maxReplicaCount, point n08-long
 
   drain_n01:
     ref: FM1
     kind: M
+    point: n01
     value: 283.7
     from: {file: scripts/data/n01-long.point.json, path: drain_window.seconds}
     unit: seconds
@@ -118,6 +125,7 @@ figures:
   drain_n02:
     ref: FM2
     kind: M
+    point: n02
     value: 146.7
     from: {file: scripts/data/n02-long.point.json, path: drain_window.seconds}
     unit: seconds
@@ -127,6 +135,7 @@ figures:
   drain_n04:
     ref: FM3
     kind: M
+    point: n04
     value: 84.4
     from: {file: scripts/data/n04-long.point.json, path: drain_window.seconds}
     unit: seconds
@@ -136,6 +145,7 @@ figures:
   drain_n08:
     ref: FM4
     kind: M
+    point: n08
     value: 50.3
     from: {file: scripts/data/n08-long.point.json, path: drain_window.seconds}
     unit: seconds
@@ -145,6 +155,7 @@ figures:
   drain_n08b:
     ref: FM5
     kind: M
+    point: n08b
     value: 53.3
     from: {file: scripts/data/n08-long-b.point.json, path: drain_window.seconds}
     unit: seconds
@@ -154,6 +165,7 @@ figures:
   rate_n01:
     ref: FM6
     kind: M
+    point: n01
     value: 4.23
     from: {file: scripts/data/n01-long.point.json, path: drained_per_second}
     unit: units_per_second
@@ -162,6 +174,7 @@ figures:
   rate_n02:
     ref: FM7
     kind: M
+    point: n02
     value: 8.18
     from: {file: scripts/data/n02-long.point.json, path: drained_per_second}
     unit: units_per_second
@@ -170,6 +183,7 @@ figures:
   rate_n04:
     ref: FM8
     kind: M
+    point: n04
     value: 14.22
     from: {file: scripts/data/n04-long.point.json, path: drained_per_second}
     unit: units_per_second
@@ -178,6 +192,7 @@ figures:
   rate_n08:
     ref: FM9
     kind: M
+    point: n08
     value: 23.85
     from: {file: scripts/data/n08-long.point.json, path: drained_per_second}
     unit: units_per_second
@@ -186,6 +201,7 @@ figures:
   rate_n08b:
     ref: FM10
     kind: M
+    point: n08b
     value: 22.51
     from: {file: scripts/data/n08-long-b.point.json, path: drained_per_second}
     unit: units_per_second
@@ -194,6 +210,7 @@ figures:
   tier_service_n01:
     ref: FM11
     kind: M
+    point: n01
     value: 71.9664268448005
     from: {file: scripts/data/n01-long.jsonl, ref: M7, per: M5, where: "M5 > 1", reduce: mean, scale: 1000}
     unit: milliseconds
@@ -203,6 +220,7 @@ figures:
   tier_service_n02:
     ref: FM12
     kind: M
+    point: n02
     value: 72.4653095369995
     from: {file: scripts/data/n02-long.jsonl, ref: M7, per: M5, where: "M5 > 1", reduce: mean, scale: 1000}
     unit: milliseconds
@@ -212,6 +230,7 @@ figures:
   tier_service_n04:
     ref: FM13
     kind: M
+    point: n04
     value: 81.0801685594402
     from: {file: scripts/data/n04-long.jsonl, ref: M7, per: M5, where: "M5 > 1", reduce: mean, scale: 1000}
     unit: milliseconds
@@ -221,6 +240,7 @@ figures:
   tier_service_n08:
     ref: FM14
     kind: M
+    point: n08
     value: 83.3858104399464
     from: {file: scripts/data/n08-long.jsonl, ref: M7, per: M5, where: "M5 > 1", reduce: mean, scale: 1000}
     unit: milliseconds
@@ -230,6 +250,7 @@ figures:
   tier_service_n08b:
     ref: FM15
     kind: M
+    point: n08b
     value: 84.1685281826018
     from: {file: scripts/data/n08-long-b.jsonl, ref: M7, per: M5, where: "M5 > 1", reduce: mean, scale: 1000}
     unit: milliseconds
@@ -239,6 +260,7 @@ figures:
   peak_queue_n01:
     ref: FM16
     kind: M
+    point: n01
     value: 1070
     from: {file: scripts/data/n01-long.jsonl, ref: M1, reduce: max}
     unit: units
@@ -248,6 +270,7 @@ figures:
   peak_queue_n02:
     ref: FM17
     kind: M
+    point: n02
     value: 926
     from: {file: scripts/data/n02-long.jsonl, ref: M1, reduce: max}
     unit: units
@@ -257,6 +280,7 @@ figures:
   peak_queue_n04:
     ref: FM18
     kind: M
+    point: n04
     value: 718
     from: {file: scripts/data/n04-long.jsonl, ref: M1, reduce: max}
     unit: units
@@ -266,6 +290,7 @@ figures:
   peak_queue_n08:
     ref: FM19
     kind: M
+    point: n08
     value: 534
     from: {file: scripts/data/n08-long.jsonl, ref: M1, reduce: max}
     unit: units
@@ -275,6 +300,7 @@ figures:
   peak_queue_n08b:
     ref: FM20
     kind: M
+    point: n08b
     value: 517
     from: {file: scripts/data/n08-long-b.jsonl, ref: M1, reduce: max}
     unit: units
@@ -284,6 +310,7 @@ figures:
   speedup_n01:
     ref: FD1
     kind: D
+    point: n01
     formula: rate_n01 / rate_n01
     unit: ratio
     group: speedup
@@ -291,6 +318,7 @@ figures:
   speedup_n02:
     ref: FD2
     kind: D
+    point: n02
     formula: rate_n02 / rate_n01
     unit: ratio
     group: speedup
@@ -298,6 +326,7 @@ figures:
   speedup_n04:
     ref: FD3
     kind: D
+    point: n04
     formula: rate_n04 / rate_n01
     unit: ratio
     group: speedup
@@ -305,6 +334,7 @@ figures:
   speedup_n08:
     ref: FD4
     kind: D
+    point: n08
     formula: rate_n08 / rate_n01
     unit: ratio
     group: speedup
@@ -313,6 +343,7 @@ figures:
   speedup_n08b:
     ref: FD5
     kind: D
+    point: n08b
     formula: rate_n08b / rate_n01
     unit: ratio
     group: speedup
@@ -320,6 +351,7 @@ figures:
   efficiency_n01:
     ref: FD6
     kind: D
+    point: n01
     formula: speedup_n01 / ceiling_n01 * 100
     unit: percent
     display: 0
@@ -328,6 +360,7 @@ figures:
   efficiency_n02:
     ref: FD7
     kind: D
+    point: n02
     formula: speedup_n02 / ceiling_n02 * 100
     unit: percent
     display: 0
@@ -336,6 +369,7 @@ figures:
   efficiency_n04:
     ref: FD8
     kind: D
+    point: n04
     formula: speedup_n04 / ceiling_n04 * 100
     unit: percent
     display: 0
@@ -344,6 +378,7 @@ figures:
   efficiency_n08:
     ref: FD9
     kind: D
+    point: n08
     formula: speedup_n08 / ceiling_n08 * 100
     unit: percent
     display: 0
@@ -353,7 +388,8 @@ figures:
   efficiency_n08b:
     ref: FD10
     kind: D
-    formula: speedup_n08b / ceiling_n08 * 100
+    point: n08b
+    formula: speedup_n08b / ceiling_n08b * 100
     unit: percent
     display: 0
     group: efficiency
@@ -499,6 +535,16 @@ figures:
     display: 0
     source: the improvement the first pass's relief probe appeared to produce. It produced none — M6 shows the shared tier at one replica through both drains — and the figure exists so the number in 7 is checked rather than recalled
     group: first_pass
+
+  ceiling_n08b:
+    ref: FR10
+    kind: R
+    point: n08b
+    value: 8
+    from: {file: scripts/data/n08-long-b.point.json, path: n}
+    unit: workers
+    display: 0
+    source: maxReplicaCount, point n08-long-b. Its own figure, so the repeat's efficiency divides by its own record
 
 allow: []
 

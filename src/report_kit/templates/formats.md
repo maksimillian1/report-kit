@@ -250,6 +250,13 @@ in: the point's own `.point.json`, or for a `ref:` the `.jsonl` beside it.
   new run with its own file. A point whose `guard_failures` or `empty_refs` is not empty is
   refused unless `--allow-invalid` is given. A point whose `held:` fields differ is always
   refused: a different grid is never a repeat of this one. A reading that is a gap writes nothing.
+- **`report-kit figures adopt-point <label> <run>.point.json`** binds figures written before the
+  template to a point. Every figure the template makes of that run must already exist and agree
+  in `kind`, `from:` (with its file resolved to this run) and `formula`; the prose keys —
+  `source`, `display`, `unit`, `group`, `appears_in` — are the author's and may differ. Each then
+  gains `point: <label>`, and nothing else changes: refs stay, so no document does. A figure
+  missing or disagreeing is named and nothing is written. So is a run already bound to another
+  label, or one that fails `held:`, or validity without `--allow-invalid`.
 - **`report-kit figures rename-point <old> <new>`** renames every figure whose `point:` is
   `<old>`, replacing the label where it stands whole in the name (`n08` never matches inside
   `n08b`), and rewrites every formula and `replaced_by:` that names one. Refs stay, so no document
@@ -263,7 +270,8 @@ in: the point's own `.point.json`, or for a `ref:` the `.jsonl` beside it.
   become unmarked prose.
 
 **Membership is the `point:` key and nothing else.** Two names that share a suffix are not a point,
-and a figure registered by hand carries no key, so none of the three commands touches it.
+and a figure registered by hand carries no key until `adopt-point` gives it one, so neither
+`rename-point` nor `delete-point` touches it before then.
 
 **All or nothing.** Each command works out the new registry and every changed document first, and
 writes only when all of it succeeded.

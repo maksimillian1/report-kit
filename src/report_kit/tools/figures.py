@@ -11,12 +11,15 @@
                                           names in the run's data files
     report-kit figures add-point data/r1.point.json [--as LABEL] [--allow-invalid]
                                           append one run's figures from points:
+    report-kit figures adopt-point n08 data/n08.point.json [--allow-invalid]
+                                          bind figures written by hand to it
     report-kit figures rename-point n08c n09
     report-kit figures delete-point n09 [--force]
                                           remove them, renumber, move the marks
     report-kit figures orphans report.md  currency tokens matching no figure
     report-kit figures validate           the registry's own rules
     report-kit figures retype d23_n25 E   change a kind, renumber every ref
+    report-kit figures renumber           refs back in file order
 
 Every number a report prints comes from `figures.yaml` as either a leaf — a
 value with a source — or a formula over other figures. Arithmetic lives here
@@ -960,7 +963,7 @@ EXIT_OK = 0
 EXIT_FAILED = 1
 EXIT_USAGE = 2
 
-POINT_COMMANDS = ("add-point", "rename-point", "delete-point")
+POINT_COMMANDS = ("add-point", "adopt-point", "rename-point", "delete-point")
 
 
 def cmd_list(registry: Registry, values: dict, args: argparse.Namespace) -> int:
@@ -1093,8 +1096,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--as", dest="as_label", metavar="LABEL",
                    help="add-point: this label instead of the template's")
     p.add_argument("--allow-invalid", action="store_true",
-                   help="add-point: register a point whose guards failed or "
-                        "whose export has gaps")
+                   help="add-point, adopt-point: take a point whose guards "
+                        "failed or whose export has gaps")
     p.add_argument("--force", action="store_true",
                    help="delete-point: delete a cited point, removing its marks")
     p.add_argument("args", nargs="*", metavar="<command|figure>")

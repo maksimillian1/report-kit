@@ -101,6 +101,11 @@ One command, installed with the package:
 | `report-kit init` | write the report skeleton for a layout |
 | `report-kit new-point` | copy a runner and its inputs into one execution |
 | `report-kit figures` | resolve `figures.yaml`, and fail when a number drifts |
+| `report-kit figures pull` | write each `value:` from the run data its `from:` names |
+| `report-kit figures add-point` | register one run's figures from the `points:` template |
+| `report-kit figures adopt-point` | bind figures written before the template to their point |
+| `report-kit figures rename-point` | rename a point's figures and every formula that names them |
+| `report-kit figures delete-point` | remove a point, renumber, and move every shifted mark |
 | `report-kit charts` | draw a CSV: four shapes, two surfaces, no knowledge of your report |
 | `report-kit export-metrics` | re-export a window whose metrics are aging out |
 | `report-kit inspect-metrics` | read back what an export actually captured |
@@ -270,6 +275,7 @@ one explicitly:
 report-kit figures check              # retired values, ref identity, coverage, evidence
 report-kit figures pull               # write each value from the data its from: names
 report-kit figures add-point data/n08.point.json  # one run's figures, from the points: template
+report-kit figures adopt-point n08 data/n08.point.json  # bind figures typed before the template
 report-kit figures rename-point n08b n09          # a point's names and the formulas that use them
 report-kit figures delete-point n09               # remove, renumber, move every shifted mark
 report-kit figures validate           # the registry's own rules

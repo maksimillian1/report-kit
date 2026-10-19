@@ -75,6 +75,9 @@ figure, and each setting a point record carries — so `figures pull` is how the
 values got into the registry, and `check` re-reads every one of them from
 `scripts/data/`. `tier_service_*` is the case that needed it: the registry had
 stored them rounded to a tenth, where the export gives them at full precision.
+Each registry's `points:` block says once what one run adds, and every figure of
+a grid point carries the `point:` key that `adopt-point` gave it, so a point can
+be renamed or deleted as a set.
 
 Both are checkable, and checking them is the point — an example whose numbers
 drift teaches the drift:

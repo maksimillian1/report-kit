@@ -9,11 +9,13 @@ this module edits the registry and the scanned documents as text, the way
 from __future__ import annotations
 
 import argparse
+import ast
 import collections
 import json
 import os
 import pathlib
 import re
+from dataclasses import replace
 from typing import NamedTuple
 
 import yaml
@@ -246,13 +248,18 @@ def with_readings(registry: Registry, added: dict[str, dict]
     return written, gaps
 
 
+def point_template(registry: Registry) -> points.Template:
+    if registry.points is None or registry.path is None:
+        raise FigureError("no points: block — the point commands expand that "
+                          "template")
+    return points.read_template(registry.points)
+
+
 def add_point(registry: Registry, path: str | os.PathLike,
               wanted: str | None = None, allow_invalid: bool = False) -> Added:
     """Expand `points:` for one run and append it, its values pulled. Writes
     nothing when a reading is a gap, or when the result would not resolve."""
-    if registry.points is None or registry.path is None:
-        raise FigureError("no points: block — add-point expands that template")
-    template = points.read_template(registry.points)
+    template = point_template(registry)
     record, rel = point_record(path), registry.relative(pathlib.Path(path))
     refuse_registered_run(registry, rel)
     refuse_outside_grid(template, record, str(path), allow_invalid)
@@ -265,6 +272,106 @@ def add_point(registry: Registry, path: str | os.PathLike,
     checked(registry, text)
     write_all({registry.path: text})
     return Added(label, written, [])
+
+
+def same_source(stored: object, expected: object) -> bool:
+    if stored is None or expected is None:
+        return stored is expected
+    try:
+        one, other = evidence.read_source(stored), evidence.read_source(expected)
+    except evidence.EvidenceError:
+        return stored == expected
+    return (replace(one, file=os.path.normpath(one.file))
+            == replace(other, file=os.path.normpath(other.file)))
+
+
+def same_formula(stored: object, expected: object) -> bool:
+    if stored is None or expected is None:
+        return stored is expected
+    try:
+        return (ast.dump(ast.parse(str(stored), mode="eval"))
+                == ast.dump(ast.parse(str(expected), mode="eval")))
+    except SyntaxError:
+        return str(stored).strip() == str(expected).strip()
+
+
+def adoption_problems(registry: Registry, name: str, expected: dict,
+                      label: str) -> list[str]:
+    """Why an existing figure is not what the template makes of this run.
+    Only kind, from: and formula decide; the prose keys are the author's."""
+    stored = registry.figures.get(name)
+    if stored is None:
+        return [f"{name} is missing"]
+    problems = []
+    if "point" in stored and str(stored["point"]) != label:
+        problems.append(f"{name} already belongs to point {stored['point']}")
+    if str(stored.get("kind")) != str(expected.get("kind")):
+        problems.append(f"{name} is kind {stored.get('kind')}, the template "
+                        f"makes it {expected.get('kind')}")
+    if not same_source(stored.get("from"), expected.get("from")):
+        problems.append(f"{name} reads {flow(stored.get('from'))}, the template "
+                        f"reads {flow(expected.get('from'))}")
+    if not same_formula(stored.get("formula"), expected.get("formula")):
+        problems.append(f"{name} computes {stored.get('formula')}, the template "
+                        f"computes {expected.get('formula')}")
+    return problems
+
+
+def refuse_bound_elsewhere(registry: Registry, rel: str, label: str) -> None:
+    bound = sorted({str(registry.figures[name]["point"])
+                    for name in points.readers(registry.figures, rel)
+                    if "point" in registry.figures[name]} - {label})
+    if bound:
+        raise FigureError(f"{rel} is already bound to point "
+                          f"{', '.join(bound)}; nothing was written")
+
+
+def with_point_key(lines: list[str], span: range, label: str) -> list[str]:
+    after = max((i for i in span if figures.REFKIND_LINE.match(lines[i])),
+                default=span.start)
+    return (lines[:after + 1] + [f"    point: {flow(label)}\n"]
+            + lines[after + 1:])
+
+
+def adopt_point(registry: Registry, label: str, path: str | os.PathLike,
+                allow_invalid: bool = False) -> list[str]:
+    """Bind figures written before the template to point `label`: every
+    figure the template makes of this run must exist and agree, or nothing
+    is written. Refs never move, so no document changes. Returns the names
+    that gained a `point:` key."""
+    template = point_template(registry)
+    record, rel = point_record(path), registry.relative(pathlib.Path(path))
+    refuse_outside_grid(template, record, str(path), allow_invalid)
+    points.check_label(label)
+    refuse_bound_elsewhere(registry, rel, label)
+    expected = points.expand(template, label, rel)
+    problems = [problem for name, spec in expected.items()
+                for problem in adoption_problems(registry, name, spec, label)]
+    problems += [f"{name} carries point: {label} but the template does not "
+                 f"make it" for name in points.members(registry.figures, label)
+                 if name not in expected]
+    if problems:
+        raise FigureError(f"cannot adopt {rel} as {label}: "
+                          f"{'; '.join(problems)}; nothing was written")
+    unbound = [name for name in expected if "point" not in registry.figures[name]]
+    lines = registry.path.read_text().splitlines(keepends=True)
+    for name in unbound:
+        lines = with_point_key(lines, figures.figure_spans(lines, registry.path)[name],
+                               label)
+    text = "".join(lines)
+    expect_bound(registry, figures.parsed(registry, text), unbound, label)
+    checked(registry, text)
+    write_all({registry.path: text})
+    return unbound
+
+
+def expect_bound(before: Registry, after: Registry, names: list[str],
+                 label: str) -> None:
+    expected = {name: {**spec, "point": label} if name in names else spec
+                for name, spec in before.figures.items()}
+    if list(after.figures.items()) != list(expected.items()):
+        raise FigureError(f"{before.path}: the rewriter could not add point: "
+                          f"{label} where it can see; nothing was written")
 
 
 def point_members(registry: Registry, label: str) -> list[str]:
@@ -394,6 +501,20 @@ def cmd_add_point(registry: Registry, rest: list[str],
     return figures.EXIT_OK
 
 
+def cmd_adopt_point(registry: Registry, rest: list[str],
+                    opts: argparse.Namespace) -> int:
+    if len(rest) != 3:
+        return figures.usage("adopt-point <label> <run.point.json> "
+                             "[--allow-invalid]")
+    bound = adopt_point(registry, rest[1], rest[2], opts.allow_invalid)
+    print(f"point {rest[1]} adopted; refs unchanged")
+    for name in bound:
+        print(f"  {registry.figures[name].get('ref', '?'):>6}  {name}")
+    if not bound:
+        print("  every figure already carried it")
+    return figures.EXIT_OK
+
+
 def cmd_rename_point(registry: Registry, rest: list[str],
                      opts: argparse.Namespace) -> int:
     if len(rest) != 3:
@@ -417,5 +538,5 @@ def cmd_delete_point(registry: Registry, rest: list[str],
     return figures.EXIT_OK
 
 
-COMMANDS = {"add-point": cmd_add_point, "rename-point": cmd_rename_point,
-            "delete-point": cmd_delete_point}
+COMMANDS = {"add-point": cmd_add_point, "adopt-point": cmd_adopt_point,
+            "rename-point": cmd_rename_point, "delete-point": cmd_delete_point}
