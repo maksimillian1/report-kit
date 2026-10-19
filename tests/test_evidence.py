@@ -85,13 +85,23 @@ class TestExport:
                                                            expected):
         assert from_export(root, ref="M1", reduce=reduce) == pytest.approx(expected)
 
-    def test_the_series_of_one_ref_add_up_per_timestamp(self, root):
-        assert from_export(root, ref="M7", reduce="max") == 12
+    def test_several_series_and_no_across_is_refused_not_summed(self, root):
+        with pytest.raises(EvidenceError,
+                           match=r"M7 holds 2 series \(pod=a; pod=b\) .* across:"):
+            from_export(root, ref="M7", reduce="max")
+
+    @pytest.mark.parametrize("across, expected", [
+        ("sum", 19 / 4), ("max", 10 / 4), ("min", 9 / 4), ("mean", 9.5 / 4)])
+    def test_across_combines_the_series_at_each_timestamp(self, root, across,
+                                                          expected):
+        assert from_export(root, ref="M7", across=across,
+                           reduce="mean") == pytest.approx(expected)
 
     def test_per_divides_sample_by_sample_where_masks_and_scale_multiplies(
             self, root):
-        assert from_export(root, ref="M7", per="M5", where="M5 > 1",
-                           reduce="mean", scale=1000) == pytest.approx(2500)
+        assert from_export(root, ref="M7", across="sum", per="M5",
+                           where="M5 > 1", reduce="mean",
+                           scale=1000) == pytest.approx(2500)
 
     @pytest.mark.parametrize("where, reduce, expected", [
         ("M5 >= 2", "min", 9), ("M5 < 2", "max", 5), ("M5<=2", "mean", 17 / 3)])
@@ -101,7 +111,7 @@ class TestExport:
 
     def test_dividing_by_a_zero_sample_asks_for_a_mask(self, root):
         with pytest.raises(EvidenceError, match="M5 is 0 .* where:"):
-            from_export(root, ref="M7", per="M5", reduce="mean")
+            from_export(root, ref="M7", across="sum", per="M5", reduce="mean")
 
     @pytest.mark.parametrize("raw", [
         {"ref": "M9", "reduce": "max"},
@@ -130,6 +140,9 @@ class TestReadSource:
         ({"file": "f", "path": "p", "reduce": "max"}, "does not take reduce"),
         ({"file": "f", "ref": "M1"}, "needs reduce:"),
         ({"file": "f", "ref": "M1", "reduce": "median"}, "not one of"),
+        ({"file": "f", "ref": "M1", "reduce": "max", "across": "last"},
+         "across 'last' is not one of"),
+        ({"file": "f", "path": "p", "across": "sum"}, "does not take across"),
         ({"file": "f", "ref": "M1", "reduce": "max", "where": "M5 ~ 1"},
          "is not '<ref> <op> <number>'"),
         ({"file": "f", "ref": "M1", "reduce": "max", "where": "M5 > high"},
@@ -146,8 +159,9 @@ class TestReadSource:
             evidence.PointSource("f", "a.b")
         assert evidence.read_source(
             {"file": "f", "ref": "M7", "per": "M5", "where": "M5 > 1",
-             "reduce": "mean", "scale": 1000}) == evidence.ExportSource(
-            "f", "M7", "mean", "M5", evidence.Mask("M5", ">", 1.0), 1000.0)
+             "reduce": "mean", "scale": 1000, "across": "sum"}) == \
+            evidence.ExportSource("f", "M7", "mean", "M5",
+                                  evidence.Mask("M5", ">", 1.0), 1000.0, "sum")
 
 
 @pytest.mark.parametrize("stored, found, same", [

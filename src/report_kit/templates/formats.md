@@ -189,7 +189,13 @@ copy and the check re-reads it every time:
 | Shape | Keys | Reads |
 | :--- | :--- | :--- |
 | Point record | `file`, `path`, optional `scale` | the key at the dotted `path` of a `.point.json`; a number stored as a string (`"24"`) counts |
-| Export | `file`, `ref`, `reduce`, optional `per`, `where`, `scale` | every series of `ref` in a `.jsonl`, summed per timestamp, then reduced by `max`, `min`, `mean` or `last` |
+| Export | `file`, `ref`, `reduce`, optional `across`, `per`, `where`, `scale` | the samples of `ref` in a `.jsonl`, reduced by `max`, `min`, `mean` or `last` |
+
+**A ref with more than one series is refused unless the figure says how to combine them.**
+`across: sum|max|min|mean` combines the series of every ref the figure reads, timestamp by
+timestamp, before anything else happens to them. Nothing is summed silently: a sum of per-pod
+maxima, or of per-replica latencies, is a number that means nothing and looks like one that does.
+A ref with one series needs no `across`.
 
 `per: M5` divides sample by sample by another ref at the same timestamps. `where: "M5 > 1"` keeps
 the samples at which another ref passes the comparison — `>`, `>=`, `<` or `<=` against a number.

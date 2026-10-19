@@ -4,6 +4,7 @@ A `from:` in `figures.yaml` names one of two shapes, and nothing else:
 
     {file: data/r1.point.json, path: client.p95_ms, scale: 1}
     {file: data/r1.jsonl, ref: M7, per: M5, where: "M5 > 1", reduce: mean, scale: 1000}
+    {file: data/r1.jsonl, ref: M3, across: max, reduce: max}
 
 `templates/formats.md` has the rules; this module only reads.
 """
@@ -26,12 +27,19 @@ REDUCTIONS = {
     "mean": statistics.fmean,
     "last": lambda samples: samples[-1],
 }
+COMBINATIONS = {
+    "sum": math.fsum,
+    "max": max,
+    "min": min,
+    "mean": statistics.fmean,
+}
 COMPARISONS = {">": operator.gt, ">=": operator.ge,
                "<": operator.lt, "<=": operator.le}
 MASK = re.compile(r"^\s*(\S+?)\s*(>=|<=|>|<)\s*(\S+)\s*$")
 
 POINT_KEYS = frozenset({"file", "path", "scale"})
-EXPORT_KEYS = frozenset({"file", "ref", "reduce", "per", "where", "scale"})
+EXPORT_KEYS = frozenset({"file", "ref", "reduce", "across", "per", "where",
+                         "scale"})
 
 RELATIVE_TOLERANCE = 1e-9
 ABSOLUTE_TOLERANCE = 1e-12
@@ -70,6 +78,7 @@ class ExportSource:
     per: str | None = None
     where: Mask | None = None
     scale: float = 1.0
+    across: str | None = None
 
 
 Source = PointSource | ExportSource
@@ -108,7 +117,18 @@ def export_source(raw: dict) -> ExportSource:
                         reduce=reduce,
                         per=None if per is None else required_text(raw, "per"),
                         where=mask_of(raw.get("where")),
-                        scale=scale_of(raw))
+                        scale=scale_of(raw),
+                        across=across_of(raw))
+
+
+def across_of(raw: dict) -> str | None:
+    if raw.get("across") is None:
+        return None
+    across = required_text(raw, "across")
+    if across not in COMBINATIONS:
+        raise EvidenceError(f"from: across {across!r} is not one of "
+                            f"{'/'.join(COMBINATIONS)}")
+    return across
 
 
 def refuse_unknown_keys(raw: dict, allowed: frozenset) -> None:
@@ -191,12 +211,12 @@ def number_at(node: object, where: str) -> float:
 
 def export_value(path: Path, source: ExportSource) -> float:
     exported = series_by_ref(path, source.file)
-    samples = summed(exported, source.ref, source.file)
+    samples = combined(exported, source.ref, source)
     if source.where:
-        samples = masked(samples, summed(exported, source.where.ref,
-                                         source.file), source.where)
+        samples = masked(samples, combined(exported, source.where.ref, source),
+                         source.where)
     if source.per:
-        samples = divided(samples, summed(exported, source.per, source.file),
+        samples = divided(samples, combined(exported, source.per, source),
                           source)
     if not samples:
         raise EvidenceError(f"{source.file}: {describe(source)} has no "
@@ -214,16 +234,26 @@ def series_by_ref(path: Path, file: str) -> dict[str, list]:
             for line in lines if isinstance(line, dict)}
 
 
-def summed(exported: dict[str, list], ref: str, file: str) -> dict[float, float]:
-    """Every series of one ref, added together at each timestamp."""
+def combined(exported: dict[str, list], ref: str,
+             source: ExportSource) -> dict[float, float]:
+    """One sample per timestamp: the ref's only series, or its series
+    combined by `across:`. Several series and no `across:` is refused."""
     if ref not in exported:
-        raise EvidenceError(f"{file}: the export holds no ref {ref}")
-    total: dict[float, float] = {}
-    for series in exported[ref]:
-        values = series.get("values", []) if isinstance(series, dict) else []
-        for timestamp, value in jsonl.parse_values(values):
-            total[timestamp] = total.get(timestamp, 0.0) + value
-    return total
+        raise EvidenceError(f"{source.file}: the export holds no ref {ref}")
+    series = [one for one in exported[ref] if isinstance(one, dict)]
+    if len(series) > 1 and source.across is None:
+        labels = "; ".join(jsonl.label_summary(one.get("metric") or {})
+                           for one in series[:3])
+        raise EvidenceError(f"{source.file}: {ref} holds {len(series)} series "
+                            f"({labels}{'; …' if len(series) > 3 else ''}) — "
+                            f"say how to combine them with across: "
+                            f"{'|'.join(COMBINATIONS)}")
+    at: dict[float, list[float]] = {}
+    for one in series:
+        for timestamp, value in jsonl.parse_values(one.get("values", [])):
+            at.setdefault(timestamp, []).append(value)
+    combine = COMBINATIONS[source.across or "sum"]
+    return {timestamp: combine(values) for timestamp, values in at.items()}
 
 
 def masked(samples: dict[float, float], by: dict[float, float],
@@ -247,7 +277,8 @@ def divided(samples: dict[float, float], by: dict[float, float],
 
 
 def describe(source: ExportSource) -> str:
-    text = source.ref
+    text = source.ref if source.across is None else \
+        f"{source.ref} ({source.across} across series)"
     if source.per:
         text += f" per {source.per}"
     if source.where:
