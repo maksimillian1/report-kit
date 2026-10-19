@@ -10,7 +10,7 @@ copies to your report's root.
 ## Installation
 
 ```bash
-pip install "report-kit @ git+https://github.com/maksimillian1/report-kit@v0.3.4"
+pip install "report-kit @ git+https://github.com/maksimillian1/report-kit@v0.4.0"
 
 report-kit init docs/report            # 2+ executions
 report-kit init docs/report --minimal  # a single execution
@@ -267,7 +267,8 @@ working directory, so it runs from anywhere inside a report, and `--path` names
 one explicitly:
 
 ```bash
-report-kit figures check              # retired values, ref identity, coverage
+report-kit figures check              # retired values, ref identity, coverage, evidence
+report-kit figures pull               # write each value from the data its from: names
 report-kit figures validate           # the registry's own rules
 report-kit figures block_b_total      # one figure, bare value — by name or by ref
 report-kit figures orphans report.md  # currency tokens matching no figure
@@ -276,7 +277,15 @@ report-kit figures retype d23_n25 E   # change a kind, renumber every ref
 
 Its exit codes are what a CI job needs: **0** clean, **1** something drifted,
 **2** the registry is missing or unreadable. `check --strict` promotes a missing
-`appears_in` target from a report line to a failure.
+`appears_in` target, and a missing data file behind a `from:`, from a report line
+to a failure.
+
+A measured figure can say where its value sits in a run's committed `data/` —
+`from: {file: …/data/r24.point.json, path: client.p95_ms}`, or a ref and a
+reduction over an exported `.jsonl`. `pull` then writes the value instead of a
+person typing it, and `check` fails the moment a stored value stops matching its
+evidence. The shapes and their rules are the last section of
+[formats.md](src/report_kit/templates/formats.md).
 
 Fenced code blocks and inline code spans are skipped whole, so a price quoted
 inside an example command is not a claim the checker has to be told to ignore.

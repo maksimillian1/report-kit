@@ -790,6 +790,167 @@ class TestCommand:
         assert "solo" in out and "guess" not in out
 
 
+EVIDENCED = """\
+# A comment above everything survives a pull.
+meta:
+  note: >-
+    a folded scalar outside the figures block, with
+    value: 1 on a line that looks like a key
+
+figures:
+  served:
+    ref: FM1
+    kind: M
+    value: 4.01   # as first typed
+    from: {file: data/r1.point.json, path: client.served}
+    source: the point record
+
+  peak:
+    ref: FM2
+    kind: M
+    # no value yet: pull writes it below the kind
+    from: {file: data/r1.jsonl, ref: M1, reduce: max}
+    source: the export
+    note: |
+      value: 3
+      a literal block inside the figure
+
+  total:
+    ref: FD1
+    kind: D
+    formula: served + peak
+"""
+
+PULLED = EVIDENCED.replace(
+    "    value: 4.01   # as first typed\n", "    value: 4.5   # as first typed\n"
+).replace(
+    "  peak:\n    ref: FM2\n    kind: M\n",
+    "  peak:\n    ref: FM2\n    kind: M\n    value: 7\n")
+
+
+@pytest.fixture
+def evidenced(tmp_path, registry_file):
+    def write(text=EVIDENCED, served=4.5, peak=("3", "7")):
+        (tmp_path / "data").mkdir(exist_ok=True)
+        (tmp_path / "data" / "r1.point.json").write_text(
+            f'{{"client": {{"served": {served}}}}}\n')
+        values = ", ".join(f'[{t}, "{v}"]' for t, v in enumerate(peak, 1))
+        (tmp_path / "data" / "r1.jsonl").write_text(
+            f'{{"metric": "M1", "result": [{{"metric": {{}}, '
+            f'"values": [{values}]}}]}}\n' if peak else
+            '{"metric": "M1", "result": []}\n')
+        return registry_file(text)
+    return write
+
+
+class TestPull:
+    def test_it_rewrites_value_lines_and_nothing_else(self, evidenced):
+        path = evidenced()
+        code, out, _ = run("--path", str(path), "pull")
+        assert code == 0
+        assert path.read_text() == PULLED
+        assert "4.01 -> 4.5" in out and "(none) -> 7" in out
+
+    def test_a_second_pull_changes_nothing(self, evidenced):
+        path = evidenced()
+        run("--path", str(path), "pull")
+        code, out, _ = run("--path", str(path), "pull")
+        assert code == 0 and path.read_text() == PULLED
+        assert "0 value(s) rewritten" in out
+
+    def test_a_gap_is_reported_and_never_written_as_zero(self, evidenced):
+        path = evidenced(peak=())
+        code, out, _ = run("--path", str(path), "pull")
+        assert code == 1
+        assert "FAIL peak" in out and "a gap, not a zero" in out
+        assert path.read_text() == EVIDENCED.replace("value: 4.01", "value: 4.5")
+
+    def test_named_figures_only_by_name_or_ref(self, evidenced):
+        path = evidenced()
+        assert run("--path", str(path), "pull", "FM2")[0] == 0
+        assert "value: 4.01" in path.read_text()
+        assert Registry.load(explicit=path).figures["peak"]["value"] == 7
+
+    @pytest.mark.parametrize("wanted, message", [
+        ("total", "has no from: to pull"), ("nope", "unknown figure")])
+    def test_a_figure_it_cannot_pull_exits_two(self, evidenced, wanted, message):
+        path = evidenced()
+        code, _, err = run("--path", str(path), "pull", wanted)
+        assert code == 2 and message in err
+        assert path.read_text() == EVIDENCED
+
+    def test_the_rewriter_refuses_a_figure_it_cannot_see(self, evidenced):
+        text = ("figures:\n  served: {ref: FM1, kind: M, value: 1, "
+                "from: {file: data/r1.point.json, path: client.served}}\n")
+        path = evidenced(text)
+        code, _, err = run("--path", str(path), "pull")
+        assert code == 2 and "cannot see 'served'" in err
+        assert path.read_text() == text
+
+    @pytest.mark.parametrize("value, text", [
+        (0.0022 * 100, "0.22"), (24.0, "24"), (71.96642684480047,
+                                               "71.9664268448005")])
+    def test_a_value_is_written_at_full_precision_without_float_noise(
+            self, value, text):
+        assert figures.value_text(value) == text
+
+
+class TestEvidenceCheck:
+    def test_a_stored_value_that_disagrees_with_its_data_fails(self, evidenced):
+        path = evidenced(PULLED, served=4.6)
+        code, out, _ = run("--path", str(path), "check")
+        assert code == 1
+        assert "DIFFERS  served" in out and "stores 4.5, its data gives 4.6" in out
+        assert "evidence: 1/2" in out
+
+    def test_values_that_agree_with_their_data_pass(self, evidenced):
+        code, out, _ = run("--path", str(evidenced(PULLED)), "check")
+        assert code == 0 and "evidence: 2/2" in out
+
+    def test_a_missing_data_file_is_a_note_until_strict(self, evidenced, tmp_path):
+        path = evidenced(PULLED)
+        (tmp_path / "data" / "r1.jsonl").unlink()
+        code, out, _ = run("--path", str(path), "check")
+        assert code == 0 and "NO FILE  peak" in out
+        assert run("--path", str(path), "check", "--strict")[0] == 1
+
+    def test_a_gap_fails_the_check(self, evidenced):
+        code, out, _ = run("--path", str(evidenced(PULLED, peak=())), "check")
+        assert code == 1 and "FAIL     peak" in out
+
+    def test_a_figure_with_a_from_and_no_value_says_to_pull(self, evidenced):
+        code, _, err = run("--path", str(evidenced()), "check")
+        assert code == 2 and "report-kit figures pull peak" in err
+
+    def test_both_examples_reproduce_from_their_data(self):
+        examples = Path(__file__).resolve().parent.parent / "examples"
+        for name in ("simple-api", "async-jobs"):
+            registry = Registry.load(explicit=examples / name / figures.REGISTRY)
+            rows = figures.check_evidence(registry)
+            assert rows and [r for r in rows if r.status != "ok"] == [], name
+
+
+class TestEvidenceValidate:
+    SOURCE = {"file": "data/r1.point.json", "path": "client.served"}
+
+    def test_from_counts_as_a_source(self):
+        problems, _ = figures.validate(Registry({
+            "read": {"ref": "FM1", "kind": "M", "value": 1,
+                     "from": self.SOURCE}}))
+        assert problems == []
+
+    def test_from_and_formula_together_are_refused(self):
+        problems, _ = figures.validate(Registry({
+            "both": fig("FD1", formula="1 + 1", **{"from": self.SOURCE})}))
+        assert any("both: from: and formula: together" in p for p in problems)
+
+    def test_a_from_outside_the_two_shapes_is_refused(self):
+        problems, _ = figures.validate(Registry({
+            "odd": fig("FM1", value=1, **{"from": {
+                "file": "data/r1.jsonl", "ref": "M1", "reduce": "median"}})}))
+        assert any("odd: from: reduce 'median'" in p for p in problems)
+
+
 def test_the_shipped_template_is_a_registry_of_placeholders(registry_file):
     from importlib.resources import files
     path = registry_file((Path(str(files("report_kit"))) / "templates"
@@ -801,5 +962,8 @@ def test_the_shipped_template_is_a_registry_of_placeholders(registry_file):
     assert all(figures.REF_RE.match(str(s.get("ref")))
                for s in registry.figures.values())
     assert registry.scan and registry.allow is not None
+    assert any("from" in s for s in registry.figures.values())
+    assert not [p for name, spec in registry.figures.items()
+                for p in figures.evidence_problems(name, spec)]
     with pytest.raises(FigureError, match="is not a number"):
         registry.resolve()

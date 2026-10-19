@@ -162,7 +162,8 @@ somewhere other than next to the runner.
 
 ```
 <out-dir>/<run>.point.md      the block to paste into the write-up
-<out-dir>/<run>.point.json    the machine-readable record: window, guards,
+<out-dir>/<run>.point.json    the machine-readable record: window, guard
+                              failures and what each guard read (guard_values),
                               observations, image digests, commit
 <out-dir>/<run>.jsonl         the exported series
 <out-dir>/<run>.meta.json     export manifest: per-ref series and sample counts

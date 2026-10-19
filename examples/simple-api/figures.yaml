@@ -10,7 +10,8 @@ meta:
     for printing the true number. display: decides what a page shows; value: stays as measured
   note: >-
     Checked by `report-kit figures --path examples/simple-api/figures.yaml check`.
-    This file is also the shape a project's own registry takes.
+    This file is also the shape a project's own registry takes. Every figure a point record
+    holds names it with from:, so `figures pull` writes the value and `check` fails if it drifts.
 
 scan:
   - report.md
@@ -22,6 +23,7 @@ figures:
     ref: FR1
     kind: R
     value: 4
+    from: {file: scripts/data/rate-04.point.json, path: rate}
     unit: req_per_second
     display: 0
     source: TARGET_RATE in scripts/load.js, the swept axis. A setting rather than a reading, and registered because D8 divides by it
@@ -30,6 +32,7 @@ figures:
     ref: FR2
     kind: R
     value: 12
+    from: {file: scripts/data/rate-12.point.json, path: rate}
     unit: req_per_second
     display: 0
     source: TARGET_RATE in scripts/load.js
@@ -38,6 +41,7 @@ figures:
     ref: FR3
     kind: R
     value: 24
+    from: {file: scripts/data/rate-24.point.json, path: rate}
     unit: req_per_second
     display: 0
     source: TARGET_RATE in scripts/load.js
@@ -46,6 +50,7 @@ figures:
     ref: FR4
     kind: R
     value: 32
+    from: {file: scripts/data/rate-32b.point.json, path: rate}
     unit: req_per_second
     display: 0
     source: TARGET_RATE in scripts/load.js
@@ -54,6 +59,7 @@ figures:
     ref: FR5
     kind: R
     value: 40
+    from: {file: scripts/data/rate-40.point.json, path: rate}
     unit: req_per_second
     display: 0
     source: TARGET_RATE in scripts/load.js
@@ -62,6 +68,7 @@ figures:
     ref: FM1
     kind: M
     value: 4.01
+    from: {file: scripts/data/rate-04.point.json, path: client.served_per_second}
     unit: req_per_second
     source: M1, http_reqs.rate from the k6 summary, run rate-04
 
@@ -69,6 +76,7 @@ figures:
     ref: FM2
     kind: M
     value: 11.99
+    from: {file: scripts/data/rate-12.point.json, path: client.served_per_second}
     unit: req_per_second
     source: M1, run rate-12
 
@@ -76,6 +84,7 @@ figures:
     ref: FM3
     kind: M
     value: 23.97
+    from: {file: scripts/data/rate-24.point.json, path: client.served_per_second}
     unit: req_per_second
     source: M1, run rate-24
 
@@ -83,6 +92,7 @@ figures:
     ref: FM4
     kind: M
     value: 26.35
+    from: {file: scripts/data/rate-32.point.json, path: client.served_per_second}
     unit: req_per_second
     source: M1, ledger #05 - excluded from the curve fit, it ran against one replica. Registered anyway, because the document prints it to explain why it was excluded
 
@@ -90,6 +100,7 @@ figures:
     ref: FM5
     kind: M
     value: 29.46
+    from: {file: scripts/data/rate-32b.point.json, path: client.served_per_second}
     unit: req_per_second
     source: M1, ledger #06, the re-run at four replicas
     appears_in: [report.md, execution.md]
@@ -98,6 +109,7 @@ figures:
     ref: FM6
     kind: M
     value: 19.72
+    from: {file: scripts/data/rate-40.point.json, path: client.served_per_second}
     unit: req_per_second
     source: M1, run rate-40
 
@@ -105,6 +117,7 @@ figures:
     ref: FM7
     kind: M
     value: 97.6
+    from: {file: scripts/data/rate-04.point.json, path: client.p95_ms}
     unit: milliseconds
     display: 0
     source: M2, http_req_duration.p(95) from the k6 summary, run rate-04
@@ -113,6 +126,7 @@ figures:
     ref: FM8
     kind: M
     value: 195.0
+    from: {file: scripts/data/rate-12.point.json, path: client.p95_ms}
     unit: milliseconds
     display: 0
     source: M2, run rate-12
@@ -121,6 +135,7 @@ figures:
     ref: FM9
     kind: M
     value: 411.7
+    from: {file: scripts/data/rate-24.point.json, path: client.p95_ms}
     unit: milliseconds
     display: 0
     source: M2, run rate-24
@@ -130,6 +145,7 @@ figures:
     ref: FM10
     kind: M
     value: 4680.4
+    from: {file: scripts/data/rate-32.point.json, path: client.p95_ms}
     unit: milliseconds
     display: 0
     source: M2, ledger #05, the excluded one-replica run
@@ -138,6 +154,7 @@ figures:
     ref: FM11
     kind: M
     value: 3754.6
+    from: {file: scripts/data/rate-32b.point.json, path: client.p95_ms}
     unit: milliseconds
     display: 0
     source: M2, ledger #06
@@ -146,6 +163,7 @@ figures:
     ref: FM12
     kind: M
     value: 10000.6
+    from: {file: scripts/data/rate-40.point.json, path: client.p95_ms}
     unit: milliseconds
     display: 0
     source: M2, run rate-40; pinned at the 10 s client timeout
@@ -154,6 +172,7 @@ figures:
     ref: FM13
     kind: M
     value: 0
+    from: {file: scripts/data/rate-04.point.json, path: client.failed_share, scale: 100}
     unit: percent
     display: 1
     source: M3, http_req_failed.value, run rate-04
@@ -162,6 +181,7 @@ figures:
     ref: FM14
     kind: M
     value: 0
+    from: {file: scripts/data/rate-12.point.json, path: client.failed_share, scale: 100}
     unit: percent
     display: 1
     source: M3, run rate-12
@@ -170,6 +190,7 @@ figures:
     ref: FM15
     kind: M
     value: 0
+    from: {file: scripts/data/rate-24.point.json, path: client.failed_share, scale: 100}
     unit: percent
     display: 1
     source: M3, run rate-24
@@ -178,6 +199,7 @@ figures:
     ref: FM16
     kind: M
     value: 0.52
+    from: {file: scripts/data/rate-32.point.json, path: client.failed_share, scale: 100}
     unit: percent
     display: 1
     source: M3, ledger #05, the excluded one-replica run
@@ -186,6 +208,7 @@ figures:
     ref: FM17
     kind: M
     value: 0.22
+    from: {file: scripts/data/rate-32b.point.json, path: client.failed_share, scale: 100}
     unit: percent
     display: 1
     source: M3, ledger #06
@@ -194,6 +217,7 @@ figures:
     ref: FM18
     kind: M
     value: 21.23
+    from: {file: scripts/data/rate-40.point.json, path: client.failed_share, scale: 100}
     unit: percent
     display: 1
     source: M3, run rate-40

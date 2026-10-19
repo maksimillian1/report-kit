@@ -248,8 +248,9 @@ def main() -> int:
         print()
         # As of the generator's end, not now: scale-in and the export sit
         # between the two, and a rate guard checked after them sees dead air.
-        guard_failures = prometheus.check_guards(env.prom_url, guards,
-                                                 at=generated.window.end)
+        guarded = prometheus.evaluate_guards(env.prom_url, guards,
+                                             at=generated.window.end)
+        guard_failures = guarded.failures
 
     record = {
         "run": args.run,
@@ -260,6 +261,7 @@ def main() -> int:
         "generator_exit": generated.returncode,
         "generator_window": generated.window.to_dict(),
         "guard_failures": guard_failures,
+        "guard_values": guarded.values,
         "export": {"path": str(export.path), "series": export.series,
                    "points": export.points, "empty_refs": export.empty},
         **observations,

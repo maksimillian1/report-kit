@@ -29,7 +29,7 @@ helpers live in `clock.py` rather than next to `Env` precisely so that
 importing a timestamp doesn't drag PyYAML in behind it — otherwise most of
 the package would transitively require it, and `report-kit export-metrics`
 would stop being a rescue path for a window whose metrics are aging out.
-Verified: with `yaml` unimportable, 22 of the 24 modules here still load.
+Verified: with `yaml` unimportable, 23 of the 25 modules here still load.
 The two that do not are `env.py` itself, by design, and `cloud/aws_s3.py`,
 which wants boto3 — and `report-kit export-metrics` still runs.
 
@@ -42,11 +42,12 @@ which wants boto3 — and `report-kit export-metrics` still runs.
 | `clock.py` | UTC now, RFC3339, duration formatting | pure | `utcnow`, `rfc3339`, `parse_instant`, `hms` |
 | `shell.py` | subprocess and HTTP, JSON-decoded | integration — **the seam** | `sh`, `sh_json`, `http_json` |
 | `refs.py` | `ref\|…` pipe-file parsing, guard bounds with `{sub}` placeholders | pure | `read_ref_file`, `load_guards` |
-| `prometheus.py` | queries, target health, guard evaluation, exporting a window | integration | `prom_query`, `prom_query_range`, `prom_scalar`, `prom_targets_down`, `check_guards`, `export_range`, `Export` |
+| `prometheus.py` | queries, target health, guard evaluation, exporting a window | integration | `prom_query`, `prom_query_range`, `prom_scalar`, `prom_targets_down`, `check_guards`, `evaluate_guards`, `GuardResult`, `export_range`, `Export` |
 | `cluster.py` | kubectl introspection (nodes, pods-per-node, replicas, interrupt events) | integration | `nodes_by_selector`, `pods_by_node`, `deployment_replicas`, `interrupt_events`, `FORCED_REASONS`, `INTERRUPT_REASONS` |
 | `portforward.py` | `kubectl port-forward` lifecycle incl. relaunch-on-death | integration, background procs | `PortForwards`, `forward_spec` |
 | `reporting.py` | image freeze, git facts, result block writing | mixed | `frozen_images`, `check_freeze`, `git_facts`, `md_table`, `write_point`, `report_validity`, `CONTAINER_PATHS` |
-| `jsonl.py` | reading the exported metrics `.jsonl`, and splitting a series at the instant it settled | pure | `load_lines`, `parse_values`, `label_summary`, `changes`, `split`, `NOISY_LABELS` |
+| `jsonl.py` | reading the exported metrics `.jsonl`, and splitting a series at the instant it settled | pure | `load_lines`, `read_lines`, `parse_values`, `label_summary`, `changes`, `split`, `NOISY_LABELS` |
+| `evidence.py` | a figure's value read back out of a point record or an export — what `from:` in `figures.yaml` names | pure (reads files, prints nothing) | `read_source`, `reproduce`, `agrees`, `PointSource`, `ExportSource`, `Mask`, `EvidenceError`, `MissingEvidence` |
 | `poll.py` | "retry until condition" and "until it has *held*" | pure (does no I/O itself) | `poll_until`, `wait_until_stable` |
 | `text.py` | filename sanitising, `{token}` substitution | pure | `safe_filename`, `fill` |
 | `window.py` | the measured interval as one object | pure | `Window` |
@@ -112,7 +113,7 @@ Two exceptions, both easier:
   `Mock()` instead of patching anything.
 - `poll.poll_until` takes the callable it polls, so hand it a fake `check`.
 
-Pure modules (`refs`, `jsonl`, `text`, `env`'s time helpers, `reporting`'s
+Pure modules (`refs`, `jsonl`, `evidence`, `text`, `env`'s time helpers, `reporting`'s
 `md_table`/`report_validity`) need no seam at all.
 
 ## Sync and concurrency: four shapes, no fifth
@@ -189,7 +190,7 @@ same loop, closing on several conditions at different times — goes in your
   common; a common interface would only hide that. Duplication between two
   store files is fine.
 - Functions return values and raise; they don't print status and exit. The
-  exceptions are `die()` (explicitly fatal), `check_guards`/`check_freeze`
+  exceptions are `die()` (explicitly fatal), `check_guards`/`evaluate_guards`/`check_freeze`
   and `report_validity`, which exist to print a verdict. New utilities
   should follow the first rule, so a caller can decide what to say.
 - Take paths, clients, and callables as arguments instead of constructing

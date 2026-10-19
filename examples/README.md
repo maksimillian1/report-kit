@@ -70,6 +70,12 @@ Its §5 guardrail comparing a window rate against a drain rate is left
 has no basis in the registry, and inventing one to make the row look verified
 is the failure the whole contract exists to prevent.
 
+Every figure a run's data holds also names it with `from:` — each measured
+figure, and each setting a point record carries — so `figures pull` is how the
+values got into the registry, and `check` re-reads every one of them from
+`scripts/data/`. `tier_service_*` is the case that needed it: the registry had
+stored them rounded to a tenth, where the export gives them at full precision.
+
 Both are checkable, and checking them is the point — an example whose numbers
 drift teaches the drift:
 

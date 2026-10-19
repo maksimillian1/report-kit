@@ -5,7 +5,10 @@
     report-kit figures block_b_total      one figure, bare value
     report-kit figures FD26               the same, by ref
     report-kit figures --group totals
-    report-kit figures check [--strict]   retired values, coverage, ref identity
+    report-kit figures check [--strict]   retired values, coverage, ref identity,
+                                          evidence
+    report-kit figures pull [figure ...]  rewrite each value: from what its from:
+                                          names in the run's data files
     report-kit figures orphans report.md  currency tokens matching no figure
     report-kit figures validate           the registry's own rules
     report-kit figures retype d23_n25 E   change a kind, renumber every ref
@@ -19,6 +22,10 @@ A kind says where an error could originate: M measured, R recorded from an
 authority, D derived, E estimated. A derived figure with an estimated input
 prints as estimated — the weakest input decides.
 
+A leaf may also say where its value lives in a run's committed data files
+(`from:`, read by `report_kit.evidence`). `pull` writes that value in, and
+`check` fails when the stored one no longer matches it.
+
 The registry is found by walking up from the working directory, so the command
 works from anywhere inside a report. `--path` names one explicitly, which is
 also how you check a registry that is not the one you are standing in.
@@ -26,7 +33,8 @@ also how you check a registry that is not the one you are standing in.
 Everything above `cmd_list` is the model and prints nothing, so a caller that
 wants a value rather than a page imports it and calls it directly. Every
 failure that depends on what the registry says arrives as `FigureError`
-rather than as whatever exception the parser happened to raise.
+rather than as whatever exception the parser happened to raise; a `from:`
+that names no value is `evidence.EvidenceError`, reported per figure.
 """
 
 from __future__ import annotations
@@ -42,6 +50,8 @@ from dataclasses import dataclass
 from typing import Iterable, NamedTuple
 
 import yaml
+
+from report_kit import evidence
 
 
 REGISTRY = "figures.yaml"
@@ -80,6 +90,8 @@ INLINE_CODE = re.compile(r"`[^`]*`")
 # half-applies.
 NAME_LINE = re.compile(r"^  ([A-Za-z_][A-Za-z0-9_]*):\s*$")
 REFKIND_LINE = re.compile(r"^    (ref|kind):")
+VALUE_LINE = re.compile(r"^    value:[ \t]*[^#\r\n]*?(?P<comment>[ \t]+#[^\r\n]*)?"
+                        r"(?P<newline>\r?\n?)\Z")
 
 _BINOPS = (ast.Add, ast.Sub, ast.Mult, ast.Div)
 
@@ -481,6 +493,9 @@ def _resolve_one(name: str, figures: dict[str, dict],
     elif "formula" in spec:
         value = _eval(_formula(name, spec["formula"]), figures, resolved,
                       stack + [name])
+    elif "from" in spec:
+        raise FigureError(f"figure '{name}' has a from: but no value yet — run "
+                          f"`report-kit figures pull {name}`")
     else:
         raise FigureError(f"figure '{name}' has neither value nor formula")
     resolved[name] = value
@@ -663,8 +678,10 @@ def validate(registry: Registry) -> tuple[list[str], list[str]]:
                 problems.append(f"{name}: ref {ref} disagrees with kind {kind}")
         if kind not in KINDS:
             problems.append(f"{name}: kind {kind!r} is not one of {'/'.join(KINDS)}")
-        if "formula" not in spec and not spec.get("source"):
+        if "formula" not in spec and not spec.get("source") \
+                and "from" not in spec:
             problems.append(f"{name}: a leaf with no source")
+        problems.extend(evidence_problems(name, spec))
         if kind == "D" and registry.effective_kind(name) == "E":
             notes.append(f"{name}: prints ᴱ — a formula, but one of its inputs "
                          f"is an estimate")
@@ -672,6 +689,72 @@ def validate(registry: Registry) -> tuple[list[str], list[str]]:
         if count > 1:
             problems.append(f"ref {ref} used by {count} figures")
     return problems, notes
+
+
+def evidence_problems(name: str, spec: dict) -> list[str]:
+    if "from" not in spec:
+        return []
+    try:
+        evidence_source(spec)
+    except evidence.EvidenceError as exc:
+        return [f"{name}: {exc}"]
+    return []
+
+
+def evidence_source(spec: dict) -> evidence.Source:
+    if "formula" in spec:
+        raise evidence.EvidenceError("from: and formula: together — a figure "
+                                     "is read from data or computed, not both")
+    return evidence.read_source(spec["from"])
+
+
+def reading(registry: Registry, name: str) -> float:
+    """What the data files say a figure's value is. Raises
+    `evidence.EvidenceError`, `MissingEvidence` when the file is absent."""
+    return evidence.reproduce(evidence_source(registry.spec(name)),
+                              registry.root)
+
+
+def stored_number(raw: object) -> float | None:
+    if isinstance(raw, bool):
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+class EvidenceRow(NamedTuple):
+    name: str
+    status: str
+    stored: object
+    found: float | None
+    why: str = ""
+
+
+def check_evidence(registry: Registry) -> list[EvidenceRow]:
+    """Every figure with a `from:`, its stored value against what its data
+    reproduces at full precision."""
+    rows = []
+    for name, spec in registry.figures.items():
+        if "from" not in spec:
+            continue
+        stored = spec.get("value")
+        try:
+            found = reading(registry, name)
+        except evidence.MissingEvidence as exc:
+            rows.append(EvidenceRow(name, "NO FILE", stored, None, str(exc)))
+            continue
+        except evidence.EvidenceError as exc:
+            rows.append(EvidenceRow(name, "FAIL", stored, None, str(exc)))
+            continue
+        number = stored_number(stored)
+        if number is None:
+            status = "NO VALUE"
+        else:
+            status = "ok" if evidence.agrees(number, found) else "DIFFERS"
+        rows.append(EvidenceRow(name, status, stored, found))
+    return rows
 
 
 # ---------------------------------------------------------- file surgery
@@ -697,17 +780,7 @@ def renumber(path: str | os.PathLike,
             raise FigureError(f"kind must be one of {'/'.join(KINDS)}")
 
     lines = text.splitlines(keepends=True)
-    start = next((i for i, line in enumerate(lines)
-                  if line.rstrip() == "figures:"), None)
-    if start is None:
-        raise FigureError(
-            f"{path}: no line reading 'figures:' on its own — the rewriter "
-            f"edits the block as text and cannot renumber an inline mapping")
-    end = len(lines)
-    for i in range(start + 1, len(lines)):
-        if lines[i].strip() and not lines[i][0].isspace():
-            end = i
-            break
+    start, end = figures_block(lines, path)
 
     counters: collections.Counter = collections.Counter()
     out, written = [], []
@@ -745,6 +818,114 @@ def retype(name: str, kind: str, path: str | os.PathLike) -> dict[str, int]:
     if kind not in KINDS:
         raise FigureError(f"kind must be one of {'/'.join(KINDS)}")
     return renumber(path, {name: kind})
+
+
+def figures_block(lines: list[str], path: pathlib.Path) -> tuple[int, int]:
+    """The `figures:` line and the first line after its block."""
+    start = next((i for i, line in enumerate(lines)
+                  if line.rstrip() == "figures:"), None)
+    if start is None:
+        raise FigureError(
+            f"{path}: no line reading 'figures:' on its own — the rewriter "
+            f"edits the block as text and cannot rewrite an inline mapping")
+    for i in range(start + 1, len(lines)):
+        if lines[i].strip() and not lines[i][0].isspace():
+            return start, i
+    return start, len(lines)
+
+
+def figure_spans(lines: list[str], path: pathlib.Path) -> dict[str, range]:
+    """Each figure's lines, from its name to the line before the next."""
+    start, end = figures_block(lines, path)
+    names = [(i, m.group(1)) for i in range(start + 1, end)
+             if (m := NAME_LINE.match(lines[i]))]
+    stops = [i for i, _ in names[1:]] + [end]
+    return {name: range(i, stop) for (i, name), stop in zip(names, stops)}
+
+
+def value_text(value: float) -> str:
+    """Full precision without the float noise: 0.0022 * 100 writes 0.22."""
+    rounded = float(f"{value:.15g}")
+    return str(int(rounded)) if rounded.is_integer() else repr(rounded)
+
+
+def with_value(lines: list[str], span: range, text: str) -> list[str]:
+    """`lines` with this figure's value line replaced, or inserted after its
+    ref and kind when it has none."""
+    for i in span:
+        match = VALUE_LINE.match(lines[i])
+        if match:
+            comment, newline = match["comment"] or "", match["newline"] or "\n"
+            line = f"    value: {text}{comment}{newline}"
+            return lines[:i] + [line] + lines[i + 1:]
+    after = max((i for i in span if REFKIND_LINE.match(lines[i])),
+                default=span.start)
+    return lines[:after + 1] + [f"    value: {text}\n"] + lines[after + 1:]
+
+
+def rewrite_values(path: str | os.PathLike, texts: dict[str, str]) -> None:
+    """Rewrite one `value:` line per figure and touch nothing else, so the
+    file's comments and block scalars survive byte for byte. Refuses, and
+    writes nothing, when a figure is not where the rewriter can see it."""
+    path = pathlib.Path(path)
+    lines = path.read_text().splitlines(keepends=True)
+    for name, text in texts.items():
+        span = figure_spans(lines, path).get(name)
+        if span is None:
+            raise FigureError(
+                f"{path}: the rewriter cannot see '{name}' — a figure needs "
+                f"its name alone on a line indented two spaces, its keys "
+                f"four; nothing was written")
+        lines = with_value(lines, span, text)
+    rewritten = _figures_of(_parse("".join(lines), path), path)
+    for name, text in texts.items():
+        if stored_number(rewritten[name].get("value")) != float(text):
+            raise FigureError(f"{path}: '{name}' did not read back as {text} "
+                              f"after the rewrite; nothing was written")
+    path.write_text("".join(lines))
+
+
+class Pulled(NamedTuple):
+    name: str
+    old: object
+    new: float
+
+
+def pull_targets(registry: Registry, wanted: Iterable[str]) -> list[str]:
+    wanted = list(wanted)
+    if not wanted:
+        return [name for name, spec in registry.figures.items()
+                if "from" in spec]
+    index = registry.by_ref()
+    names = [index.get(item, item) for item in wanted]
+    for name in names:
+        if "from" not in registry.spec(name):
+            raise FigureError(f"figure '{name}' has no from: to pull")
+    return names
+
+
+def pull(registry: Registry, wanted: Iterable[str] = ()
+         ) -> tuple[list[Pulled], list[tuple[str, str]]]:
+    """Fill each `value:` from what its `from:` reproduces. Returns what
+    changed, and the figures with no reading — a gap is reported and its
+    value left alone, never written as a zero."""
+    if registry.path is None:
+        raise FigureError("pull rewrites a registry file; this one has none")
+    changed, unread = [], []
+    for name in pull_targets(registry, wanted):
+        try:
+            found = reading(registry, name)
+        except evidence.EvidenceError as exc:
+            unread.append((name, str(exc)))
+            continue
+        old = registry.figures[name].get("value")
+        stored = stored_number(old)
+        if stored is None or not evidence.agrees(stored, found):
+            changed.append(Pulled(name, old, found))
+    if changed:
+        rewrite_values(registry.path,
+                       {item.name: value_text(item.new) for item in changed})
+    return changed, unread
 
 
 # ---------------------------------------------------------------- the command
@@ -808,8 +989,34 @@ def cmd_check(registry: Registry, values: dict, args: argparse.Namespace) -> int
     if missing and args.strict:
         failed = True
 
+    failed = report_evidence(registry, args.strict) or failed
     print()
     return EXIT_FAILED if failed else EXIT_OK
+
+
+def report_evidence(registry: Registry, strict: bool) -> bool:
+    """Prints the evidence section of `check`; True when it fails."""
+    rows = check_evidence(registry)
+    off = [row for row in rows if row.status != "ok"]
+    print(f"\nevidence: {len(rows) - len(off)}/{len(rows)} figures agree with "
+          f"the data their from: names")
+    for row in off:
+        detail = row.why or (f"stores {row.stored}, its data gives "
+                             f"{value_text(row.found)}")
+        print(f"  {row.status:<8} {row.name:<28} {detail}")
+    absent = [row for row in off if row.status == "NO FILE"]
+    return len(off) > len(absent) or bool(absent and strict)
+
+
+def cmd_pull(registry: Registry, wanted: list[str]) -> int:
+    changed, unread = pull(registry, wanted)
+    for item in changed:
+        old = "(none)" if item.old is None else item.old
+        print(f"  {item.name:<28} {old} -> {value_text(item.new)}")
+    for name, why in unread:
+        print(f"  FAIL {name:<28} {why}")
+    print(f"\n{len(changed)} value(s) rewritten, {len(unread)} with no reading")
+    return EXIT_FAILED if unread else EXIT_OK
 
 
 def cmd_validate(registry: Registry, values: dict,
@@ -855,7 +1062,8 @@ def build_parser() -> argparse.ArgumentParser:
                                   f"working directory")
     p.add_argument("--group", help="list one group only")
     p.add_argument("--strict", action="store_true",
-                   help="check: missing coverage fails too")
+                   help="check: missing coverage and missing data files fail "
+                        "too")
     p.add_argument("args", nargs="*", metavar="<command|figure>")
     return p
 
@@ -873,9 +1081,11 @@ def main(argv: list[str] | None = None) -> int:
     try:
         registry = Registry.load(opts.path)
 
-        # These two rewrite the file and never need a value, so they run
-        # before resolution — a registry with a figure that does not resolve
-        # is exactly one you may still want to renumber.
+        # These rewrite the file and never need a value, so they run before
+        # resolution — a registry with a figure that does not resolve is
+        # exactly one you may still want to renumber, or pull a value into.
+        if command == "pull":
+            return cmd_pull(registry, rest[1:])
         if command == "retype":
             if len(rest) != 3:
                 return usage("retype <figure> <M|R|D|E>")

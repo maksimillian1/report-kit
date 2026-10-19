@@ -20,10 +20,14 @@ figures:
     unit: ⟨unit⟩
     source: ⟨the authority it was read from, and the date⟩
 
+  # from: names where the value sits in a run's committed data/, so
+  # `report-kit figures pull` writes it and `check` fails when the two part.
+  # A point record takes path:, an export takes ref: and reduce:. formats.md.
   ⟨measured_name⟩:
     ref: FM1
     kind: M
     value: ⟨number⟩
+    from: {file: ⟨executions/NN-name/data/run.point.json⟩, path: ⟨key.inside.it⟩}
     unit: ⟨unit⟩
     source: ⟨the metric ref, its selector, and the window⟩
 

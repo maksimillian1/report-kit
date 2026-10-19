@@ -9,7 +9,8 @@ meta:
     print -- which also means you cannot recover the precision a document threw away.
   note: >-
     Checked by `report-kit figures --path examples/async-jobs/figures.yaml check`.
-    D9 is measured rather than derived from D8 — see meta.rounding.
+    D9 is measured rather than derived from D8 — see meta.rounding. Every figure a run's data
+    holds names it with from:, so `figures pull` writes the value and `check` fails if it drifts.
 
 scan:
   - report.md
@@ -21,6 +22,7 @@ figures:
     ref: FR1
     kind: R
     value: 1200
+    from: {file: scripts/data/n01-long.point.json, path: count}
     unit: units
     display: 0
     source: the second pass's unit count, a Held constant. The first pass ran 400 and its rows are a different grid
@@ -29,6 +31,7 @@ figures:
     ref: FR2
     kind: R
     value: 40
+    from: {file: scripts/data/n01-long.point.json, path: offered_rate}
     unit: units_per_second
     display: 0
     source: produce.py --rate, constant offered rate, open model
@@ -53,6 +56,7 @@ figures:
     ref: FR5
     kind: R
     value: 1
+    from: {file: scripts/data/n01-long.point.json, path: n}
     unit: workers
     display: 0
     source: maxReplicaCount on the ScaledObject, the swept axis. Registered because per-worker efficiency divides by it
@@ -61,6 +65,7 @@ figures:
     ref: FR6
     kind: R
     value: 2
+    from: {file: scripts/data/n02-long.point.json, path: n}
     unit: workers
     display: 0
     source: maxReplicaCount, point n02-long
@@ -69,6 +74,7 @@ figures:
     ref: FR7
     kind: R
     value: 4
+    from: {file: scripts/data/n04-long.point.json, path: n}
     unit: workers
     display: 0
     source: maxReplicaCount, point n04-long
@@ -77,6 +83,7 @@ figures:
     ref: FR8
     kind: R
     value: 8
+    from: {file: scripts/data/n08-long.point.json, path: n}
     unit: workers
     display: 0
     source: maxReplicaCount, points n08-long and n08-long-b
@@ -85,6 +92,7 @@ figures:
     ref: FM1
     kind: M
     value: 283.7
+    from: {file: scripts/data/n01-long.point.json, path: drain_window.seconds}
     unit: seconds
     display: 1
     source: D8, producer start to the first poll reading outstanding 0; data/n01-long.point.json
@@ -93,6 +101,7 @@ figures:
     ref: FM2
     kind: M
     value: 146.7
+    from: {file: scripts/data/n02-long.point.json, path: drain_window.seconds}
     unit: seconds
     display: 1
     source: D8, data/n02-long.point.json
@@ -101,6 +110,7 @@ figures:
     ref: FM3
     kind: M
     value: 84.4
+    from: {file: scripts/data/n04-long.point.json, path: drain_window.seconds}
     unit: seconds
     display: 1
     source: D8, data/n04-long.point.json
@@ -109,6 +119,7 @@ figures:
     ref: FM4
     kind: M
     value: 50.3
+    from: {file: scripts/data/n08-long.point.json, path: drain_window.seconds}
     unit: seconds
     display: 1
     source: D8, data/n08-long.point.json
@@ -117,6 +128,7 @@ figures:
     ref: FM5
     kind: M
     value: 53.3
+    from: {file: scripts/data/n08-long-b.point.json, path: drain_window.seconds}
     unit: seconds
     display: 1
     source: D8, data/n08-long-b.point.json, the repeat of n08-long
@@ -125,6 +137,7 @@ figures:
     ref: FM6
     kind: M
     value: 4.23
+    from: {file: scripts/data/n01-long.point.json, path: drained_per_second}
     unit: units_per_second
     source: D9, units divided by the unrounded drain. Taken from the point record rather than recomputed from drain_n01 -- see meta.rounding
 
@@ -132,6 +145,7 @@ figures:
     ref: FM7
     kind: M
     value: 8.18
+    from: {file: scripts/data/n02-long.point.json, path: drained_per_second}
     unit: units_per_second
     source: D9, data/n02-long.point.json
 
@@ -139,6 +153,7 @@ figures:
     ref: FM8
     kind: M
     value: 14.22
+    from: {file: scripts/data/n04-long.point.json, path: drained_per_second}
     unit: units_per_second
     source: D9, data/n04-long.point.json
 
@@ -146,6 +161,7 @@ figures:
     ref: FM9
     kind: M
     value: 23.85
+    from: {file: scripts/data/n08-long.point.json, path: drained_per_second}
     unit: units_per_second
     source: D9, data/n08-long.point.json
 
@@ -153,13 +169,15 @@ figures:
     ref: FM10
     kind: M
     value: 22.51
+    from: {file: scripts/data/n08-long-b.point.json, path: drained_per_second}
     unit: units_per_second
     source: D9, data/n08-long-b.point.json
 
   tier_service_n01:
     ref: FM11
     kind: M
-    value: 72.0
+    value: 71.9664268448005
+    from: {file: scripts/data/n01-long.jsonl, ref: M7, per: M5, where: "M5 > 1", reduce: mean, scale: 1000}
     unit: milliseconds
     display: 1
     source: D10, M7 divided by M5 over samples where M5 > 1
@@ -167,7 +185,8 @@ figures:
   tier_service_n02:
     ref: FM12
     kind: M
-    value: 72.5
+    value: 72.4653095369995
+    from: {file: scripts/data/n02-long.jsonl, ref: M7, per: M5, where: "M5 > 1", reduce: mean, scale: 1000}
     unit: milliseconds
     display: 1
     source: D10, point n02-long
@@ -175,7 +194,8 @@ figures:
   tier_service_n04:
     ref: FM13
     kind: M
-    value: 81.1
+    value: 81.0801685594402
+    from: {file: scripts/data/n04-long.jsonl, ref: M7, per: M5, where: "M5 > 1", reduce: mean, scale: 1000}
     unit: milliseconds
     display: 1
     source: D10, point n04-long
@@ -183,7 +203,8 @@ figures:
   tier_service_n08:
     ref: FM14
     kind: M
-    value: 83.4
+    value: 83.3858104399464
+    from: {file: scripts/data/n08-long.jsonl, ref: M7, per: M5, where: "M5 > 1", reduce: mean, scale: 1000}
     unit: milliseconds
     display: 1
     source: D10, point n08-long
@@ -191,7 +212,8 @@ figures:
   tier_service_n08b:
     ref: FM15
     kind: M
-    value: 84.2
+    value: 84.1685281826018
+    from: {file: scripts/data/n08-long-b.jsonl, ref: M7, per: M5, where: "M5 > 1", reduce: mean, scale: 1000}
     unit: milliseconds
     display: 1
     source: D10, point n08-long-b
@@ -200,6 +222,7 @@ figures:
     ref: FM16
     kind: M
     value: 1070
+    from: {file: scripts/data/n01-long.jsonl, ref: M1, reduce: max}
     unit: units
     display: 0
     source: M1 peak, max work-queue depth over the window
@@ -208,6 +231,7 @@ figures:
     ref: FM17
     kind: M
     value: 926
+    from: {file: scripts/data/n02-long.jsonl, ref: M1, reduce: max}
     unit: units
     display: 0
     source: M1 peak, point n02-long
@@ -216,6 +240,7 @@ figures:
     ref: FM18
     kind: M
     value: 718
+    from: {file: scripts/data/n04-long.jsonl, ref: M1, reduce: max}
     unit: units
     display: 0
     source: M1 peak, point n04-long
@@ -224,6 +249,7 @@ figures:
     ref: FM19
     kind: M
     value: 534
+    from: {file: scripts/data/n08-long.jsonl, ref: M1, reduce: max}
     unit: units
     display: 0
     source: M1 peak, point n08-long
@@ -232,6 +258,7 @@ figures:
     ref: FM20
     kind: M
     value: 517
+    from: {file: scripts/data/n08-long-b.jsonl, ref: M1, reduce: max}
     unit: units
     display: 0
     source: M1 peak, point n08-long-b
@@ -385,6 +412,7 @@ figures:
     ref: FR9
     kind: R
     value: 400
+    from: {file: scripts/data/n08.point.json, path: count}
     unit: units
     display: 0
     source: the first pass's unit count. Not a row of the matrix — its drains were ramp-dominated — but the report names it when it says why those rows are excluded
@@ -394,6 +422,7 @@ figures:
     ref: FM21
     kind: M
     value: 84.8
+    from: {file: scripts/data/n08-long.point.json, path: window.seconds}
     unit: seconds
     display: 1
     source: the measured window of n08-long, drain plus scale-in; data/n08-long.point.json
@@ -403,6 +432,7 @@ figures:
     ref: FM22
     kind: M
     value: 12.74
+    from: {file: scripts/data/n08.point.json, path: drained_per_second}
     unit: units_per_second
     source: D9 of the first pass's n08 point at 400 units; data/n08.point.json. Registered because 7 quotes the pair it belongs to
     group: first_pass
@@ -411,6 +441,7 @@ figures:
     ref: FM23
     kind: M
     value: 18.16
+    from: {file: scripts/data/n08-relief.point.json, path: drained_per_second}
     unit: units_per_second
     source: D9 of n08-relief, the first pass's probe with the shared tier's ceiling at 4; data/n08-relief.point.json
     group: first_pass

@@ -195,6 +195,7 @@ def run_profile(profile: str) -> int:
         # measure nothing and report it clean.
         assert record["window"]["seconds"] > 0, record["window"]
         assert record["export"]["series"] == 1, record["export"]
+        assert record["guard_values"] == {"G1": 1.0}, record.get("guard_values")
         assert (root / "data" / f"smoke-{profile}.point.md").is_file()
         assert (root / "data" / f"smoke-{profile}.jsonl").is_file()
         print(f"\n[  ok  ] {profile}: exit {code}, window "

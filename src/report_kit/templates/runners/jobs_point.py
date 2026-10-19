@@ -407,8 +407,9 @@ def main() -> int:
                                   {"n": args.n, "count": args.count or 0})
         print()
         # As of the drain, not now: the export sits between the two.
-        guard_failures = prometheus.check_guards(env.prom_url, guards,
-                                                 at=window.end)
+        guarded = prometheus.evaluate_guards(env.prom_url, guards,
+                                             at=window.end)
+        guard_failures = guarded.failures
 
     record = {
         "run": args.run,
@@ -418,6 +419,7 @@ def main() -> int:
         "window": window.to_dict(),
         "producer_exit": producer_rc,
         "guard_failures": guard_failures,
+        "guard_values": guarded.values,
         "export": {"path": str(export.path), "series": export.series,
                    "points": export.points, "empty_refs": export.empty},
         **observations,

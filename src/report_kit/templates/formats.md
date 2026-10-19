@@ -171,3 +171,45 @@ scan:
 `report-kit figures check` then reads them with the prose, and a value this
 report has retired is named where it survives in a picture, together with the
 figure that replaced it.
+
+## Where a measured value comes from
+
+A measured figure is copied out of a run's committed `data/`, and a copy nobody re-reads is as
+unverified as a number typed from memory. `from:` names where the value sits, so a tool makes the
+copy and the check re-reads it every time:
+
+```yaml
+  p95_r24:
+    ref: FM9
+    kind: M
+    value: 411.7
+    from: {file: executions/01-load/data/r24.point.json, path: client.p95_ms}
+```
+
+| Shape | Keys | Reads |
+| :--- | :--- | :--- |
+| Point record | `file`, `path`, optional `scale` | the key at the dotted `path` of a `.point.json`; a number stored as a string (`"24"`) counts |
+| Export | `file`, `ref`, `reduce`, optional `per`, `where`, `scale` | every series of `ref` in a `.jsonl`, summed per timestamp, then reduced by `max`, `min`, `mean` or `last` |
+
+`per: M5` divides sample by sample by another ref at the same timestamps. `where: "M5 > 1"` keeps
+the samples at which another ref passes the comparison — `>`, `>=`, `<` or `<=` against a number.
+`scale` multiplies the result: `100` turns a share into a percent, `1000` seconds into
+milliseconds. That is the whole vocabulary. A value the data needs more than this to produce is a
+derived figure with a `formula:`, and a figure has `from:` or `formula:`, never both. `file` is
+relative to the directory holding `figures.yaml`.
+
+- **`report-kit figures pull [figure …]`** rewrites each `value:` line from its data, in place, and
+  no other line: comments and block scalars survive byte for byte. It prints old → new for every
+  figure that moved. A reading with no samples is a gap — reported, exit 1, nothing written for
+  that figure, and never a zero.
+- **`report-kit figures check`** fails when a stored value differs from what its data reproduces at
+  full precision. A data file that is not there is reported and fails only under `--strict`, the
+  same as a missing `appears_in` target.
+
+**A value is stored at full precision and rounded at print.** `display:` decides what a page shows.
+A value rounded by hand to match a page no longer equals its evidence, and the check says so.
+
+**Only committed data counts.** `from:` never queries a metrics backend: retention ages a window
+out, CI has no cluster, and a file is what a reviewer can open. A figure whose number lives nowhere
+in `data/` — a setting read from a manifest, a price from a bill — keeps its `source:` and no
+`from:`.
