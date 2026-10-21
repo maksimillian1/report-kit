@@ -32,13 +32,17 @@
 
 ### Metrics
 
+<!-- report-kit metrics: generated from metrics.yaml, edit that file -->
+
 | Ref | What it measures | Source | Status | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| M1 | ⟨⟩ | `⟨metric_name{selector}⟩` | ⟨confirmed YYYY-MM-DD⟩ | ⟨→ K1⟩ |
+| M1 | ⟨⟩ | `⟨metric_name{selector}⟩` | unconfirmed | ⟨→ K1⟩ |
 | M2 | ⟨⟩ | `⟨metric_name{selector}⟩` | unconfirmed | ⟨what blocks it⟩ |
 | D3 | ⟨⟩ | `⟨M1 / M2⟩` | active | |
 | R4 | ⟨⟩ | hand-recorded at ⟨moment⟩ · ⟨who⟩ | active | |
 | E5 | ⟨⟩ | ⟨basis⟩ vs ⟨reference value⟩ | active | |
+
+<!-- /report-kit metrics -->
 
 - **Retention** — ⟨⟩ · campaign length ⟨⟩
 
@@ -47,7 +51,7 @@
 - **File** — `./data/price-⟨YYYY-MM-DD⟩.⟨ext⟩`
 - **Rate type** — ⟨list · Savings Plan · EDP⟩
 - **Region · currency** — ⟨⟩
-- **Covers** — ⟨every resource class any figure will price⟩
+- **Covers** — ⟨every resource class any value will price⟩
 
 ### Scope → report §2
 
@@ -58,11 +62,11 @@
 
 ### Preflight
 
-- [ ] Every `M` ref confirmed on the live endpoint, not from chart docs — gates every figure
-- [ ] Every confirmed ref returns data with non-empty label dimensions under its selector — gates every figure
-- [ ] Cost attribution active in IaC; controller-created resources carry the tag — gates every $ figure
+- [ ] Every `M` ref confirmed on the live endpoint, not from chart docs — gates every value
+- [ ] Every confirmed ref returns data with non-empty label dimensions under its selector — gates every value
+- [ ] Cost attribution active in IaC; controller-created resources carry the tag — gates every $ value
 - [ ] Retention compared against campaign length; export after every point if shorter — gates every point
-- [ ] Load generator and system on separate hosts; generator not the bottleneck — gates every throughput figure
+- [ ] Load generator and system on separate hosts; generator not the bottleneck — gates every throughput value
 - [ ] Run script dry run clean — gates comparability
 
 ---
@@ -78,7 +82,7 @@
 
 ### Window
 
-- **Warm-up** — ⟨duration, discarded from every figure⟩
+- **Warm-up** — ⟨duration, discarded from every value⟩
 - **Steady state** — ⟨duration each point is held⟩
 - **Opens** — ⟨signal⟩ · recorded by ⟨⟩
 - **Closes** — ⟨signal⟩ · recorded by ⟨⟩
@@ -106,7 +110,7 @@ re-frozen mid-campaign and at which commit⟩
 ### Close
 
 - [ ] Saturation identified, or headroom confirmed at the top of the grid
-- [ ] Every figure in §4 marked (unmarked · ᴰ · ᴿ · ᴱ)
+- [ ] Every value in §4 marked (unmarked · ᴰ · ᴿ · ᴱ)
 - [ ] Outcome compared against Expected in Retro, inversion included
 
 ---
@@ -135,7 +139,7 @@ re-frozen mid-campaign and at which commit⟩
 
 ### Guardrails
 
-- **⟨config key⟩ = ⟨value⟩** — from ⟨the figure in §4 that produced it⟩ · `⟨file⟩` → report §⟨n⟩
+- **⟨config key⟩ = ⟨value⟩** — from ⟨the value in §4 that produced it⟩ · `⟨file⟩` → report §⟨n⟩
 
 ### Retro
 

@@ -25,11 +25,15 @@
 
 ### Metrics
 
+<!-- report-kit metrics: generated from metrics.yaml, edit that file -->
+
 | Ref | What it measures | Source | Status | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| M1 | ⟨⟩ | `⟨metric_name{selector}⟩` | ⟨confirmed YYYY-MM-DD⟩ | ⟨→ K1⟩ |
-| D2 | ⟨⟩ | `⟨M1 / 00-baseline/M4⟩` | active | |
+| M1 | ⟨⟩ | `⟨metric_name{selector}⟩` | unconfirmed | ⟨→ K1⟩ |
+| D2 | ⟨⟩ | `⟨M1 / 00-baseline/M1⟩` | active | |
 | R3 | ⟨⟩ | hand-recorded at ⟨moment⟩ · ⟨who⟩ | active | |
+
+<!-- /report-kit metrics -->
 
 ### Safeguards
 
@@ -53,7 +57,7 @@
 ### Close
 
 - [ ] Saturation identified, or headroom confirmed at the top of the grid.
-- [ ] Every figure in §3 marked (unmarked · ᴰ · ᴿ · ᴱ).
+- [ ] Every value in §3 marked (unmarked · ᴰ · ᴿ · ᴱ).
 - [ ] Outcome compared against Expected in Retro, inversion included.
 
 ---
@@ -81,7 +85,7 @@
 
 ### Guardrails
 
-- **⟨config key⟩ = ⟨value⟩** — from ⟨the figure in §3 that produced it⟩ · `⟨file⟩` → report §⟨n⟩
+- **⟨config key⟩ = ⟨value⟩** — from ⟨the value in §3 that produced it⟩ · `⟨file⟩` → report §⟨n⟩
 
 ### Retro
 

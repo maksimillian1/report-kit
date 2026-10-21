@@ -22,7 +22,7 @@ curve is not an artifact of the client.
 | Autoscaler | HPA on CPU utilisation, target 50 %, `minReplicas` 1, `maxReplicas` 4 |
 | Scale-down | `stabilizationWindowSeconds: 15` — shortened from the 300 s default so a demo finishes |
 | Cluster | kind, single node, on one laptop |
-| Commit | working tree, uncommitted (`git_facts` recorded it as dirty) |
+| Commit | working tree, uncommitted |
 
 ### Workload — the denominator → report §2
 
@@ -33,23 +33,27 @@ the saturation below would never have appeared.
 
 ### Metrics
 
+<!-- report-kit metrics: generated from metrics.yaml, edit that file -->
+
 | Ref | What it measures | Source | Status | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| M1 | requests served per second | `http_reqs.rate`, k6 summary | confirmed 2026-09-05 | client-side; the denominator of D7 |
-| M2 | client-observed latency p95 | `http_req_duration.p(95)`, k6 summary | confirmed 2026-09-05 | includes the port-forward hop |
-| M3 | share of requests not served | `http_req_failed.value`, k6 summary | confirmed 2026-09-05 | timeouts at 10 s count here |
-| M4 | serving instances | `count(up{job="mock-api"} == 1)` | confirmed 2026-09-05 | **scrape targets, not replicas** — a terminating pod and its replacement are both up for one interval, so this overshoots `maxReplicas` during rollover |
-| M5 | server-side served rate | `sum(rate(mock_requests_total[30s]))` | confirmed 2026-09-05 | second opinion on M1 |
-| M6 | server-side mean service time | `sum(rate(mock_request_duration_seconds_sum[30s])) / sum(rate(mock_requests_total[30s]))` | confirmed 2026-09-05 | excludes queueing, unlike M2 |
+| M1 | requests served per second | `http_reqs.rate`, k6 summary | confirmed 2026-10-22 | client-side; the numerator of D8 |
+| M2 | client-observed latency p95 | `http_req_duration.p(95)`, k6 summary | confirmed 2026-10-22 | includes the port-forward hop |
+| M3 | share of requests not served | `http_req_failed.value`, k6 summary | confirmed 2026-10-22 | timeouts at 10 s count here |
+| M4 | serving instances | `count(up{job="mock-api"} == 1)` | confirmed 2026-10-22 | **scrape targets, not replicas** — a terminating pod and its replacement are both up for one interval, so this overshoots `maxReplicas` during rollover |
+| M5 | server-side served rate | `sum(rate(mock_requests_total[30s]))` | confirmed 2026-10-22 | second opinion on M1 |
+| M6 | server-side mean service time | `sum(rate(mock_request_duration_seconds_sum[30s])) / sum(rate(mock_requests_total[30s]))` | confirmed 2026-10-22 | excludes queueing, unlike M2 |
 | R7 | which component sat at its ceiling | hand-recorded at the end of each run | active | carried in the ledger `Signal` column |
 | D8 | offered load actually served | `M1 ÷ offered rate` | active | |
 
-- **Retention** — Prometheus 1 h · campaign length 20 min
+<!-- /report-kit metrics -->
+
+- **Retention** — Prometheus 1 h · campaign length 49 min
 
 ### Preflight
 
-- [x] Metric names confirmed against the live endpoint — `series.txt` exports four refs, none empty
-- [x] Guards frozen — `guards.txt`, checked at each point's close
+- [x] Metric names confirmed against the live endpoint — `metrics.yaml` exports three refs, none empty
+- [x] Guards frozen — `execution.yaml`, checked at each point's close
 - [x] Floor captured — 1 replica, no traffic
 - [x] Expected line written before the first run (below)
 
@@ -90,12 +94,12 @@ and the throughput ceiling should coincide near 20.
 
 | # | Point | Window UTC | Outcome | Signal | Exported |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| 01 | rate-04 | 18:57:41 → 18:59:23 | ok | headroom — served all 4/s at p95 98 ms ᴿ | ✓ |
-| 02 | rate-24 | 19:06:32 → 19:07:55 | ok | at the knee — served all 24/s, but p95 already 412 ms ᴿ | ✓ |
-| 03 | rate-12 | 19:08:48 → 19:10:11 | ok | headroom — p95 195 ms, no drops ᴿ | ✓ |
-| 04 | rate-40 | 19:11:36 → 19:13:11 | ok | saturated — CPU-bound, 806 iterations never started ᴿ | ✓ |
-| 05 | rate-32 | 19:14:24 → 19:15:16 | **invalid, ran against one replica** | — | ✓ |
-| 06 | rate-32 | 19:16:38 → 19:17:56 | ok | past the knee — p95 3.8 s, throughput still climbing ᴿ | ✓ |
+| 01 | rate-04 | 14:51:33 → 14:53:20 | ok | headroom — served all 4/s at p95 103 ms ᴿ | ✓ |
+| 02 | rate-24 | 15:19:59 → 15:21:22 | ok | at the knee — served all 24/s, but p95 already 304 ms ᴿ | ✓ |
+| 03 | rate-12 | 15:22:01 → 15:23:36 | ok | headroom — p95 188 ms, no drops ᴿ | ✓ |
+| 04 | rate-40 | 15:33:42 → 15:35:24 | ok | saturated — CPU-bound, 556 iterations never started ᴿ | ✓ |
+| 05 | rate-32 | 15:36:08 → 15:36:54 | **invalid, ran against one replica** | — | ✓ |
+| 06 | rate-32 | 15:38:56 → 15:40:23 | ok | past the knee — p95 1.3 s, throughput still climbing ᴿ | ✓ |
 
 ### Notes
 
@@ -106,15 +110,16 @@ them and latency was still climbing at the top. `methodology.md` §6 calls that
 produced the collapse.
 
 **#05 — invalid, and the ledger says why.** The point ran while the deployment
-was still at one replica: it started 70 s after #04 ended, and the autoscaler
-had scaled down but not yet back up. Replica count is in *Held constant*, so a
+was held at one replica: it started 44 s after #04 ended, with the autoscaler's
+`maxReplicas` lowered to 1 to stand in for one that has scaled down and not yet
+back up, and restored before #06. Replica count is in *Held constant*, so a
 point measured against one replica is not comparable with four, whatever its
-numbers say. It served 26.35<!--FM4-->/s at p95 4,680<!--FM10--> ms — close enough to #06 to be
+numbers say. It served 31.82<!--VM4-->/s at p95 734<!--VM10--> ms — close enough to #06 to be
 mistaken for a valid row, which is exactly why the check is mechanical
 (`M4 = 1`) rather than a judgement about whether the number "looks right".
 
 **#06 — the re-run.** Same Point identity, new row, because the ledger's `#` is
-never reused. Four replicas this time: 29.46<!--FM5-->/s at p95 3,755<!--FM11--> ms.
+never reused. Four replicas this time: 31.33<!--VM5-->/s at p95 1,261<!--VM11--> ms.
 
 **Between points the instrumentation needs a moment.** A pod that has just
 scaled in is still a scrape target for an interval or two and reports `up == 0`,
@@ -130,7 +135,7 @@ non-zero exit; deciding which kind it was is the author's.
 ### Close
 
 - [x] Every row has a `Signal`
-- [x] Every valid point exported before retention (1 h; campaign 20 min)
+- [x] Every valid point exported before retention (1 h; campaign 49 min)
 - [x] `#05` carried as invalid rather than deleted
 - [x] Expected line compared against the result (below)
 
@@ -138,14 +143,14 @@ non-zero exit; deciding which kind it was is the author's.
 
 ## 4 · Results
 
-**Finding** — the service serves the offered rate up to **24<!--FR3--> req/s** at
-p95 412<!--FM9--> ms. Between 24 and 32 the queue grows faster than it drains: throughput
-still climbs to 29.5<!--FM5-->/s but p95 jumps nine-fold to 3,755<!--FM11--> ms. At
-40<!--FR5--> req/s it breaks down — 19.7<!--FM6-->/s served, one request in five unanswered,
+**Finding** — the service serves the offered rate up to **24<!--VR3--> req/s** at
+p95 304<!--VM9--> ms. Between 24 and 32 the queue grows faster than it drains: throughput
+still climbs to 31.3<!--VM5-->/s but p95 jumps four-fold to 1,261<!--VM11--> ms. At
+40<!--VR5--> req/s it breaks down — 22.9<!--VM6-->/s served, about one request in seven unanswered,
 p95 pinned at the 10 s timeout. **Throughput peaks before the system stops keeping up, and latency
 finds the ceiling first.**
 
-**Against the Expected line** — the throughput ceiling landed near 29/s, not
+**Against the Expected line** — the throughput ceiling landed near 31/s, not
 20/s, so the CPU estimate was pessimistic by about half. But the *useful*
 ceiling — the highest rate served at a latency anyone would accept — is 24/s,
 close to the estimate. The expectation was right about where the system stops
@@ -156,24 +161,25 @@ same rate.
 
 | Point | Offered | M1 served/s | D8 served share | M2 p95 | M3 unserved | M4 targets | Signal |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | :--- |
-| rate-04 | 4<!--FR1--> | 4.01<!--FM1--> | 100<!--FD1--> % | 98<!--FM7--> ms | 0<!--FM13--> % | 4 | headroom |
-| rate-12 | 12<!--FR2--> | 11.99<!--FM2--> | 100<!--FD2--> % | 195<!--FM8--> ms | 0<!--FM14--> % | 4 | headroom |
-| rate-24 | 24<!--FR3--> | 23.97<!--FM3--> | 100<!--FD3--> % | 412<!--FM9--> ms | 0<!--FM15--> % | 4 | at the knee |
-| rate-32 ᴱˣ | 32<!--FR4--> | 26.35<!--FM4--> | 82<!--FD4--> % | 4,680<!--FM10--> ms | 0.5<!--FM16--> % | 1 | — (invalid) |
-| rate-32 | 32<!--FR4--> | 29.46<!--FM5--> | 92<!--FD5--> % | 3,755<!--FM11--> ms | 0.2<!--FM17--> % | 4 | past the knee |
-| rate-40 | 40<!--FR5--> | 19.72<!--FM6--> | 49<!--FD6--> % | 10,001<!--FM12--> ms | 21.2<!--FM18--> % | 5 | saturated |
+| rate-04 | 4<!--VR1--> | 4.00<!--VM1--> | 100<!--VD1--> % | 103<!--VM7--> ms | 0<!--VM13--> % | 4 | headroom |
+| rate-12 | 12<!--VR2--> | 11.99<!--VM2--> | 100<!--VD2--> % | 188<!--VM8--> ms | 0<!--VM14--> % | 4 | headroom |
+| rate-24 | 24<!--VR3--> | 23.97<!--VM3--> | 100<!--VD3--> % | 304<!--VM9--> ms | 0<!--VM15--> % | 4 | at the knee |
+| rate-32 ᴱˣ | 32<!--VR4--> | 31.82<!--VM4--> | 99<!--VD4--> % | 734<!--VM10--> ms | 0<!--VM16--> % | 1 | — (invalid) |
+| rate-32 | 32<!--VR4--> | 31.33<!--VM5--> | 98<!--VD5--> % | 1,261<!--VM11--> ms | 0<!--VM17--> % | 4 | past the knee |
+| rate-40 | 40<!--VR5--> | 22.92<!--VM6--> | 57<!--VD6--> % | 10,001<!--VM12--> ms | 15.0<!--VM18--> % | 4 | saturated |
 
 ᴱˣ — excluded from the curve fit: ran against one replica, see Journal #05.
 
 ### Saturation
 
 **Tier 1 — CPU, between 24 and 32 req/s, runs #02 and #06.** Latency rises with
-offered load from the very first point (98<!--FM7--> → 195<!--FM8--> → 412<!--FM9--> ms across 4<!--FR1--> → 12<!--FR2--> → 24<!--FR3-->),
-which is queueing, not noise. Past 24 the four replicas are already the
+offered load from the very first point (103<!--VM7--> → 188<!--VM8--> → 304<!--VM9--> ms across 4<!--VR1--> → 12<!--VR2--> → 24<!--VR3-->),
+which is not noise. Past 24 the four replicas are already the
 autoscaler's maximum, so nothing more arrives to absorb the load and the queue
 grows without bound. `M6` (server-side service time, which excludes queueing)
-stays within a factor of two across the whole grid, so the request handler is
-not itself slowing down — the wait is in front of it.
+rises too, but more slowly: it is flat between 12 and 24 and little more than
+doubles from 24 to 32 while p95 quadruples, so the request handler slows down
+under load and the wait in front of it grows faster still.
 
 **No second tier is claimed.** The grid ends where the first tier breaks, and a
 sweep that stops at the first ceiling cannot see what would bind after it.
@@ -181,14 +187,14 @@ sweep that stops at the first ceiling cannot see what would bind after it.
 ### Guardrails
 
 - **Do not read the 40 req/s row as capacity.** It is what breakdown looks
-  like: throughput below the 32 row and one request in five lost.
+  like: throughput below the 32 row and about one request in seven lost.
 - **The replica ceiling is part of the measurement.** Every valid point above
   4 req/s ran at `maxReplicas`, so this curve describes *this* HPA
   configuration, not the service. Raising `maxReplicas` moves the knee and the
   sweep would need repeating.
 - **`M4` counts scrape targets.** During rollover a terminating pod and its
-  replacement are both up, which is why the 40 req/s row shows 5 against a
-  maximum of 4. It is not a replica count and should not be read as one.
+  replacement are both up, so it can read above the maximum of 4, although no
+  row of this sweep did. It is not a replica count and should not be read as one.
 
 ### Retro
 
@@ -198,9 +204,9 @@ first is what surfaced that on the fourth run rather than the ninth.
 
 The invalid row cost one re-run and would have cost a wrong conclusion. It was
 caught because replica count is checked as a number rather than eyeballed —
-26.35<!--FM4-->/s at p95 4,680<!--FM10--> ms sits close enough to the valid row that no one would
+31.82<!--VM4-->/s at p95 734<!--VM10--> ms sits close enough to the valid row that no one would
 have questioned it.
 
-Back into the kit: nothing this time. The runner already refused to overwrite
-the earlier export, flagged the generator's exit, and recorded the window from
-the process rather than from a timestamp typed afterwards.
+Back into the kit: nothing this time. The runner already flagged the
+generator's exit and recorded the window from the process rather than from a
+timestamp typed afterwards.

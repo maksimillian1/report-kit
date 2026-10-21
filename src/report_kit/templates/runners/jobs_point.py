@@ -8,6 +8,9 @@ workload: enqueue a batch of work, then measure the system draining it.
     ./jobs_point.py --set-freeze
 
 This is a TEMPLATE. Copy it per project and edit the CONSTANTS block below.
+What is exported lives in the execution's metrics.yaml; which always-on
+deployments the window waits for and what makes a point valid live in its
+execution.yaml; addresses live in env.yaml.
 
 The one thing that must not be simplified away: the producer runs
 CONCURRENTLY with the watch loop, not before it. Filling the queue first and
@@ -16,8 +19,9 @@ full — a different experiment with a different answer, and the arrival
 pattern that produced the backlog is gone from the data.
 
 The window opens when the producer starts and closes once every queue is
-empty, the worker pool is back to zero, and the shared tier is at its floor
-— all three held together, because any one of them alone reads "done" while
+empty, the worker pool is back to zero, and every deployment in
+window_closes_when_back_to_idle is back at its idle_replicas — all three
+held together, because any one of them alone reads "done" while
 work is still in flight.
 """
 
@@ -28,7 +32,7 @@ import json
 import sys
 from pathlib import Path
 
-from report_kit import cluster, poll, prometheus, refs, reporting
+from report_kit import cluster, poll, prometheus, reporting
 from report_kit.cloud import aws
 from report_kit.dbs import qdrant
 from report_kit.constants import (ARROW, BAD, EXIT_CLEAN, EXIT_EXPORT_GAP,
@@ -38,6 +42,9 @@ from report_kit.clock import hms, utcnow
 from report_kit.portforward import PortForwards, forward_spec
 from report_kit.preflight import Preflight
 from report_kit.proc import Background
+from report_kit.execution_config import (EXECUTION, Execution, ExecutionError,
+                                         IdleTarget, read_execution, run_guards)
+from report_kit.register import REGISTER, Register, RegisterError, read_register, series_rows
 from report_kit.text import fill
 from report_kit.window import Window
 
@@ -50,12 +57,6 @@ QUEUES = ["work", "retry"]
 # env.yaml key for the label selector matching worker nodes. The pool
 # returning to zero is what says the work is finished and the cost stopped.
 WORKER_POOL_KEY = "nodepool_workers"
-
-# Always-on tiers the workers lean on: these scale up under load but must
-# come back down for the window to close.
-SHARED_TIERS = [
-    {"deployment": "embeddings", "floor": 1},
-]
 
 # The close condition must hold this long. Queue purges and scale-in are
 # eventually consistent — a queue reads zero while messages are still
@@ -76,24 +77,24 @@ def worker_nodes(env: Env) -> dict[str, str]:
     return cluster.nodes_by_selector(env.need(WORKER_POOL_KEY))
 
 
-def tier_replicas(env: Env) -> dict[str, int]:
-    return {t["deployment"]: cluster.deployment_replicas(
-        env.namespace_for(t["deployment"]), t["deployment"]) for t in SHARED_TIERS}
+def tier_replicas(env: Env, back_to_idle: tuple[IdleTarget, ...]) -> dict[str, int]:
+    return {t.deployment: cluster.deployment_replicas(
+        env.namespace_for(t.deployment), t.deployment) for t in back_to_idle}
 
 
-def system_state(env: Env) -> dict:
+def system_state(env: Env, back_to_idle: tuple[IdleTarget, ...]) -> dict:
     """One read of everything the close condition depends on."""
     return {"depths": queue_depths(env), "nodes": worker_nodes(env),
-            "tiers": tier_replicas(env)}
+            "tiers": tier_replicas(env, back_to_idle)}
 
 
-def is_idle(state: dict) -> bool:
-    """Empty, at zero and at floor — all three. Any one of them alone reads
-    "done" while work is still in flight somewhere else."""
+def is_idle(state: dict, back_to_idle: tuple[IdleTarget, ...]) -> bool:
+    """Empty, at zero and back at idle — all three. Any one of them alone
+    reads "done" while work is still in flight somewhere else."""
     return (sum(state["depths"].values()) == 0
             and not state["nodes"]
-            and all(state["tiers"][t["deployment"]] <= t["floor"]
-                    for t in SHARED_TIERS))
+            and all(state["tiers"][t.deployment] <= t.idle_replicas
+                    for t in back_to_idle))
 
 
 def render_state(state: dict) -> str:
@@ -145,14 +146,15 @@ def reset(env: Env, dry_run: bool = False) -> None:
                 print(f"{WARN} qdrant unreachable, leaving it: {e}")
 
 
-def wait_for_idle(env: Env, hold_seconds: float) -> bool:
+def wait_for_idle(env: Env, hold_seconds: float,
+                  back_to_idle: tuple[IdleTarget, ...]) -> bool:
     """Purges are asynchronous and scale-in is not instant — the reset is only
     finished when the system reads idle and stays that way."""
     state: dict = {}
 
     def idle() -> bool:
-        state.update(system_state(env))
-        return is_idle(state)
+        state.update(system_state(env, back_to_idle))
+        return is_idle(state, back_to_idle)
 
     print()
     print(f"{ARROW} waiting for idle (timeout {hms(env.max_wait_seconds)})")
@@ -179,7 +181,16 @@ def build_producer(env: Env, args, log_path: Path) -> tuple[list[str], dict]:
     return cmd, env_extra
 
 
-def preflight(env: Env, freeze_file: Path) -> Preflight:
+def load_definitions(metrics: Path, execution: Path) -> tuple[Register, Execution]:
+    try:
+        register = read_register(metrics)
+        return register, read_execution(execution, register)
+    except (RegisterError, ExecutionError) as e:
+        die(str(e))
+
+
+def preflight(env: Env, freeze_file: Path,
+              back_to_idle: tuple[IdleTarget, ...]) -> Preflight:
     """A point that starts dirty measures the previous point's leftovers."""
     pre = Preflight("preflight")
 
@@ -196,12 +207,12 @@ def preflight(env: Env, freeze_file: Path) -> Preflight:
     except RuntimeError as e:
         pre.fail("worker pool unreadable", str(e))
 
-    for tier in SHARED_TIERS:
-        name, floor = tier["deployment"], tier["floor"]
+    for target in back_to_idle:
+        name = target.deployment
         try:
             replicas = cluster.deployment_replicas(env.namespace_for(name), name)
-            pre.check(f"{name} at floor", replicas <= floor,
-                      f"{replicas} replica(s), floor {floor}")
+            pre.check(f"{name} at idle", replicas <= target.idle_replicas,
+                      f"{replicas} replica(s), idle {target.idle_replicas}")
         except RuntimeError as e:
             pre.fail(f"{name} unreadable", str(e))
 
@@ -215,7 +226,8 @@ def preflight(env: Env, freeze_file: Path) -> Preflight:
     return pre
 
 
-def watch(env: Env, pf: PortForwards, producer: Background) -> tuple[Window | None, dict]:
+def watch(env: Env, pf: PortForwards, producer: Background,
+          back_to_idle: tuple[IdleTarget, ...]) -> tuple[Window | None, dict]:
     """Watch the drain. Returns (window, observations).
 
     Tracks which nodes hold work, so a node vanishing while it had pods can
@@ -240,7 +252,7 @@ def watch(env: Env, pf: PortForwards, producer: Background) -> tuple[Window | No
         for notice in pf.ensure_alive():
             print(f"{WARN} {notice}")
 
-        current = system_state(env)
+        current = system_state(env, back_to_idle)
         nodes = current["nodes"]
 
         pods = cluster.pods_by_node(env.namespace, env.need("worker_selector"))
@@ -266,7 +278,7 @@ def watch(env: Env, pf: PortForwards, producer: Background) -> tuple[Window | No
         # upload, a seeding pass, an image pull) closes a zero-length window
         # over a system that never did any work, and the point reads clean.
         # The window cannot close until the system has been seen busy once.
-        idle = is_idle(current)
+        idle = is_idle(current, back_to_idle)
         seen_busy = seen_busy or not idle
         return seen_busy and idle
 
@@ -324,8 +336,10 @@ def main() -> int:
     p.add_argument("--n", help="concurrency / parallelism under test")
     p.add_argument("--count", help="units of work to enqueue")
     p.add_argument("--env", type=Path)
-    p.add_argument("--series", type=Path)
-    p.add_argument("--guards", type=Path)
+    p.add_argument("--metrics", type=Path,
+                   help=f"{REGISTER} (default: the execution's, above this file)")
+    p.add_argument("--execution", type=Path,
+                   help=f"{EXECUTION} (default: the execution's, above this file)")
     p.add_argument("--out-dir", type=Path)
     p.add_argument("--freeze-file", type=Path)
     p.add_argument("--step", default=STEP)
@@ -345,6 +359,9 @@ def main() -> int:
     env = Env(args.env or here / "env.yaml")
     out_dir = args.out_dir or here / "data"
     freeze_file = args.freeze_file or here / "image-freeze.json"
+    register, config = load_definitions(args.metrics or here.parent / REGISTER,
+                                        args.execution or here.parent / EXECUTION)
+    back_to_idle = config.window_closes_when_back_to_idle
 
     forwards = [forward_spec(env, "prometheus"), forward_spec(env, "qdrant")]
     with PortForwards(forwards, enabled=not args.no_port_forward) as pf:
@@ -352,7 +369,7 @@ def main() -> int:
             reset(env, args.dry_run)
             if args.dry_run:
                 return EXIT_CLEAN
-            if not wait_for_idle(env, hold_seconds=min(HOLD_SECONDS, 30)):
+            if not wait_for_idle(env, min(HOLD_SECONDS, 30), back_to_idle):
                 print(f"{BAD} still not idle — check the autoscaler by hand")
                 return 4
             print(f"[{OK}] ready for the next point")
@@ -365,13 +382,18 @@ def main() -> int:
             print(f"[{OK}] freeze written to {freeze_file}")
             return EXIT_CLEAN
 
-        pre = preflight(env, freeze_file)
+        pre = preflight(env, freeze_file, back_to_idle)
         if args.preflight_only:
             return EXIT_CLEAN if pre.finish(exit_on_fail=False) else 1
         pre.finish()
 
         if not args.run or not args.n:
             die("--run and --n are required for a measured point")
+        series = series_rows(register)
+        try:
+            guards = run_guards(config, {"n": args.n, "count": args.count or 0})
+        except ExecutionError as e:
+            die(str(e))
 
         log_path = Path(out_dir) / f"{args.run}.producer.log"
         cmd, env_extra = build_producer(env, args, log_path)
@@ -379,7 +401,7 @@ def main() -> int:
         print(f"{ARROW} producer (background) · {' '.join(cmd)}")
 
         with Background(cmd, log_path, env_extra=env_extra, cwd=here) as producer:
-            window, observations = watch(env, pf, producer)
+            window, observations = watch(env, pf, producer, back_to_idle)
             producer_rc = producer.poll()
             if producer_rc is None:
                 print(f"{WARN} the queues drained while the producer is still "
@@ -396,28 +418,33 @@ def main() -> int:
             return 4
         print()
         print(f"[{OK}] window {window}")
+        measured = {
+            "run": args.run,
+            "profile": "jobs",
+            "n": args.n,
+            "count": args.count,
+            "window": window.to_dict(),
+            "producer_exit": producer_rc,
+            "queries": dict(series),
+            "guards": guards,
+        }
+        reporting.write_record(out_dir, args.run, measured)
 
         pf.ensure_alive()
-        series = refs.read_ref_file(args.series or here / "series.txt", 2)
         export = prometheus.export_range(
             env.prom_url, series, window, out_dir=out_dir, run_id=args.run,
             step=args.step, force=args.force)
 
-        guards = refs.load_guards(args.guards or here / "guards.txt",
-                                  {"n": args.n, "count": args.count or 0})
         print()
         # As of the drain, not now: the export sits between the two.
-        guard_failures = prometheus.check_guards(env.prom_url, guards,
-                                                 at=window.end)
+        guarded = prometheus.evaluate_guards(env.prom_url, guards,
+                                             at=window.end)
+        guard_failures = guarded.failures
 
     record = {
-        "run": args.run,
-        "profile": "jobs",
-        "n": args.n,
-        "count": args.count,
-        "window": window.to_dict(),
-        "producer_exit": producer_rc,
+        **measured,
         "guard_failures": guard_failures,
+        "guard_values": guarded.values,
         "export": {"path": str(export.path), "series": export.series,
                    "points": export.points, "empty_refs": export.empty},
         **observations,
@@ -432,12 +459,12 @@ def main() -> int:
     if args.reset_after:
         print()
         reset(env)
-        wait_for_idle(env, hold_seconds=min(HOLD_SECONDS, 30))
+        wait_for_idle(env, min(HOLD_SECONDS, 30), back_to_idle)
 
     if not export.ok:
         print(f"{WARN} export gaps: {', '.join(export.empty)} — the window is "
-              f"recorded, re-export with tools/export_metrics.py before "
-              f"retention drops it")
+              f"recorded, re-export with report-kit export-metrics --record "
+              f"{out_dir / (args.run + '.point.json')} before retention drops it")
         return EXIT_EXPORT_GAP
 
     # A node lost while it held work invalidates the window; ordinary

@@ -1,0 +1,37 @@
+# The metric register: what this execution reads and from where — a
+# Prometheus query, a generator's summary, an outside API — each ref defined
+# once. The runner in scripts/ exports every M ref that has a promql.
+#
+# `report-kit metrics write` renders the register table between the two
+# marker lines in index.md — move the marked block to metrics.md when the
+# table outgrows index.md — and `report-kit metrics check` fails when the
+# table no longer matches this file. Edit here, never there.
+#
+# One sequence of numbers across M, D, R and E, in file order, and a number is
+# never reused. An M ref's status is `confirmed YYYY-MM-DD` once its name was
+# checked against the live endpoint and `unconfirmed` until then; an
+# unconfirmed ref cannot appear in a frozen Plan.
+
+metrics:
+  # promql is evaluated over the point's window and written to <run>.jsonl. A
+  # ref that returns no series fails the run with exit 2 — an empty result is a
+  # gap, not a zero. Where zero is genuinely the answer, write it:
+  # `... or vector(0)`. A metric read from anywhere else, such as a generator's
+  # own summary, carries source instead and is not exported.
+  M1:
+    what: ⟨⟩
+    promql: ⟨metric_name{selector}⟩
+    status: unconfirmed
+    notes: ⟨→ K1⟩
+  D2:
+    what: ⟨⟩
+    source: '`⟨M1 / …⟩`'
+    status: active
+  R3:
+    what: ⟨⟩
+    source: hand-recorded at ⟨moment⟩ · ⟨who⟩
+    status: active
+  E4:
+    what: ⟨⟩
+    source: ⟨basis⟩ vs ⟨reference value⟩
+    status: active

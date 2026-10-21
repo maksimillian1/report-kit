@@ -3,7 +3,7 @@ meta:
   rule: ⟨which numbers must exist here — the promise this file makes⟩
   rounding: ⟨how precision is handled, and the evidence for choosing it that way⟩
   display: ⟨what prose prints · what tables print · what rates keep⟩
-  naming: ⟨how a figure is named, so two authors produce one name and not two⟩
+  naming: ⟨how a value is named, so two authors produce one name and not two⟩
 
 scan:
   - report.md
@@ -12,32 +12,44 @@ scan:
   # report retires is caught where it survives in a picture. See formats.md.
   - charts/*.csv
 
-figures:
+# Optional: the values one run adds, so `report-kit values add-point
+# data/<run>.point.json` registers a point instead of a person. formats.md.
+points:
+  axis: ⟨the point record field that names a point⟩
+  label: "⟨n{n:02d}⟩"
+  values:
+    ⟨measured⟩_{point}: {kind: M, unit: ⟨unit⟩, from: {path: ⟨key.inside.it⟩}, metric: ⟨M1⟩}
+
+values:
   ⟨recorded_name⟩:
-    ref: FR1
+    ref: VR1
     kind: R
     value: ⟨number⟩
     unit: ⟨unit⟩
     source: ⟨the authority it was read from, and the date⟩
 
+  # from: names where the value sits in a run's committed data/, so
+  # `report-kit values pull` writes it and `check` fails when the two part.
+  # A point record takes path:, an export takes ref: and reduce:. formats.md.
   ⟨measured_name⟩:
-    ref: FM1
+    ref: VM1
     kind: M
     value: ⟨number⟩
+    from: {file: ⟨executions/NN-name/data/run.point.json⟩, path: ⟨key.inside.it⟩}
+    metric: ⟨M1, the register ref it measures⟩
     unit: ⟨unit⟩
-    source: ⟨the metric ref, its selector, and the window⟩
 
   ⟨derived_name⟩:
-    ref: FD1
+    ref: VD1
     kind: D
-    formula: ⟨expression over other figure names⟩
+    formula: ⟨expression over other value names⟩
     unit: ⟨unit⟩
     display: ⟨decimals⟩
     group: ⟨subject⟩
     appears_in: [report.md]
 
   ⟨estimated_name⟩:
-    ref: FE1
+    ref: VE1
     kind: E
     value: ⟨number⟩
     unit: ⟨unit⟩
@@ -51,5 +63,5 @@ allow:
 
 retired:
   - pattern: "⟨the superseded digits⟩"
-    replaced_by: ⟨figure name⟩
+    replaced_by: ⟨value name⟩
     why: ⟨what changed, so a reader meeting the old number knows⟩

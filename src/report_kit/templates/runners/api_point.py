@@ -7,13 +7,16 @@ workload: drive a fixed load at an API, then measure what it cost to serve.
     ./api_point.py --set-freeze
 
 This is a TEMPLATE. Copy it per project and edit the CONSTANTS block below;
-everything under it should need no changes. Addresses live in env.yaml, what
-is under test lives here — that split is the point: env.yaml can differ
-between clusters, this file may not differ between points of one sweep.
+everything under it should need no changes. What is exported lives in the
+execution's metrics.yaml; when the window closes and what makes a point
+valid live in its execution.yaml; addresses live in env.yaml. That split is
+the point: env.yaml can differ between clusters, the other two and this file
+may not differ between points of one sweep.
 
-The window opens when the generator starts and closes once every gated
-deployment is back at its floor and has stayed there — scale-in is caused by
-the load and is billed to this point, so it belongs inside the window.
+The window opens when the generator starts and closes once every deployment
+in window_closes_when_back_to_idle is back at its idle_replicas and has
+stayed there — scale-in is caused by the load and is billed to this point,
+so it belongs inside the window.
 """
 
 from __future__ import annotations
@@ -23,7 +26,7 @@ import json
 import sys
 from pathlib import Path
 
-from report_kit import cluster, poll, prometheus, refs, reporting
+from report_kit import cluster, poll, prometheus, reporting
 from report_kit.constants import (ARROW, BAD, EXIT_CLEAN, EXIT_EXPORT_GAP,
                                   OK, WARN, die)
 from report_kit.env import Env
@@ -31,19 +34,16 @@ from report_kit.clock import hms, utcnow
 from report_kit.portforward import PortForwards, forward_spec
 from report_kit.preflight import Preflight
 from report_kit.proc import run_logged
+from report_kit.execution_config import (EXECUTION, WINDOW, Execution,
+                                         ExecutionError, IdleTarget,
+                                         read_execution, run_guards)
+from report_kit.register import REGISTER, Register, RegisterError, read_register, series_rows
 from report_kit.text import fill
 from report_kit.window import Window
 
 # --------------------------------------------------------------------- CONSTANTS
 # What must not move across the sweep. Changing anything here starts a new
 # sweep; it does not produce another point of the current one.
-
-# Deployments whose scaling this point measures. `floor` is the idle replica
-# count the window must return to; `ceiling` is the configured max — reaching
-# it means the point measured the limit, not the system.
-GATES = [
-    {"deployment": "api", "floor": 1, "ceiling": 10},
-]
 
 # The close condition must hold this long before the window is called closed.
 # Shorter than one scaling decision interval and a momentary dip at floor
@@ -79,18 +79,30 @@ def build_generator(env: Env, args, log_path: Path) -> tuple[list[str], dict]:
     return cmd, env_extra
 
 
-def preflight(env: Env, freeze_file: Path) -> Preflight:
+def load_definitions(metrics: Path, execution: Path) -> tuple[Register, Execution]:
+    try:
+        register = read_register(metrics)
+        config = read_execution(execution, register)
+    except (RegisterError, ExecutionError) as e:
+        die(str(e))
+    if not config.window_closes_when_back_to_idle:
+        die(f"{execution} names no deployment under {WINDOW}, so the window has "
+            f"nothing to wait for")
+    return register, config
+
+
+def preflight(env: Env, freeze_file: Path, back_to_idle: tuple[IdleTarget, ...]) -> Preflight:
     pre = Preflight("preflight")
 
-    for gate in GATES:
-        name, floor = gate["deployment"], gate["floor"]
+    for target in back_to_idle:
+        name = target.deployment
         try:
-            replicas = gate_replicas(env, name)
+            count = replicas(env, name)
         except RuntimeError as e:
             pre.fail(f"{name} replicas unreadable", str(e))
             continue
-        pre.check(f"{name} at floor", replicas <= floor,
-                  f"{replicas} replica(s), floor {floor}")
+        pre.check(f"{name} at idle", count <= target.idle_replicas,
+                  f"{count} replica(s), idle {target.idle_replicas}")
 
     down = prometheus.prom_targets_down(env.prom_url)
     pre.check("prometheus targets up", not down, ", ".join(down[:5]))
@@ -102,18 +114,20 @@ def preflight(env: Env, freeze_file: Path) -> Preflight:
     return pre
 
 
-def gate_replicas(env: Env, name: str) -> int:
+def replicas(env: Env, name: str) -> int:
     return cluster.deployment_replicas(env.namespace_for(name), name)
 
 
-def wait_for_scale_in(env: Env) -> tuple[Window | None, dict]:
-    """Closes when every gate is back at its floor and has held there.
+def wait_for_scale_in(env: Env, back_to_idle: tuple[IdleTarget, ...]
+                      ) -> tuple[Window | None, dict]:
+    """Closes when every deployment is back at its idle_replicas and has held
+    there.
 
     Returns (window, observations). A None window means it never settled —
     the point is a timeout, and nothing is exported: an unclosed window has
     no defined end to export."""
-    floors = {g["deployment"]: g["floor"] for g in GATES}
-    ceilings = {g["deployment"]: g["ceiling"] for g in GATES}
+    floors = {t.deployment: t.idle_replicas for t in back_to_idle}
+    ceilings = {t.deployment: t.max_replicas for t in back_to_idle if t.max_replicas}
     peak = {name: 0 for name in floors}
     ceiling_hits: list[str] = []
     state: dict = {}
@@ -124,13 +138,14 @@ def wait_for_scale_in(env: Env) -> tuple[Window | None, dict]:
           f"poll {env.poll_seconds}s, timeout {hms(env.max_wait_seconds)}")
 
     def at_floor() -> bool:
-        current = {name: gate_replicas(env, name) for name in floors}
+        current = {name: replicas(env, name) for name in floors}
         for name, value in current.items():
             peak[name] = max(peak[name], value)
-            if value >= ceilings[name] and name not in ceiling_hits:
+            if name in ceilings and value >= ceilings[name] \
+                    and name not in ceiling_hits:
                 ceiling_hits.append(name)
-                print(f"{WARN} {name} hit its ceiling ({ceilings[name]}) — this "
-                      f"point measures the ceiling, not the system")
+                print(f"{WARN} {name} reached max_replicas ({ceilings[name]}) — "
+                      f"this point measures that limit, not the system")
         state["current"] = current
         return all(current[n] <= floor for n, floor in floors.items())
 
@@ -168,7 +183,7 @@ def point_block(args, window: Window, facts: dict, observations: dict,
         ("guards", "clean" if not guard_failures else ", ".join(guard_failures)),
     ]
     if observations["ceiling_hits"]:
-        rows.append(("ceiling reached", ", ".join(observations["ceiling_hits"])))
+        rows.append(("max_replicas reached", ", ".join(observations["ceiling_hits"])))
     return "\n".join(reporting.md_table(rows))
 
 
@@ -179,8 +194,10 @@ def main() -> int:
     p.add_argument("--rate", help="offered load, passed to the generator")
     p.add_argument("--duration", default="10m", help="generator run length")
     p.add_argument("--env", type=Path, help="env.yaml (default: next to this file)")
-    p.add_argument("--series", type=Path, help="series.txt of ref|promql")
-    p.add_argument("--guards", type=Path, help="guards.txt of ref|bound|promql")
+    p.add_argument("--metrics", type=Path,
+                   help=f"{REGISTER} (default: the execution's, above this file)")
+    p.add_argument("--execution", type=Path,
+                   help=f"{EXECUTION} (default: the execution's, above this file)")
     p.add_argument("--out-dir", type=Path, help="where the point's files land")
     p.add_argument("--freeze-file", type=Path, help="image-freeze.json")
     p.add_argument("--step", default=STEP, help=f"export step (default {STEP})")
@@ -196,6 +213,9 @@ def main() -> int:
     env = Env(args.env or here / "env.yaml")
     out_dir = args.out_dir or here / "data"
     freeze_file = args.freeze_file or here / "image-freeze.json"
+    register, config = load_definitions(args.metrics or here.parent / REGISTER,
+                                        args.execution or here.parent / EXECUTION)
+    back_to_idle = config.window_closes_when_back_to_idle
 
     forwards = [forward_spec(env, "prometheus"), forward_spec(env, "api")]
     with PortForwards(forwards, enabled=not args.no_port_forward) as pf:
@@ -206,13 +226,18 @@ def main() -> int:
             print(f"[{OK}] freeze written to {freeze_file}")
             return EXIT_CLEAN
 
-        pre = preflight(env, freeze_file)
+        pre = preflight(env, freeze_file, back_to_idle)
         if args.preflight_only:
             return EXIT_CLEAN if pre.finish(exit_on_fail=False) else 1
         pre.finish()
 
         if not args.run or not args.rate:
             die("--run and --rate are required for a measured point")
+        series = series_rows(register)
+        try:
+            guards = run_guards(config, {"rate": args.rate})
+        except ExecutionError as e:
+            die(str(e))
 
         log_path = Path(out_dir) / f"{args.run}.generator.log"
         cmd, env_extra = build_generator(env, args, log_path)
@@ -226,9 +251,9 @@ def main() -> int:
               f"· {generated.window.hms} · {log_path}")
 
         pf.ensure_alive()
-        window, observations = wait_for_scale_in(env)
+        window, observations = wait_for_scale_in(env, back_to_idle)
         if window is None:
-            print(f"{BAD} never returned to floor within "
+            print(f"{BAD} never returned to idle within "
                   f"{hms(env.max_wait_seconds)} — nothing exported")
             return 4
 
@@ -236,30 +261,35 @@ def main() -> int:
         window = Window(generated.window.start, window.end)
         print()
         print(f"[{OK}] window {window}")
+        measured = {
+            "run": args.run,
+            "profile": "api",
+            "rate": args.rate,
+            "duration": args.duration,
+            "window": window.to_dict(),
+            "generator_exit": generated.returncode,
+            "generator_window": generated.window.to_dict(),
+            "queries": dict(series),
+            "guards": guards,
+        }
+        reporting.write_record(out_dir, args.run, measured)
 
         pf.ensure_alive()
-        series = refs.read_ref_file(args.series or here / "series.txt", 2)
         export = prometheus.export_range(
             env.prom_url, series, window, out_dir=out_dir, run_id=args.run,
             step=args.step, force=args.force)
 
-        guards = refs.load_guards(args.guards or here / "guards.txt",
-                                  {"rate": args.rate})
         print()
         # As of the generator's end, not now: scale-in and the export sit
         # between the two, and a rate guard checked after them sees dead air.
-        guard_failures = prometheus.check_guards(env.prom_url, guards,
-                                                 at=generated.window.end)
+        guarded = prometheus.evaluate_guards(env.prom_url, guards,
+                                             at=generated.window.end)
+        guard_failures = guarded.failures
 
     record = {
-        "run": args.run,
-        "profile": "api",
-        "rate": args.rate,
-        "duration": args.duration,
-        "window": window.to_dict(),
-        "generator_exit": generated.returncode,
-        "generator_window": generated.window.to_dict(),
+        **measured,
         "guard_failures": guard_failures,
+        "guard_values": guarded.values,
         "export": {"path": str(export.path), "series": export.series,
                    "points": export.points, "empty_refs": export.empty},
         **observations,
@@ -273,8 +303,8 @@ def main() -> int:
 
     if not export.ok:
         print(f"{WARN} export gaps: {', '.join(export.empty)} — the window is "
-              f"recorded, re-export with tools/export_metrics.py before "
-              f"retention drops it")
+              f"recorded, re-export with report-kit export-metrics --record "
+              f"{out_dir / (args.run + '.point.json')} before retention drops it")
         return EXIT_EXPORT_GAP
 
     # A generator that failed did not offer the load this point claims to have

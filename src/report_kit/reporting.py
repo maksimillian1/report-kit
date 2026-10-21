@@ -101,12 +101,20 @@ def md_table(rows: list[tuple[str, str]]) -> list[str]:
 def write_point(out_dir: Path, run_id: str, markdown: str, record: dict) -> Path:
     """Two artifacts per point. The markdown is pasted into the Journal; the JSON
     is what the cost pass reads its windows from, days later."""
-    out_dir.mkdir(parents=True, exist_ok=True)
+    write_record(out_dir, run_id, record)
     md_path = out_dir / f"{run_id}.point.md"
     md_path.write_text(markdown if markdown.endswith("\n") else markdown + "\n")
-    (out_dir / f"{run_id}.point.json").write_text(
-        json.dumps(record, indent=2, sort_keys=True) + "\n")
     return md_path
+
+
+def write_record(out_dir: Path, run_id: str, record: dict) -> Path:
+    """The point record alone. A runner writes it once the window is known and
+    before the export, so a run that dies exporting still leaves the window
+    and the queries `report-kit export-metrics --record` re-exports from."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / f"{run_id}.point.json"
+    path.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")
+    return path
 
 
 def report_validity(doubts: list[str], guard_failures: list[str]) -> int:
@@ -128,6 +136,6 @@ def report_validity(doubts: list[str], guard_failures: list[str]) -> int:
     if guard_failures:
         print()
         print(f"{WARN} guards breached: {', '.join(guard_failures)}")
-        print(f"         Apply the matching row of the execution's Validity table "
-              f"before the point enters the matrix.")
+        print(f"         Carry the point as invalid, as the execution's Safeguards "
+              f"say, before it enters the matrix — never averaged in.")
     return EXIT_SUSPECT if (doubts or guard_failures) else EXIT_CLEAN

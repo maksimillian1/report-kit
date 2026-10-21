@@ -4,10 +4,10 @@
 | profile | jobs (async) |
 | pool ceiling | 2 |
 | units | 1200 |
-| window | 2026-09-09T15:54:05Z .. 2026-09-09T15:56:59Z (0h02m54s)  |
-| drain | 0h02m26s  |
+| window | 2026-10-22T16:17:04Z .. 2026-10-22T16:20:17Z (0h03m13s)  |
+| drain | 0h02m39s  |
 | peak worker pods | 2 |
 | completed | 1200 |
-| drained/s | 8.18 |
-| series exported | 7 (242 points) |
+| drained/s | 7.54 |
+| series exported | 7 (269 points) |
 | guards | clean |

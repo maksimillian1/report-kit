@@ -8,27 +8,27 @@
 
   █ TOTAL RESULTS 
 
-    checks_total.......: 181     4.013333/s
-    checks_succeeded...: 100.00% 181 out of 181
-    checks_failed......: 0.00%   0 out of 181
+    checks_total.......: 180     3.999435/s
+    checks_succeeded...: 100.00% 180 out of 180
+    checks_failed......: 0.00%   0 out of 180
 
     ✓ status 200
 
     HTTP
-    http_req_duration..............: avg=71.54ms min=44.49ms med=89.71ms max=105.32ms p(90)=96.84ms p(95)=97.59ms
-      { expected_response:true }...: avg=71.54ms min=44.49ms med=89.71ms max=105.32ms p(90)=96.84ms p(95)=97.59ms
-    http_req_failed................: 0.00% 0 out of 181
-    http_reqs......................: 181   4.013333/s
+    http_req_duration..............: avg=63.9ms  min=53.07ms med=61.18ms max=113.77ms p(90)=66.46ms p(95)=103.26ms
+      { expected_response:true }...: avg=63.9ms  min=53.07ms med=61.18ms max=113.77ms p(90)=66.46ms p(95)=103.26ms
+    http_req_failed................: 0.00% 0 out of 180
+    http_reqs......................: 180   3.999435/s
 
     EXECUTION
-    iteration_duration.............: avg=72.05ms min=45.04ms med=94.81ms max=105.64ms p(90)=97.33ms p(95)=97.88ms
-    iterations.....................: 181   4.013333/s
+    iteration_duration.............: avg=64.67ms min=53.25ms med=61.59ms max=116.45ms p(90)=66.74ms p(95)=105.81ms
+    iterations.....................: 180   3.999435/s
     vus............................: 0     min=0        max=0 
     vus_max........................: 10    min=10       max=10
 
     NETWORK
-    data_received..................: 28 kB 626 B/s
-    data_sent......................: 13 kB 281 B/s
+    data_received..................: 28 kB 624 B/s
+    data_sent......................: 13 kB 280 B/s
 
 
 

@@ -33,7 +33,7 @@ ROOT_FILES = {
     # A working file like report.md, not a reference: every number the
     # documents print resolves from here, so it belongs at the report root
     # rather than inside any one execution.
-    "templates/figures.yaml": "figures.yaml",
+    "templates/report-values.yaml": "report-values.yaml",
     # Read-only reference that travels with a report: the rules its author
     # fills templates against, how to make a point, and what is importable —
     # so an agent working in the project can see all three without leaving it.
@@ -45,12 +45,11 @@ ROOT_FILES = {
 
 RUNNERS = {"api": "api_point.py", "jobs": "jobs_point.py"}
 
-# Copied under a working name, because these are inputs the author edits.
-POINT_INPUTS = {
-    "env.example.yaml": "env.yaml",
-    "series.example.txt": "series.txt",
-    "guards.example.txt": "guards.txt",
-}
+# Copied under a working name, because it is an input the author edits.
+POINT_INPUTS = {"env.example.yaml": "env.yaml"}
+
+FALLBACK_REGISTER = "templates/execution/metrics.yaml"
+FALLBACK_EXECUTION = "templates/execution/execution.yaml"
 
 
 def _package():
@@ -108,6 +107,13 @@ def new_point(target: Path, profile: str, force: bool = False) -> int:
 
     templates = _package() / "templates" / "runners"
     scripts = target / "scripts"
+    kept = [name for name in ("series.txt", "guards.txt") if (scripts / name).exists()]
+    if kept and not (target / "metrics.yaml").exists():
+        print(f"{WARN} {scripts} keeps {' and '.join(kept)} from before 0.4, and a "
+              f"runner from new-point reads metrics.yaml and execution.yaml "
+              f"instead. Run report-kit metrics import in {target} first, so they "
+              f"define what the new runner measures; nothing was copied.")
+        return 1
 
     planned = {RUNNERS[profile]: RUNNERS[profile], **POINT_INPUTS}
     clashes = [dst for dst in planned.values() if (scripts / dst).exists()]
@@ -125,8 +131,37 @@ def new_point(target: Path, profile: str, force: bool = False) -> int:
     print(f"{ARROW} {profile} point → {scripts}")
     for dst in planned.values():
         print(f"    {dst}")
+    if not render_register(target):
+        return 1
     print(f"[{OK}] copied. The runner is yours now: edit its CONSTANTS block, "
-          f"then fill env.yaml, series.txt and guards.txt.")
+          f"fill env.yaml, define the metrics in {target / 'metrics.yaml'}, and "
+          f"the window and the guards in {target / 'execution.yaml'}.")
     print(f"\nWhy a copy and not an import: a runner edited in place would "
           f"change what the earlier points of the same sweep measured.")
     return 0
+
+
+def render_register(target: Path) -> bool:
+    """The execution's metrics.yaml and execution.yaml, which the runner reads,
+    and the register table where a document holds the markers. An execution
+    laid out before these files existed gets the template's."""
+    from .execution_config import EXECUTION, ExecutionError, read_execution
+    from .register import RegisterError, read_register
+    from .tools.metrics.views import write_table
+
+    for name, template in (("metrics.yaml", FALLBACK_REGISTER),
+                           (EXECUTION, FALLBACK_EXECUTION)):
+        if not (target / name).exists():
+            _copy(_package() / template, target / name)
+            print(f"    {name} (the template's — the execution had none)")
+    try:
+        register = read_register(target / "metrics.yaml")
+        read_execution(target / EXECUTION, register)
+    except (RegisterError, ExecutionError) as exc:
+        print(f"{WARN} {exc}")
+        return False
+    try:
+        write_table(register)
+    except RegisterError as missing_table:
+        print(f"{WARN} the register table is not rendered: {missing_table}")
+    return True

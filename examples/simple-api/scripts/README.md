@@ -29,8 +29,8 @@ point's preflight. Wait until `up == 0` returns nothing — 0–20 s in practice
 | `point.py` | the runner: preflight → load → hold → export → guards → record |
 | `load.js` | k6, constant arrival rate; writes its summary next to the point |
 | `env.yaml` | addresses, port-forwards, and the generator command |
-| `series.txt` | the Prometheus refs (M4–M6); M1–M3 are client-side, from k6 |
-| `guards.txt` | what makes a point invalid — not what makes it interesting |
+| `../metrics.yaml` | what `point.py` exports (M4–M6; M1–M3 are client-side, from k6) |
+| `../execution.yaml` | the deployment the window waits for, and what makes a point invalid |
 | `manifests/` | the mock API with its HPA, and Prometheus with per-pod scraping |
 | `data/` | what the runs wrote — the evidence `../execution.md` cites |
 
@@ -47,15 +47,15 @@ install is sound.
 Verified output, not an illustration:
 
 ```
-[  ok  ] mock-api at floor — 1 replica(s)
+[  ok  ] mock-api at idle — 1 replica(s)
 [  ok  ] prometheus targets up
 -> generator · k6 run --quiet --summary-export .../rate-24.summary.json ...
 [  ok  ] generator exit 0 · 0h00m45s
 -> waiting for scale-in (hold 20s)
     replicas=4                          ← the HPA scaled out under load
     replicas=1 · held 21s               ← held, so the window may close
-[  ok  ] window 2026-09-05T19:06:32Z .. 2026-09-05T19:07:55Z (0h01m22s)
-[  ok  ] M4 — 1 series, 7 points          … M5, M6
+[  ok  ] window 2026-10-22T15:19:59Z .. 2026-10-22T15:21:22Z (0h01m22s)
+[  ok  ] M4 — 1 series, 6 points          … M5, M6
 [  ok  ] guard G1 = 4  [min 1]
 [  ok  ] guard G2 = 0  [max 0]
 ```
@@ -68,7 +68,7 @@ Guards run minutes after the load ends, so checking them at "now" measures the
 idle system and passes quietly. That is what `at=` is for.
 
 **The offered rate is not the served rate.** At 40 req/s this cluster served
-19.7 and never started 806 iterations. That gap is the finding, and it only
+22.9 and never started 556 iterations. That gap is the finding, and it only
 appears because the generator offers load on a schedule instead of waiting for
 replies.
 
@@ -88,7 +88,7 @@ replies.
 | **Node autoscaling** — `nodes_by_selector` reaching zero | **no** | kind nodes are fixed containers; nothing creates or removes them |
 | **Interruptions** — `interrupt_events`, `FORCED_REASONS` | **no** | needs Karpenter and real EC2 reclaiming instances |
 | **Cost** — `ondemand_hourly`, `spot_hourly` | **no** | real AWS Pricing and spot-history APIs |
-| Real capacity figures | **no** | one laptop, one node, throttled CPU |
+| Real capacity values | **no** | one laptop, one node, throttled CPU |
 
 A green run here means the measurement loop is correct. It never means the cost
 or validity logic is — those are the parts of the jobs profile that decide

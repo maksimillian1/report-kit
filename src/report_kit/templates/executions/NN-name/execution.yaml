@@ -1,0 +1,37 @@
+# How a point of this execution is run and judged: when its window closes,
+# and what makes the point valid. The runner in scripts/ reads it beside
+# metrics.yaml, which says what is read and from where. Neither may change
+# between points of one sweep; env.yaml, which says how to reach the
+# cluster, may.
+
+window_closes_when_back_to_idle:
+  # The deployments the load scales. The window closes once each is back at
+  # idle_replicas and has stayed there; reaching max_replicas means the point
+  # measured that limit, not the system. A queue/worker execution lists the
+  # always-on tiers here; its queues and worker pool are the runner's own.
+  ⟨deployment⟩:
+    idle_replicas: 1
+    max_replicas: 10
+
+point_validity_guards:
+  # What makes a point INVALID. Guards are not findings. They answer one
+  # question — "may this point be compared with the others?" — and nothing
+  # about whether the result is interesting. A guard that fails means the row
+  # is carried as invalid, not that the system is bad.
+  #
+  # min, max or both, and the query: `metric: M1` reuses a register ref's
+  # query instead of copying it, `promql:` gives one of its own. A {name}
+  # placeholder is filled from the run's arguments. Each query is evaluated as
+  # of the instant the load stopped, not when the check runs: minutes pass in
+  # between (scale-in, the hold, the export), and a rate-based guard checked at
+  # "now" averages its lookback over dead air and passes quietly.
+  #
+  # Guard whatever the sweep holds constant. Replica count is the usual one: a
+  # point that ran against one replica instead of four is not comparable,
+  # whatever its numbers say.
+  G1:
+    min: 1
+    promql: count(up{job="your-service"} == 1)
+  G2:
+    max: 0
+    promql: sum(increase(your_errors_total[5m])) or vector(0)

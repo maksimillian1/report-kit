@@ -18,12 +18,14 @@ import json
 import sys
 from pathlib import Path
 
-from report_kit import cluster, poll, prometheus, refs, reporting
+from report_kit import cluster, poll, prometheus, reporting
 from report_kit.constants import ARROW, BAD, OK
 from report_kit.env import Env
 from report_kit.portforward import PortForwards, forward_spec
 from report_kit.preflight import Preflight
 from report_kit.proc import run_logged
+from report_kit.execution_config import read_execution, run_guards
+from report_kit.register import read_register, series_rows
 from report_kit.text import fill
 from report_kit.window import Window
 
@@ -41,8 +43,6 @@ def read_k6_summary(path: Path) -> dict:
 
 
 HERE = Path(__file__).resolve().parent
-DEPLOYMENT = "mock-api"
-FLOOR = 1
 HOLD_SECONDS = 20
 
 
@@ -55,13 +55,17 @@ def main() -> int:
 
     env = Env(HERE / "env.yaml")
     out_dir = HERE / "data"
+    register = read_register(HERE.parent / "metrics.yaml")
+    config = read_execution(HERE.parent / "execution.yaml", register)
+    scaled = config.window_closes_when_back_to_idle[0]
+    deployment, idle = scaled.deployment, scaled.idle_replicas
 
     with PortForwards([forward_spec(env, "prometheus"),
                        forward_spec(env, "api")]) as pf:
         # 1. preflight — is the system in the state this point assumes?
         pre = Preflight()
-        replicas = cluster.deployment_replicas(env.namespace, DEPLOYMENT)
-        pre.check(f"{DEPLOYMENT} at floor", replicas <= FLOOR, f"{replicas} replica(s)")
+        replicas = cluster.deployment_replicas(env.namespace, deployment)
+        pre.check(f"{deployment} at idle", replicas <= idle, f"{replicas} replica(s)")
         down = prometheus.prom_targets_down(env.prom_url)
         pre.check("prometheus targets up", not down, ", ".join(down))
         pre.finish()
@@ -78,19 +82,19 @@ def main() -> int:
         print(f"[{OK if generated.ok else BAD}] generator exit "
               f"{generated.returncode} · {generated.window.hms}")
 
-        # 3. watch — until the system has been back at its floor for a while,
-        #    not merely touched it once
+        # 3. watch — until the system has been back at idle for a while, not
+        #    merely touched it once
         print()
         print(f"{ARROW} waiting for scale-in (hold {HOLD_SECONDS}s)")
         settled = poll.wait_until_stable(
-            lambda: cluster.deployment_replicas(env.namespace, DEPLOYMENT) <= FLOOR,
+            lambda: cluster.deployment_replicas(env.namespace, deployment) <= idle,
             hold_seconds=HOLD_SECONDS, poll_seconds=env.poll_seconds,
             max_wait_seconds=env.max_wait_seconds,
             on_tick=lambda ok, held: print(
-                f"    replicas={cluster.deployment_replicas(env.namespace, DEPLOYMENT)}"
+                f"    replicas={cluster.deployment_replicas(env.namespace, deployment)}"
                 f"{f' · held {int(held)}s' if ok else ''}"))
         if settled is None:
-            print(f"{BAD} never returned to floor — nothing exported")
+            print(f"{BAD} never returned to idle — nothing exported")
             return 4
 
         window = Window(generated.window.start, settled)
@@ -99,20 +103,22 @@ def main() -> int:
 
         # 4. export — the series, for this window
         pf.ensure_alive()
+        series = series_rows(register)
         export = prometheus.export_range(
-            env.prom_url, refs.read_ref_file(HERE / "series.txt", 2), window,
+            env.prom_url, series, window,
             out_dir=out_dir, run_id=args.run, force=True)
 
         # 5. guards — as of when the load stopped, not now
         print()
-        failures = prometheus.check_guards(
-            env.prom_url, refs.load_guards(HERE / "guards.txt", {"rate": args.rate}),
-            at=generated.window.end)
+        guards = run_guards(config, {"rate": args.rate})
+        failures = prometheus.check_guards(env.prom_url, guards,
+                                           at=generated.window.end)
 
     # 6. record. The client-side numbers come from the generator's own summary,
     #    not from Prometheus: on a serving path what the caller saw is the
     #    measurement, and the server's view is the second opinion.
     record = {"run": args.run, "rate": args.rate, "window": window.to_dict(),
+              "queries": dict(series), "guards": guards,
               "guard_failures": failures, "empty_refs": export.empty,
               "generator_exit": generated.returncode,
               "generator_window": generated.window.to_dict(),

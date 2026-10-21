@@ -52,8 +52,8 @@ The last row is the one that bites. See *Counters that outlive the pods*.
 | `resp.py` | the ten lines of the Redis wire protocol both sides need |
 | `cluster/` | what runs *in* the cluster: `worker.py`, `results.py`, `exporter.py` |
 | `env.yaml` | addresses, queue keys, counter keys, and the producer command |
-| `series.txt` | the Prometheus refs (M1–M7) |
-| `guards.txt` | what makes a point invalid — conservation, above all |
+| `../metrics.yaml` | what `point.py` exports (M1–M7) |
+| `../execution.yaml` | the tier the window waits for, and what makes a point invalid — conservation, above all |
 | `manifests/` | redis + exporter, the worker deployment, the shared tier and its HPA, Prometheus |
 | `keda/` | the ScaledObject — separate because it needs CRDs `up.sh` installs first |
 | `data/` | what the runs wrote — the evidence `../execution.md` cites |
@@ -121,7 +121,7 @@ by a worker that went away holding it, and the drain time the point reports is
 then a time to do *less work than it claims*. Nothing else in the record would
 say so.
 
-Same reason `series.txt` reads queue depth from the exporter rather than from
+Same reason the register reads queue depth from the exporter rather than from
 the workers: `M4` (`count(up{job="worker"} == 1)`) is the one worker-side ref,
 and it has fewer samples than every other ref in every export here — which is
 the pool being absent at both ends of the window, not a gap.
@@ -207,7 +207,7 @@ should not be decided by which of two timers wins.
 | **Node** autoscaling — `nodes_by_selector` reaching zero | **no** | kind nodes are fixed containers; nothing creates or removes them |
 | **Interruptions** — `interrupt_events`, `FORCED_REASONS` | **no** | needs Karpenter and real EC2 reclaiming instances |
 | **Cost** — `ondemand_hourly`, `spot_hourly`, `node_cost` | **no** | real AWS Pricing and spot-history APIs |
-| Real capacity figures | **no** | one laptop, one node, throttled CPU |
+| Real capacity values | **no** | one laptop, one node, throttled CPU |
 
 The pool reaching zero is the substitution that makes this example worth
 having: it is the same question the real profile asks of a node pool —

@@ -1,18 +1,40 @@
 {
   "client": {
     "failed_share": 0,
-    "p95_ms": 97.6,
-    "requests": 181,
-    "served_per_second": 4.01
+    "p95_ms": 103.3,
+    "requests": 180,
+    "served_per_second": 4.0
   },
   "empty_refs": [],
   "generator_exit": 0,
+  "generator_window": {
+    "end": "2026-10-22T14:52:18Z",
+    "seconds": 45.4,
+    "start": "2026-10-22T14:51:33Z"
+  },
   "guard_failures": [],
+  "guards": [
+    {
+      "min": 1.0,
+      "query": "count(up{job=\"mock-api\"} == 1)",
+      "ref": "G1"
+    },
+    {
+      "max": 0.0,
+      "query": "max(resets(mock_requests_total[2m])) or vector(0)",
+      "ref": "G2"
+    }
+  ],
+  "queries": {
+    "M4": "count(up{job=\"mock-api\"} == 1)",
+    "M5": "sum(rate(mock_requests_total[30s]))",
+    "M6": "sum(rate(mock_request_duration_seconds_sum[30s])) / sum(rate(mock_requests_total[30s]))"
+  },
   "rate": "4",
   "run": "rate-04",
   "window": {
-    "end": "2026-09-05T18:59:23Z",
-    "seconds": 101.6,
-    "start": "2026-09-05T18:57:41Z"
+    "end": "2026-10-22T14:53:20Z",
+    "seconds": 107.7,
+    "start": "2026-10-22T14:51:33Z"
   }
 }

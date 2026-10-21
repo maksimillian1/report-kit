@@ -1,31 +1,31 @@
 {
   "run": "rate-24-long",
-  "exported_at": "2026-09-05T19:42:19Z",
+  "exported_at": "2026-10-22T15:45:15Z",
   "prom_url": "http://localhost:9091",
   "step": "15s",
   "window": {
-    "start": "2026-09-05T19:38:07Z",
-    "end": "2026-09-05T19:41:58Z",
-    "seconds": 230.5
+    "start": "2026-10-22T15:41:12Z",
+    "end": "2026-10-22T15:44:53Z",
+    "seconds": 221.1
   },
   "refs": [
     {
       "ref": "M4",
       "query": "count(up{job=\"mock-api\"} == 1)",
       "series": 1,
-      "points": 16
+      "points": 15
     },
     {
       "ref": "M5",
       "query": "sum(rate(mock_requests_total[30s]))",
       "series": 1,
-      "points": 16
+      "points": 15
     },
     {
       "ref": "M6",
       "query": "sum(rate(mock_request_duration_seconds_sum[30s])) / sum(rate(mock_requests_total[30s]))",
       "series": 1,
-      "points": 16
+      "points": 15
     }
   ]
 }

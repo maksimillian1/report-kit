@@ -7,7 +7,7 @@
 - **Scope** — ⟨workload profile⟩ · ⟨scale range⟩ · ⟨topology⟩
 - **Executions** — ⟨`00-baseline` · `01-⟨name⟩` · …⟩
 - **Raw data** — `executions/⟨…⟩/data/` · charts in `charts/`
-- **Figures** — measured unless marked: ᴰ derived · ᴿ recorded · ᴱ estimated
+- **Values** — measured unless marked: ᴰ derived · ᴿ recorded · ᴱ estimated
 - **Supersedes** — ⟨v(n-1) · date · —⟩
 - **Changes** — ⟨one line⟩
 
@@ -41,7 +41,7 @@
 - **Workload fixture** — ⟨profile · distribution · arrival pattern · frozen at ⟨date⟩ `⟨sha⟩`⟩
 - **Denominator** — ⟨N⟩, from ⟨`00-baseline` §2⟩
 - **Scope** — ⟨conditions under which these numbers hold⟩
-- **Metric sources** — ⟨instruments the figures are read from⟩
+- **Metric sources** — ⟨instruments the values are read from⟩
 
 ---
 

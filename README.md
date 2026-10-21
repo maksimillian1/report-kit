@@ -10,7 +10,7 @@ copies to your report's root.
 ## Installation
 
 ```bash
-pip install "report-kit @ git+https://github.com/maksimillian1/report-kit@v0.3.4"
+pip install "report-kit @ git+https://github.com/maksimillian1/report-kit@v0.4.0"
 
 report-kit init docs/report            # 2+ executions
 report-kit init docs/report --minimal  # a single execution
@@ -26,7 +26,7 @@ library is not copied: it stays a dependency, and each point record carries the
 
 ## Profiles
 
-What `report-kit init` writes. `report.md`, `figures.yaml`, `methodology.md`,
+What `report-kit init` writes. `report.md`, `report-values.yaml`, `methodology.md`,
 `formats.md`, `API.md` and `runners.md` land in both; only the execution
 layout differs.
 
@@ -35,7 +35,7 @@ layout differs.
 ```text
 report/
 ├── report.md
-├── figures.yaml                # every number the documents print, resolved in one place
+├── report-values.yaml                # every number the documents print, resolved in one place
 ├── methodology.md              # the rules · formats.md · API.md · runners.md — reference, not edited
 ├── charts/                     # created on first use — ← report-kit charts --all
 │   ├── charts.yaml             # one entry per chart (kind, rule, mark_x, points), and themes
@@ -44,8 +44,10 @@ report/
 ├── assets/                     # optional — hand-drawn images; the kit never writes here
 └── execution/
     ├── index.md                # 1 Givens · 2 Plan · 3 Journal · 4 Results
+    ├── metrics.yaml            # what is read and from where — ← report-kit metrics write renders its table
+    ├── execution.yaml          # when a point's window closes, and what makes the point valid
     ├── concepts.md             # optional — when the block outgrows index.md
-    ├── metrics.md              # optional — when the register outgrows index.md
+    ├── metrics.md              # optional — move the marked register table here when it outgrows index.md
     ├── data/                   # what a run writes, named by its Point
     └── scripts/                # ← report-kit new-point puts the runner here
 ```
@@ -55,12 +57,14 @@ report/
 ```text
 report/
 ├── report.md
-├── figures.yaml                # every number the documents print, resolved in one place
+├── report-values.yaml                # every number the documents print, resolved in one place
 ├── methodology.md              # + formats.md · API.md · runners.md
 ├── charts/                     # as in A
 └── executions/
     ├── 00-baseline/            # 1 Plan · 2 Results
     │   ├── index.md
+    │   ├── metrics.yaml        # as in A
+    │   ├── execution.yaml      # as in A
     │   ├── concepts.md
     │   ├── metrics.md
     │   ├── data/
@@ -100,7 +104,14 @@ One command, installed with the package:
 | :--- | :--- |
 | `report-kit init` | write the report skeleton for a layout |
 | `report-kit new-point` | copy a runner and its inputs into one execution |
-| `report-kit figures` | resolve `figures.yaml`, and fail when a number drifts |
+| `report-kit values` | resolve `report-values.yaml`, and fail when a number drifts |
+| `report-kit values pull` | write each `value:` from the run data its `from:` names |
+| `report-kit values add-point` | register one run's values from the `points:` template |
+| `report-kit values adopt-point` | bind values written before the template to their point |
+| `report-kit values rename-point` | rename a point's values and every formula that names them |
+| `report-kit values delete-point` | remove a point, renumber, and move every shifted mark |
+| `report-kit values migrate` | move a report from before 0.4: `figures.yaml` to `report-values.yaml`, `FM9` to `VM9`, every mark with it |
+| `report-kit metrics` | render an execution's `metrics.yaml` into its register table, and fail when it drifts |
 | `report-kit charts` | draw a CSV: four shapes, two surfaces, no knowledge of your report |
 | `report-kit export-metrics` | re-export a window whose metrics are aging out |
 | `report-kit inspect-metrics` | read back what an export actually captured |
@@ -117,14 +128,18 @@ What the repository holds:
 | [examples/](examples/) | *(repo only)* worked directories — [simple-api/](examples/simple-api/) and [async-jobs/](examples/async-jobs/) are real local-cluster runs with the `execution.md` / `report.md` they produced; [tenant-platform/](examples/tenant-platform/) is an invented multi-tenant SaaS, one CSV per chart shape and flag, **with invented numbers**, because neither cluster is billed for and the cost shapes need a priced platform |
 
 **A runner is copied, not imported.** It lands in the execution's `scripts/`
-beside its own `env.yaml`, `series.txt` and `guards.txt`, because the axis is
+beside its own `env.yaml`, and reads the execution's `metrics.yaml` for what
+it exports and `execution.yaml` for when its window closes and what makes a
+point valid,
+because the axis is
 under test and what defines it belongs to the execution. A runner edited in
 place would silently change what earlier points of the same sweep measured.
 
 ### Requirements
 
-Standard library only, except: `PyYAML` for `env.py` — the one module in the
-package that needs a package at all, and installed for you — `boto3` for
+Standard library only, except: `PyYAML` for `env.py`, `register.py` and
+`execution_config.py` — the modules in the library that need a package at all,
+and installed for you — `boto3` for
 `cloud/aws_s3.py` (`pip install "report-kit[s3]"`), `matplotlib` for
 `tools/charts/` (`pip install "report-kit[charts]"`, and only to *render*:
 `charts --format` and `charts --check` draw nothing and need neither), and the
@@ -138,7 +153,7 @@ than hidden behind an interface with one implementation.
 | :--- | :--- |
 | [formats.md](src/report_kit/templates/formats.md) | how a number is written so a script can verify it: how a ref attaches to the digits, which shapes a scan ignores on purpose, the three states a number can be in, and what may go in a chart CSV |
 | `report-kit charts --format` | the chart CSV format itself, printed by the tool so it cannot fall out of step. A worked file per shape is in [examples/tenant-platform/](examples/tenant-platform/) |
-| [runners.md](src/report_kit/templates/runners.md) | which profile fits your workload, **exactly what inputs to provide** (`env.yaml`, `series.txt`, `guards.txt`, the freeze), the exit-code contract |
+| [runners.md](src/report_kit/templates/runners.md) | which profile fits your workload, **exactly what inputs to provide** (`env.yaml`, the register in `metrics.yaml`, `execution.yaml`, the freeze), the exit-code contract |
 | [API.md](src/report_kit/API.md) | the library module by module: what is pure, what talks to a cluster, the one seam to patch when testing |
 | [examples/simple-api/scripts/README.md](examples/simple-api/scripts/README.md) | *(repo only)* how to run the api example, and an honest table of what a local cluster can and cannot exercise |
 | [examples/async-jobs/scripts/README.md](examples/async-jobs/scripts/README.md) | *(repo only)* the same for the jobs example, plus the three things that make an async point its own profile |
@@ -170,7 +185,7 @@ rather than the system, and says how that was caught.
 
 ## Order of operations — first revision
 
-Every step below is forward-only: skip it and the figure cannot be reconstructed later
+Every step below is forward-only: skip it and the value cannot be reconstructed later
 (`methodology.md` §5). Steps 1–6 are preparation, not runs — they produce a freeze commit
 and a journal note.
 
@@ -180,7 +195,7 @@ and a journal note.
 3. **Verify cost attribution tags are active in IaC.** Tagging is forward-only; a tag added
    late yields a partial month and no way to tell which part.
 4. **Capture the price basis** → `data/price-⟨date⟩.json`. An undated basis invalidates every
-   derived figure downstream.
+   derived value downstream.
 5. **Freeze the input fixture** → `data/⟨name⟩-profile.txt`. Record the exact count on a
    batch path; on a serving path record the request mix and what counts as a unit.
 6. **Write the Expected line**, dated, before the first run — the baseline included.
@@ -194,11 +209,11 @@ and a journal note.
 
 1. **Is it under test?** No — a given: `00-baseline` §2, or minimal §1. Yes — an axis:
    `NN-⟨name⟩` §1 Plan, or minimal §2 Plan. Changing a given is preparation, not a run. → §2
-2. **Every metric is defined once**, in the execution that uses it, and carries a ref.
+2. **Every metric is defined once**, in the `metrics.yaml` of the execution that uses it, and carries a ref.
    `M` measured · `D` derived · `R` recorded · `E` estimated. Definitions neither inherit
    nor get copied; a ref is cited from anywhere by path — `00-baseline/M2`. The *values*
    those refs produce are a separate concern and live in one registry per report,
-   `figures.yaml`, written the way
+   `report-values.yaml`, written the way
    [formats.md](src/report_kit/templates/formats.md) defines. → §2
 3. **Why a metric behaves as it does** is not register material — `concepts.md` as `K⟨n⟩`,
    cited from the register's Notes. → §2
@@ -212,7 +227,7 @@ and a journal note.
 
 ## Make the check run without being remembered
 
-`figures.yaml` is only worth having if something verifies it. A stale figure is
+`report-values.yaml` is only worth having if something verifies it. A stale value is
 invisible in a correct-looking table — no reader catches it and no reviewer
 questions it — so this is the one failure that survives everything else you do.
 
@@ -238,7 +253,7 @@ that looks wired up and does nothing:
 
 - **Filter on `tool_input.file_path`** from the hook's stdin JSON, so it speaks
   up only for files under the report.
-- **Never block.** Registering a figure and marking it are two edits, and the
+- **Never block.** Registering a value and marking it are two edits, and the
   state between them does not resolve. A hook that refuses an edit refuses every
   intermediate one. Exit 0 on every path, its own failures included.
 - **Reach the model through `hookSpecificOutput.additionalContext`.** Plain
@@ -259,28 +274,57 @@ briefed.
 What the hook should restate before an edit is the short version of
 [formats.md](src/report_kit/templates/formats.md): numbers resolve from the
 registry and are never computed in prose; a mark is the ref glued to the digits,
-before any closing markup; figures are appended rather than inserted, because
-deleting one renumbers every later ref of its class.
+before any closing markup; values are appended rather than inserted, because
+deleting one renumbers every later ref of its class — the tool moves the marks
+when it does the deleting, and nothing does when a person does.
 
-The checker is `report-kit figures`. It finds the registry by walking up from the
+The checker is `report-kit values`. It finds the registry by walking up from the
 working directory, so it runs from anywhere inside a report, and `--path` names
 one explicitly:
 
 ```bash
-report-kit figures check              # retired values, ref identity, coverage
-report-kit figures validate           # the registry's own rules
-report-kit figures block_b_total      # one figure, bare value — by name or by ref
-report-kit figures orphans report.md  # currency tokens matching no figure
-report-kit figures retype d23_n25 E   # change a kind, renumber every ref
+report-kit values check              # retired values, ref identity, coverage, evidence
+report-kit values pull               # write each value from the data its from: names
+report-kit values add-point data/n08.point.json  # one run's values, from the points: template
+report-kit values adopt-point n08 data/n08.point.json  # bind values typed before the template
+report-kit values rename-point n08b n09          # a point's names and the formulas that use them
+report-kit values delete-point n09               # remove, renumber, move every shifted mark
+report-kit values validate           # the registry's own rules
+report-kit values served_r24         # one value, its number alone — by name or by ref
+report-kit values orphans report.md  # currency tokens matching no value
+report-kit values retype served_r24 E  # change a kind, renumber, move the marks
+report-kit values migrate             # a report from before 0.4: figures.yaml and F refs
 ```
 
 Its exit codes are what a CI job needs: **0** clean, **1** something drifted,
 **2** the registry is missing or unreadable. `check --strict` promotes a missing
-`appears_in` target from a report line to a failure.
+`appears_in` target, and a missing data file behind a `from:`, from a report line
+to a failure.
 
-Fenced code blocks and inline code spans are skipped whole, so a price quoted
+The metric register has its own checker, and CI runs both. `report-kit metrics
+check --all` fails when a register table has moved away from its execution's
+`metrics.yaml`, or a register names a ref nothing defines, with the same three
+exit codes:
+
+```bash
+report-kit values check --strict
+report-kit metrics check --all
+```
+
+A measured value can say where its value sits in a run's committed `data/` —
+`from: {file: …/data/r24.point.json, path: client.p95_ms}`, or a ref and a
+reduction over an exported `.jsonl`. `pull` then writes the value instead of a
+person typing it, and `check` fails the moment a stored value stops matching its
+evidence. `metric: M1` names the register ref a value measures, and `check`
+fails when that execution's `metrics.yaml` defines no such ref. A `points:`
+block goes one step further: it says once which values a run adds, so
+`add-point` registers a whole point from its point record, and `delete-point`
+removes one without orphaning a single mark. Both are in the last two sections
+of [formats.md](src/report_kit/templates/formats.md).
+
+Fenced code blocks and inline code spans are skipped whole, so a number quoted
 inside an example command is not a claim the checker has to be told to ignore.
-A marked number still counts inside backticks: `553.83`(FD7) is an anchor, and
+A marked number still counts inside backticks: `553.83`(VD7) is an anchor, and
 a table cell often wraps the digits that way.
 
 ---
@@ -294,17 +338,18 @@ pip install -e ".[dev]"
 git config core.hooksPath .githooks  # pytest before every commit; a skipped test fails it
 report-kit selftest                  # both runner templates + node-cost, faked cluster
 pytest                               # scaffolding, and the registry's arithmetic and marks
-report-kit figures --path examples/simple-api/figures.yaml check
-report-kit figures --path examples/async-jobs/figures.yaml check
+report-kit values --path examples/simple-api/report-values.yaml check
+report-kit values --path examples/async-jobs/report-values.yaml check
+report-kit metrics check --all       # every register's table and the refs it names, examples and templates
 cd examples/simple-api/scripts  && ./up.sh && ./point.py --run demo --rate 8 --duration 45s
 cd examples/async-jobs/scripts  && ./up.sh && ./point.py --run demo --n 2 --count 400
 ```
 
 The last two are the only checks that the kit still *measures* anything; the
-others prove it is wired correctly. The two `figures check` runs are the
+others prove it is wired correctly. The two `values check` runs are the
 examples checking themselves: every marked number in both reports still equals
 what the registry resolves to, which is the guarantee the marks exist to give.
-`tests/test_figures.py` is one level under that — it checks the checker, because a
+`tests/test_values.py` is one level under that — it checks the checker, because a
 mark that silently stops being parsed takes the whole contract with it and the
 only symptom is a count going down.
 
@@ -318,7 +363,7 @@ The rules live next to what they constrain —
 [templates/runners.md](src/report_kit/templates/runners.md) for what a point
 needs and the traps it encodes, and
 [templates/methodology.md](src/report_kit/templates/methodology.md) for what
-makes a figure credible. Restating them here would only produce a second copy
+makes a value credible. Restating them here would only produce a second copy
 to keep in step.
 
 Three rules belong to the repo itself and are enforced nowhere else:

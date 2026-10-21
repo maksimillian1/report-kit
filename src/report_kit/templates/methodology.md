@@ -40,7 +40,7 @@ number is resolved and checked, and `formats.md` defines it. Keeping definitions
 values central is deliberate: a definition that moves invalidates measurements already taken,
 while a value is expected to be revised as data is re-read.
 
-| Ref | Class | Mark on the figure | What `Source` holds |
+| Ref | Class | Mark on the value | What `Source` holds |
 | :--- | :--- | :--- | :--- |
 | `M⟨n⟩` | Measured | *(unmarked)* | the exposed metric name and its selector |
 | `D⟨n⟩` | Derived | ᴰ | the formula, written over other refs |
@@ -72,27 +72,35 @@ Three rules follow, and they are the whole of the register's discipline:
 
 Two executions may read the same exposed name under different selectors. That is two refs,
 not a conflict: each is defined where it is used. The later row names the earlier one in
-Notes, so a reader comparing the two figures sees at once that they are not the same number.
+Notes, so a reader comparing the two values sees at once that they are not the same number.
+
+The register is kept as `metrics.yaml` beside the execution's `index.md`, and the table is
+one of its views. A runner reads the file for the queries it exports, and `execution.yaml`
+beside it for when a point's window closes and what makes the point valid;
+`report-kit metrics write` renders the table between two marker lines from it, and
+`report-kit metrics check` fails when the table has moved away. A query typed into the table
+and again into a runner's input is two definitions, and nothing would notice the day they
+disagree.
 
 ### The value registry
 
-The register says what a number *means*. `figures.yaml`, at the report root, holds what it
-currently *is*, one file per report, whatever the executions. A figure is either a leaf, a
-value with a source, or a formula over other figures. The letters are the register's own,
-prefixed so the two namespaces never collide: `FM` measured · `FR` recorded · `FD` derived ·
-`FE` estimated.
+The register says what a number *means*. `report-values.yaml`, at the report root, holds what it
+currently *is*, one file per report, whatever the executions. A value is either a leaf, a
+number with a source, or a formula over other values. The letters are the register's own,
+prefixed so the two namespaces never collide: `VM` measured · `VR` recorded · `VD` derived ·
+`VE` estimated.
 
 Four habits are what make it worth having. Without them it is a second place to be wrong:
 
 1. **Register before writing the sentence.** A number worked out while writing is one nothing
    can check afterwards. Arithmetic belongs in a formula; prose prints its result.
 2. **Append, never insert.** Refs are assigned by a tool, which is what makes reclassifying a
-   figure free. Deleting one is not free: every later ref of that letter shifts down, while
+   value free. Deleting one is not free: every later ref of that letter shifts down, while
    the marks already written into documents keep naming the old numbers.
 3. **Retire a superseded value rather than deleting it.** The old digits stay listed beside
    what replaced them, so a scan still finds them wherever they survived: a sentence, a
    table, or a run-data file nobody thought to revisit.
-4. **Declare where a figure has to appear.** Then a check reports that a headline went missing
+4. **Declare where a value has to appear.** Then a check reports that a headline went missing
    during a rewrite, instead of leaving it to whoever reads the draft last.
 
 All of it exists to make one question mechanical: *does the number on the page still equal the
@@ -108,7 +116,7 @@ API response, a CUR row, a generator's own summary line. Every number in such a 
 of one of those, or what a tool computed from them in the same run, and the file names what
 produced it: the query or command, the window, `generated_at`.
 
-Nothing typed by hand goes in. A figure copied from the registry, a subtraction done in an
+Nothing typed by hand goes in. A value copied from the registry, a subtraction done in an
 editor, an estimate, an interpretation shaped as a field: those are results, and results live in
 the registry, where a formula is checkable and a ref can be marked. A result frozen into a data
 file has no way to fail. The registry's check never reads it, so it agrees with nothing and
@@ -117,7 +125,7 @@ drifts, and the file goes on looking like evidence while it does.
 The test is mechanical: *could the command named in the file produce the file again?* A number
 that needs a person in the loop fails it, and failing it costs the measurement: a total whose
 own inputs were never saved cannot be re-derived once the cluster is gone, and what
-remains is a figure with a provenance line pointing at a file that cannot support it.
+remains is a value with a provenance line pointing at a file that cannot support it.
 
 Prose belongs there and is not data: `note`, `interpretation` and `revision_note` carry what the
 author saw, read as commentary written on a date.
@@ -146,9 +154,9 @@ building the full tree for a report that turns out to need one run.
 
 ---
 
-## 4. What makes a figure credible
+## 4. What makes a value credible
 
-Five properties. A figure missing any of them will be questioned, and the question will be
+Five properties. A value missing any of them will be questioned, and the question will be
 correct.
 
 **A denominator.** Total spend supports no decision; cost per unit supports several. Choose
@@ -163,21 +171,21 @@ by each run. Both are denominators. What must not vary is the definition of the 
 > mixes them. A conversion between the two is never published: it depends on an arrival
 > ratio nobody measured. Two denominators over the *same* path is the failure.
 
-**A reference value.** An absolute number decides nothing. Every headline figure carries
+**A reference value.** An absolute number decides nothing. Every headline value carries
 something it is compared against: a target, an alternative, a previous revision.
 
 **A boundary.** The conditions under which it holds, stated forward-looking, before anyone
 asks. A reader who cannot falsify a number does not trust any number.
 
 **A provenance mark.** Measured is unmarked so the exceptions are visible at a glance: ᴰ
-derived, ᴿ recorded, ᴱ estimated. The mark sits on the figure rather than in a column, so a
+derived, ᴿ recorded, ᴱ estimated. The mark sits on the value rather than in a column, so a
 row copied into the report carries it. In the register the class is already the ref's first
 letter (§2); the mark carries it to a reader who will never open a register. That is why
 the report states the legend once, in its header, and nowhere else.
 
 **A resolvable value.** The mark says where a number came from; it does not say the number is
-still right. A figure printed in more than one place drifts the moment one of them is revised,
-and nothing about a correct-looking table reveals it. So a figure also carries a ref into the
+still right. A value printed in more than one place drifts the moment one of them is revised,
+and nothing about a correct-looking table reveals it. So a value also carries a ref into the
 report's one registry of values, and what is printed is checked against the registry rather than
 assumed equal to it. `formats.md` defines the ref, how it attaches to the digits, and which
 numbers sit outside the contract on purpose. Underneath it is one rule: **a sentence never
@@ -202,7 +210,7 @@ items in any project.
 
 | Class | Why it is unrecoverable |
 | :--- | :--- |
-| Dated price snapshot | rates change; an undated basis makes every derived figure unverifiable |
+| Dated price snapshot | rates change; an undated basis makes every derived value unverifiable |
 | Input profile and exact count | the input can be overwritten and cannot be re-derived from the report |
 | Run windows | the backend does not know when a run began; a window guessed later is a different run |
 | Saturation judgement | no query returns "component X was the bottleneck" |
@@ -237,7 +245,7 @@ among filled ones is visible, which is what a table is for. Prose is written onl
 has something to say; a clean run needs no paragraph.
 
 A closing checklist covers the opposite case: what fails **silently**. An unresolved
-saturation judgement, an unmarked figure, an expectation never compared: none of these leaves
+saturation judgement, an unmarked value, an expectation never compared: none of these leaves
 a hole anyone would notice. Anything already carried by a field or a column stays out of the
 checklist, or the two definitions drift and the checklist becomes the one that lies. For the
 same reason an execution has no opening checklist: its preparation is fields (`Expected`,
@@ -297,7 +305,7 @@ Cost = Floor + ( Marginal_per_unit × Volume )
 B is the number quoted first. A alone inflates it into a platform bill. Dividing A by an
 assumed number of co-tenant features is refused: the divisor is invented, and a headline
 built on an invented divisor is not defensible against anyone who picks a different one. A
-"cost standing alone" figure has the same defect and is not what C means. C is arithmetic
+"cost standing alone" value has the same defect and is not what C means. C is arithmetic
 over A and B and therefore carries no line of its own and no fixed/variable attribute.
 
 **The marginal cost excludes every floor line by definition.** Mixing them inflates the
@@ -314,14 +322,14 @@ exists regardless, the alternative is a different mode on the same platform.
 - **CUR 2.0 supplies the inventory; the arithmetic is yours.** Hourly rows say what stood in a
   window and what it was billed for. Sum them only where the window is the answer: a run, a
   marginal cost.
-- **A monthly figure is inventory × published unit rate × 730.** The rate comes from the Price
+- **A monthly value is inventory × published unit rate × 730.** The rate comes from the Price
   List API, or off the CUR row that carries it. Dividing a bill gives an average, not a rate.
 - **EBS is size × $/GB-month**, not volume-hours summed.
 - **Variable lines are rest-hour usage × rate × 730.** NAT and transfer bytes projected from
   the resting hour, and marked as projected.
 - **`line_item_unblended_cost`, usage line-item types only.** Tax, credits, refunds and monthly
   fees land in an arbitrary hour and corrupt a window.
-- **Spot carries one hour's price into all 730.** Name the resting hour with the figure; a spot
+- **Spot carries one hour's price into all 730.** Name the resting hour with the value; a spot
   line whose hour is unnamed cannot be re-read. Run windows are priced per node from the quote in
   force at that node's `first_seen`.
 - **Split cost allocation is how a shared EKS line breaks down per workload.** Child rows sit

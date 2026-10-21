@@ -1,0 +1,19 @@
+# How a point of this execution is run and judged: when its window closes,
+# and what makes the point valid. scripts/point.py reads it beside
+# metrics.yaml. Neither may change between points of one sweep.
+
+window_closes_when_back_to_idle:
+  # The HPA scales mock-api out under load; the window closes once it is back
+  # at one replica and has stayed there.
+  mock-api:
+    idle_replicas: 1
+
+point_validity_guards:
+  # What makes a point invalid, not what makes it
+  # interesting. A guard that fires at saturation would be a finding, not a guard.
+  G1:
+    min: 1
+    metric: M4
+  G2:
+    max: 0
+    promql: max(resets(mock_requests_total[2m])) or vector(0)

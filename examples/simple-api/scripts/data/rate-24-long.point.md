@@ -2,6 +2,6 @@
 | :--- | :--- |
 | run | `rate-24-long` |
 | rate | 24 |
-| window | 2026-09-05T19:38:07Z .. 2026-09-05T19:41:58Z (0h03m50s)  |
-| series exported | 3 (48 points) |
+| window | 2026-10-22T15:41:12Z .. 2026-10-22T15:44:53Z (0h03m41s)  |
+| series exported | 3 (45 points) |
 | guards | clean |

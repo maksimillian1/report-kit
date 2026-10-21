@@ -8,22 +8,22 @@
 
   █ TOTAL RESULTS 
 
-    checks_total.......: 1081    23.965969/s
+    checks_total.......: 1081    23.970163/s
     checks_succeeded...: 100.00% 1081 out of 1081
     checks_failed......: 0.00%   0 out of 1081
 
     ✓ status 200
 
     HTTP
-    http_req_duration..............: avg=215.1ms  min=85.81ms med=189.17ms max=699.29ms p(90)=349.52ms p(95)=411.66ms
-      { expected_response:true }...: avg=215.1ms  min=85.81ms med=189.17ms max=699.29ms p(90)=349.52ms p(95)=411.66ms
+    http_req_duration..............: avg=173.61ms min=75.49ms med=158.39ms max=565.06ms p(90)=268.01ms p(95)=304.25ms
+      { expected_response:true }...: avg=173.61ms min=75.49ms med=158.39ms max=565.06ms p(90)=268.01ms p(95)=304.25ms
     http_req_failed................: 0.00%  0 out of 1081
-    http_reqs......................: 1081   23.965969/s
+    http_reqs......................: 1081   23.970163/s
 
     EXECUTION
-    iteration_duration.............: avg=215.42ms min=86ms    med=189.45ms max=699.64ms p(90)=349.81ms p(95)=413.23ms
-    iterations.....................: 1081   23.965969/s
-    vus............................: 5      min=4         max=8 
+    iteration_duration.............: avg=174.2ms  min=75.87ms med=158.79ms max=566.64ms p(90)=268.67ms p(95)=304.72ms
+    iterations.....................: 1081   23.970163/s
+    vus............................: 4      min=4         max=8 
     vus_max........................: 12     min=12        max=12
 
     NETWORK

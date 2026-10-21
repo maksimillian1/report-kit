@@ -140,8 +140,15 @@ class FakeCluster:
 
 
 def write_inputs(root: Path, profile: str) -> None:
-    (root / "series.txt").write_text("M1|sum(rate(requests_total[1m]))\n")
-    (root / "guards.txt").write_text("G1|max 5|sum(errors_total)\n")
+    scaled = ("api: {idle_replicas: 1, max_replicas: 10}" if profile == "api"
+              else "embeddings: {idle_replicas: 1}")
+    (root / "metrics.yaml").write_text(
+        "metrics:\n"
+        "  M1: {what: requests, promql: 'sum(rate(requests_total[1m]))', "
+        "status: unconfirmed}\n")
+    (root / "execution.yaml").write_text(
+        f"window_closes_when_back_to_idle:\n  {scaled}\n"
+        "point_validity_guards:\n  G1: {max: 5, promql: sum(errors_total)}\n")
     (root / "image-freeze.json").write_text(json.dumps(
         {"deployment/api": [IMAGE]} if profile == "api" else
         {"deployment/worker": [IMAGE], "deployment/embeddings": [IMAGE]},
@@ -173,8 +180,8 @@ def run_profile(profile: str) -> int:
 
         runner = load_runner("api_point" if profile == "api" else "jobs_point")
         argv = ["x", "--run", f"smoke-{profile}", "--env", str(root / "env.yaml"),
-                "--series", str(root / "series.txt"),
-                "--guards", str(root / "guards.txt"),
+                "--metrics", str(root / "metrics.yaml"),
+                "--execution", str(root / "execution.yaml"),
                 "--freeze-file", str(root / "image-freeze.json"),
                 "--out-dir", str(root / "data"), "--no-port-forward"]
         argv += ["--rate", "200"] if profile == "api" else ["--n", "8", "--count", "100"]
@@ -195,6 +202,10 @@ def run_profile(profile: str) -> int:
         # measure nothing and report it clean.
         assert record["window"]["seconds"] > 0, record["window"]
         assert record["export"]["series"] == 1, record["export"]
+        assert record["guard_values"] == {"G1": 1.0}, record.get("guard_values")
+        assert record["queries"] == {"M1": "sum(rate(requests_total[1m]))"}, record
+        assert record["guards"] == [{"ref": "G1", "query": "sum(errors_total)",
+                                     "max": 5.0}], record["guards"]
         assert (root / "data" / f"smoke-{profile}.point.md").is_file()
         assert (root / "data" / f"smoke-{profile}.jsonl").is_file()
         print(f"\n[  ok  ] {profile}: exit {code}, window "

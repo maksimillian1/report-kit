@@ -76,7 +76,7 @@ def print_summary(lines: list[dict], only_ref: str | None,
                 after = [p for p in after if p[0] <= until]
             if not after:
                 # Saying nothing here would leave the whole-window mean looking
-                # like a steady-state figure, which is the error this flag
+                # like a steady-state number, which is the error this flag
                 # exists to prevent.
                 print(f"      no settled samples: the system was still reacting "
                       f"when the load ended, or the export step is too coarse "

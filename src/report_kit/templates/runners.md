@@ -67,12 +67,7 @@ measured.
 
 Edit only the CONSTANTS block at the top:
 
-- **`GATES`** (api) — the deployments whose scaling this point measures.
-  `floor` is where the window must return to; `ceiling` is the configured
-  max, and reaching it means the point measured your limit rather than the
-  system, which the runner flags.
-- **`QUEUES` / `WORKER_POOL_KEY` / `SHARED_TIERS`** (jobs) — what has to
-  reach empty, zero and floor respectively.
+- **`QUEUES` / `WORKER_POOL_KEY`** (jobs) — what has to reach empty and zero.
 - **`HOLD_SECONDS`** — how long the close condition must hold. Set it longer
   than one autoscaler decision interval. Must be smaller than
   `max_wait_seconds` in env.yaml; `poll.wait_until_stable` refuses the
@@ -90,6 +85,11 @@ runner first.
 ## What you have to provide
 
 Five things. A runner reads all of them and will not invent any of them.
+Three are YAML files, each with one job: `env.yaml` says how to reach the
+cluster and may differ between clusters; `metrics.yaml` says what is read
+and from where, and `execution.yaml` when a point's window closes and what
+makes the point valid — neither of those two may change between points of
+one sweep.
 
 ### 1. `env.yaml` — addresses
 
@@ -115,27 +115,45 @@ reset step additionally uses `s3.bucket` / `s3.prefix` and `qdrant.url` /
 
 See `env.example.yaml` for a filled-in version of all of it.
 
-### 2. `series.txt` — what gets exported
+### 2. `metrics.yaml` — what is read, and from where
 
-`ref|promql`, one per line. `#` comments and blank lines ignored. Refs must
-be unique. Exported over the window into `<run>.jsonl` at every point.
+The execution's register, beside its `index.md`, one directory above the
+runner. Every metric is defined there once: a Prometheus query, a
+generator's summary, an outside API. Each `M` ref with a `promql` is
+exported over the window into `<run>.jsonl` at every point, and
+`report-kit metrics write` renders the register table from the same file.
 
+```yaml
+metrics:
+  M1:
+    what: served rate
+    promql: sum(rate(http_requests_total[30s]))
+    status: confirmed 2026-09-04
+    notes: the denominator of D3
 ```
-M1|sum(rate(http_requests_total[30s]))
-M2|max by (pod) (container_memory_working_set_bytes{pod=~"api-.*"})
-```
 
-### 3. `guards.txt` — what makes a point invalid
+### 3. `execution.yaml` — when the window closes, and what makes a point valid
 
-`ref|bound|promql`. Bound is `min <v>`, `max <v>`, or both separated by
-whitespace. `{name}` placeholders are filled from the run's arguments
-(`{rate}` for api; `{n}` and `{count}` for jobs). Evaluated once, as of when
-the load stopped.
+Beside `metrics.yaml`. `window_closes_when_back_to_idle` names the
+deployments the load scales: the api runner needs at least one; the jobs
+runner lists its always-on tiers there, beside the queues and worker pool
+its CONSTANTS block names. `point_validity_guards` are the checks a point
+must pass to be compared with the others: `min`, `max` or both, and either
+`metric:` — a register ref whose query it reuses — or a `promql` of its
+own. `{name}` placeholders are filled from the run's arguments (`{rate}`
+for api; `{n}` and `{count}` for jobs). Evaluated once, as of when the
+load stopped.
 
-```
-G1|max 0.01|sum(rate(http_requests_total{code=~"5.."}[1m])) or vector(0)
-G2|min 1|count(up{job="api"} == 1)
-G3|min 0.9 max 1.1|sum(rate(http_requests_total[1m])) / {rate}
+```yaml
+window_closes_when_back_to_idle:
+  api:
+    idle_replicas: 1     # the window waits until it is back here, held
+    max_replicas: 10     # reaching it means the point measured that limit
+
+point_validity_guards:
+  G1: {max: 0.01, promql: 'sum(rate(http_requests_total{code=~"5.."}[1m])) or vector(0)'}
+  G2: {min: 1, metric: M4}
+  G3: {min: 0.9, max: 1.1, promql: 'sum(rate(http_requests_total[1m])) / {rate}'}
 ```
 
 A guard whose query returns nothing **fails** — an empty result is a gap,
@@ -155,15 +173,24 @@ Described above. This is the only code you edit.
 ### Optional
 
 `--out-dir` (defaults to `./data`), `--step` (export resolution, default
-15s), `--env` / `--series` / `--guards` / `--freeze-file` if you keep them
-somewhere other than next to the runner.
+15s), `--env` / `--metrics` / `--execution` / `--freeze-file` if you keep
+them somewhere other than where the layout puts them.
+
+An execution laid out before 0.4 keeps a hand-written `series.txt` and
+`guards.txt` beside the runner copied then, and that runner goes on reading
+them. `report-kit metrics import` builds its `metrics.yaml` and an
+`execution.yaml` with its guards; a runner from `report-kit new-point` reads
+only those two.
 
 ## Output per point
 
 ```
 <out-dir>/<run>.point.md      the block to paste into the write-up
-<out-dir>/<run>.point.json    the machine-readable record: window, guards,
-                              observations, image digests, commit
+<out-dir>/<run>.point.json    the machine-readable record: window, the queries
+                              exported, the guards checked, their failures and
+                              what each read (guard_values), observations, image
+                              digests, commit. Written once before the export
+                              and completed after it
 <out-dir>/<run>.jsonl         the exported series
 <out-dir>/<run>.meta.json     export manifest: per-ref series and sample counts
 <out-dir>/<run>.generator.log the generator's / producer's own output
@@ -175,7 +202,7 @@ somewhere other than next to the runner.
 | :--- | :--- |
 | 0 | clean |
 | 1 | preflight or usage failed — nothing ran |
-| 2 | the run is valid but at least one ref exported nothing. **The window is in the point record; re-export with `export_metrics.py` before retention drops it.** |
+| 2 | the run is valid but at least one ref exported nothing. **The window and the queries are in the point record; re-export with `report-kit export-metrics --record <run>.point.json` before retention drops it.** |
 | 3 | ran, but validity is in doubt: a guard breached, or a node was lost while it held work |
 | 4 | the window never closed inside the timeout — nothing exported, because an unclosed window has no end |
 
@@ -183,9 +210,9 @@ somewhere other than next to the runner.
 
 Not a separate script: `./jobs_point.py --reset-only` wipes the S3 prefix,
 purges the queues, clears the sink and waits for the system to read idle.
-It lives in the runner because it needs exactly the runner's constants —
-a second file with its own copy of `QUEUES` and `SHARED_TIERS` is a second
-file to keep in sync. `--reset-after` does it once a point's files are
+It lives in the runner because it needs exactly the runner's constants and
+the deployments `execution.yaml` names — a second file with its own copy of `QUEUES`
+is a second file to keep in sync. `--reset-after` does it once a point's files are
 written; `--dry-run` prints what it would touch.
 
 Run it between points of a jobs sweep. Waiting for organic drain costs
@@ -197,9 +224,12 @@ Subcommands of the same CLI; `report-kit <tool> --help` for the options.
 
 - **`report-kit export-metrics`** — re-export a window by hand. The case that
   matters: the run finished, the export didn't, and the window is sitting
-  in the point record with retention counting down. A window can be
-  re-exported but never re-measured. It is the one command built to work when
-  the rest of the package cannot load.
+  in the point record with retention counting down. `--record
+  data/<run>.point.json` takes the run id, the window and the queries from
+  the record, which a runner writes before its export for exactly this. A
+  window can be re-exported but never re-measured. It is the one command
+  built to work when the rest of the package cannot load: the record is
+  JSON, and nothing here needs PyYAML.
 - **`report-kit inspect-metrics`** — read back what an export actually
   captured. Worth one look per point: an export can succeed and still be
   useless (one series where you expected twelve, a query matching the wrong
@@ -214,7 +244,7 @@ Subcommands of the same CLI; `report-kit <tool> --help` for the options.
 - **`report-kit node-cost`** — what the nodes cost during a window, the same
   day, without waiting for CUR. Prices nodes that are already terminated,
   since `kube_node_info`'s `provider_id` outlives them in Prometheus.
-  Provisional by construction: reconcile against CUR before the figure
+  Provisional by construction: reconcile against CUR before the value
   reaches a report.
 - **`report-kit selftest`** — runs both runner templates end to end against a
   faked cluster, no cluster or AWS needed. Run it after editing a runner. It

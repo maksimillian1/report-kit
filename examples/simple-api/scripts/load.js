@@ -32,7 +32,7 @@ export const options = {
       maxVUs: Math.max(50, Math.ceil(RATE / PER_VU) * 20),
     },
   },
-  // Thresholds are not the execution's guards — those live in guards.txt and
+  // Thresholds are not the execution's guards — those live in ../metrics.yaml and
   // are checked against Prometheus. This one only marks the run as failed so
   // the runner can flag a point whose offered load was not actually served.
   thresholds: {

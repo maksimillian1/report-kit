@@ -24,12 +24,16 @@
 
 ### Metrics
 
+<!-- report-kit metrics: generated from metrics.yaml, edit that file -->
+
 | Ref | What it measures | Source | Status | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| M1 | ⟨⟩ | `⟨metric_name{selector}⟩` | ⟨confirmed YYYY-MM-DD⟩ | ⟨→ K1⟩ |
+| M1 | ⟨⟩ | `⟨metric_name{selector}⟩` | unconfirmed | ⟨→ K1⟩ |
 | D2 | ⟨⟩ | `⟨M1 / …⟩` | active | |
 | R3 | ⟨⟩ | hand-recorded at ⟨moment⟩ · ⟨who⟩ | active | |
 | E4 | ⟨⟩ | ⟨basis⟩ vs ⟨reference value⟩ | active | |
+
+<!-- /report-kit metrics -->
 
 ---
 

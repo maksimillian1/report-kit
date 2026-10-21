@@ -1,6 +1,6 @@
 # Executive Engineering Report — mock-api (example)
 
-> **This is the kit's worked example, not a real report.** Every figure comes
+> **This is the kit's worked example, not a real report.** Every value comes
 > from a real run on a single-node local cluster — see `execution.md` and the
 > files under `scripts/data/`. Nothing here is fabricated, which is why the
 > cost sections are empty: a laptop has no price basis, and inventing one
@@ -24,15 +24,15 @@ Legend — ᴰ derived · ᴱ estimated · ᴿ recorded during the run · ᴱˣ 
 
 ## 1. BLUF
 
-The service serves everything offered up to **24<!--FR3--> req/s** at p95
-412<!--FM9--> ms. Above that the queue grows faster than it drains: throughput
-still rises to a peak of **29.5<!--FM5--> req/s** while p95 reaches
-3,755<!--FM11--> ms, and at 40<!--FR5--> req/s the service breaks down —
-19.7<!--FM6--> req/s served, one request in five unanswered.
+The service serves everything offered up to **24<!--VR3--> req/s** at p95
+304<!--VM9--> ms. Above that the queue grows faster than it drains: throughput
+still rises to a peak of **31.3<!--VM5--> req/s** while p95 reaches
+1,261<!--VM11--> ms, and at 40<!--VR5--> req/s the service breaks down —
+22.9<!--VM6--> req/s served, about one request in seven unanswered.
 
 **Throughput peaks after the system has already stopped being usable.** Sizing
-on peak throughput would place the service at a rate where a fifth of callers
-time out; the usable ceiling is the latency knee, not the throughput one.
+on peak throughput would place the service at a rate where p95 is already over
+a second; the usable ceiling is the latency knee, not the throughput one.
 
 ---
 
@@ -47,7 +47,7 @@ the client's willingness to wait.
 | :--- | :--- |
 | Scope | 1–4 replicas, `200m` CPU each, HPA target 50 % utilisation |
 | Unit cost of work | ~40 ms of server CPU per request |
-| Measured range | 4<!--FR1--> – 40<!--FR5--> req/s offered, 45 s of load per point |
+| Measured range | 4<!--VR1--> – 40<!--VR5--> req/s offered, 45 s of load per point |
 | Not covered | sustained load beyond 45 s, concurrent workloads, more than 4 replicas |
 
 ---
@@ -58,13 +58,13 @@ the client's willingness to wait.
 
 | Offered req/s | M1 served/s | D8 served share | M2 p95 | M3 unserved | Saturation signal |
 | ---: | ---: | ---: | ---: | ---: | :--- |
-| 4<!--FR1--> | 4.01<!--FM1--> | 100<!--FD1--> % | 98<!--FM7--> ms | 0<!--FM13--> % | headroom ᴿ |
-| 12<!--FR2--> | 11.99<!--FM2--> | 100<!--FD2--> % | 195<!--FM8--> ms | 0<!--FM14--> % | headroom ᴿ |
-| 24<!--FR3--> | 23.97<!--FM3--> | 100<!--FD3--> % | 412<!--FM9--> ms | 0<!--FM15--> % | at the knee ᴿ |
-| 32<!--FR4--> | 29.46<!--FM5--> | 92<!--FD5--> % | 3,755<!--FM11--> ms | 0.2<!--FM17--> % | past the knee ᴿ |
-| 40<!--FR5--> | 19.72<!--FM6--> | 49<!--FD6--> % | 10,001<!--FM12--> ms | 21.2<!--FM18--> % | saturated, CPU-bound ᴿ |
+| 4<!--VR1--> | 4.00<!--VM1--> | 100<!--VD1--> % | 103<!--VM7--> ms | 0<!--VM13--> % | headroom ᴿ |
+| 12<!--VR2--> | 11.99<!--VM2--> | 100<!--VD2--> % | 188<!--VM8--> ms | 0<!--VM14--> % | headroom ᴿ |
+| 24<!--VR3--> | 23.97<!--VM3--> | 100<!--VD3--> % | 304<!--VM9--> ms | 0<!--VM15--> % | at the knee ᴿ |
+| 32<!--VR4--> | 31.33<!--VM5--> | 98<!--VD5--> % | 1,261<!--VM11--> ms | 0<!--VM17--> % | past the knee ᴿ |
+| 40<!--VR5--> | 22.92<!--VM6--> | 57<!--VD6--> % | 10,001<!--VM12--> ms | 15.0<!--VM18--> % | saturated, CPU-bound ᴿ |
 
-A sixth run at 32<!--FR4--> req/s is excluded: it ran against one replica instead of
+A sixth run at 32<!--VR4--> req/s is excluded: it ran against one replica instead of
 four, which is a *Held constant*. See `execution.md` §3 note #05.
 
 ### 3.2 Chart
@@ -85,26 +85,27 @@ ledger is where a point that ran is recorded whether or not it is read.
 
 | | Rate | Read from |
 | :--- | ---: | :--- |
-| **Sweet spot** | 24<!--FR3--> req/s | last rate served in full, p95 still under half a second |
-| **Knee** | between 24<!--FR3--> and 32<!--FR4--> req/s | p95 jumps nine-fold across this interval |
-| **Throughput peak** | ~29.5<!--FM5--> req/s | and already unusable — p95 3,755<!--FM11--> ms |
-| **Waste boundary** | above 32<!--FR4--> req/s | throughput falls while cost stays |
+| **Sweet spot** | 24<!--VR3--> req/s | last rate served in full, p95 still under half a second |
+| **Knee** | between 24<!--VR3--> and 32<!--VR4--> req/s | p95 jumps four-fold across this interval |
+| **Throughput peak** | ~31.3<!--VM5--> req/s | and already unusable — p95 1,261<!--VM11--> ms |
+| **Waste boundary** | above 32<!--VR4--> req/s | throughput falls while cost stays |
 
 ### 3.4 Shape of the cost curve
 
-Latency rises with offered load from the very first point — 98<!--FM7--> →
-195<!--FM8--> → 412<!--FM9--> ms across 4<!--FR1--> → 12<!--FR2--> →
-24<!--FR3--> req/s — so there is no flat region: every increment is
-already buying queueing. What changes past 24<!--FR3--> is only the rate of increase,
+Latency rises with offered load from the very first point — 103<!--VM7--> →
+188<!--VM8--> → 304<!--VM9--> ms across 4<!--VR1--> → 12<!--VR2--> →
+24<!--VR3--> req/s — so there is no flat region: every increment is
+already costing latency. What changes past 24<!--VR3--> is only the rate of increase,
 which is what makes the "knee" a range rather than a value.
 
 ### 3.5 Constraint ladder
 
-**Tier 1 — CPU at the replica ceiling, between 24<!--FR3--> and 32<!--FR4--> req/s.** Every valid
-point above 4<!--FR1--> req/s ran at `maxReplicas`, so past 24<!--FR3--> no further capacity
+**Tier 1 — CPU at the replica ceiling, between 24<!--VR3--> and 32<!--VR4--> req/s.** Every valid
+point above 4<!--VR1--> req/s ran at `maxReplicas`, so past 24<!--VR3--> no further capacity
 arrives and the queue grows without bound. Server-side service time (M6, which
-excludes queueing) varies by less than a factor of two across the whole grid:
-the handler is not slowing down, the wait in front of it is growing.
+excludes queueing) is flat between 12 and 24 and little more than doubles from
+24 to 32 while p95 quadruples: the handler slows down under load, and the wait
+in front of it grows faster still.
 
 **No second tier is claimed.** The sweep ends where the first tier breaks, and
 it cannot see what would bind after it.
@@ -128,10 +129,10 @@ the sweet spot would be re-read against cost rather than against latency alone
 
 | Guardrail | Value | Derived from | Enforced in |
 | :--- | :--- | :--- | :--- |
-| Do not size on peak throughput | usable ceiling 24<!--FR3--> req/s, not 29.5<!--FM5--> | §3.3 | — |
+| Do not size on peak throughput | usable ceiling 24<!--VR3--> req/s, not 31.3<!--VM5--> | §3.3 | — |
 | The curve describes one HPA configuration | `maxReplicas: 4` | §3.5 | `scripts/manifests/mock-api.yaml` |
-| 40<!--FR5--> req/s is breakdown, not capacity | 49<!--FD6--> % served | §3.1 | — |
-| `M4` counts scrape targets, not replicas | shows 5 against a max of 4 during rollover | `execution.md` §1 register | `scripts/series.txt` |
+| 40<!--VR5--> req/s is breakdown, not capacity | 57<!--VD6--> % served | §3.1 | — |
+| `M4` counts scrape targets, not replicas | can read above the max of 4 during rollover; no row here did | `execution.md` §1 register | `metrics.yaml` |
 
 ---
 

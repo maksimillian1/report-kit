@@ -1,0 +1,337 @@
+meta:
+  updated: 2026-10-22
+  rule: every value the two documents print exists here; each renders it at whatever precision it needs
+  rounding: >-
+    A value carries what the point record carries, and rounds only at print. The runner already
+    rounded k6's raw summary once — p95 to a tenth, the failure share to four places — and that
+    record is the evidence. Rounding a second time in here looked harmless while every document
+    printed whole milliseconds, but it put the registry and its own source out of step: p95 read
+    103 against a recorded 103.3, so a document that wanted one decimal would have been rejected
+    for printing the true number. display: decides what a page shows; value: stays as measured
+  note: >-
+    Checked by `report-kit values --path examples/simple-api/report-values.yaml check`.
+    This file is also the shape a project's own registry takes. Every value a point record
+    holds names it with from:, so `values pull` writes the value and `check` fails if it drifts.
+
+scan:
+  - report.md
+  - execution.md
+  - charts/*.csv
+
+# What one point of the sweep adds: `report-kit values add-point
+# scripts/data/<run>.point.json`. A repeat of a rate gets the next letter, so
+# r32 is run rate-32, the excluded one-replica run, and r32b its re-run. Every
+# value below belongs to one of the six points; the ones written before this
+# block were bound with `values adopt-point`.
+points:
+  axis: rate
+  label: "r{rate:02d}"
+  values:
+    offered_{point}: {kind: R, unit: req_per_second, display: 0, from: {path: rate}, source: TARGET_RATE in scripts/load.js}
+    served_{point}: {kind: M, unit: req_per_second, from: {path: client.served_per_second}, metric: M1}
+    p95_{point}: {kind: M, unit: milliseconds, display: 0, from: {path: client.p95_ms}, metric: M2}
+    unserved_{point}: {kind: M, unit: percent, display: 1, from: {path: client.failed_share, scale: 100}, metric: M3}
+    share_{point}: {kind: D, unit: percent, display: 0, formula: "served_{point} / offered_{point} * 100", group: served_share}
+
+values:
+  offered_r04:
+    ref: VR1
+    kind: R
+    point: r04
+    value: 4
+    from: {file: scripts/data/rate-04.point.json, path: rate}
+    unit: req_per_second
+    display: 0
+    source: TARGET_RATE in scripts/load.js, the swept axis. A setting rather than a reading, and registered because D8 divides by it
+
+  offered_r12:
+    ref: VR2
+    kind: R
+    point: r12
+    value: 12
+    from: {file: scripts/data/rate-12.point.json, path: rate}
+    unit: req_per_second
+    display: 0
+    source: TARGET_RATE in scripts/load.js
+
+  offered_r24:
+    ref: VR3
+    kind: R
+    point: r24
+    value: 24
+    from: {file: scripts/data/rate-24.point.json, path: rate}
+    unit: req_per_second
+    display: 0
+    source: TARGET_RATE in scripts/load.js
+
+  offered_r32b:
+    ref: VR4
+    kind: R
+    point: r32b
+    value: 32
+    from: {file: scripts/data/rate-32b.point.json, path: rate}
+    unit: req_per_second
+    display: 0
+    source: TARGET_RATE in scripts/load.js
+
+  offered_r40:
+    ref: VR5
+    kind: R
+    point: r40
+    value: 40
+    from: {file: scripts/data/rate-40.point.json, path: rate}
+    unit: req_per_second
+    display: 0
+    source: TARGET_RATE in scripts/load.js
+
+  served_r04:
+    ref: VM1
+    kind: M
+    point: r04
+    value: 4
+    from: {file: scripts/data/rate-04.point.json, path: client.served_per_second}
+    unit: req_per_second
+    metric: M1
+
+  served_r12:
+    ref: VM2
+    kind: M
+    point: r12
+    value: 11.99
+    from: {file: scripts/data/rate-12.point.json, path: client.served_per_second}
+    unit: req_per_second
+    metric: M1
+
+  served_r24:
+    ref: VM3
+    kind: M
+    point: r24
+    value: 23.97
+    from: {file: scripts/data/rate-24.point.json, path: client.served_per_second}
+    unit: req_per_second
+    metric: M1
+
+  served_r32:
+    ref: VM4
+    kind: M
+    point: r32
+    value: 31.82
+    from: {file: scripts/data/rate-32.point.json, path: client.served_per_second}
+    unit: req_per_second
+    metric: M1
+    source: 'ledger #05 - excluded from the curve fit, it ran against one replica. Registered anyway, because the document prints it to explain why it was excluded'
+
+  served_r32b:
+    ref: VM5
+    kind: M
+    point: r32b
+    value: 31.33
+    from: {file: scripts/data/rate-32b.point.json, path: client.served_per_second}
+    unit: req_per_second
+    metric: M1
+    source: 'ledger #06, the re-run at four replicas'
+    appears_in: [report.md, execution.md]
+
+  served_r40:
+    ref: VM6
+    kind: M
+    point: r40
+    value: 22.92
+    from: {file: scripts/data/rate-40.point.json, path: client.served_per_second}
+    unit: req_per_second
+    metric: M1
+
+  p95_r04:
+    ref: VM7
+    kind: M
+    point: r04
+    value: 103.3
+    from: {file: scripts/data/rate-04.point.json, path: client.p95_ms}
+    unit: milliseconds
+    display: 0
+    metric: M2
+
+  p95_r12:
+    ref: VM8
+    kind: M
+    point: r12
+    value: 188
+    from: {file: scripts/data/rate-12.point.json, path: client.p95_ms}
+    unit: milliseconds
+    display: 0
+    metric: M2
+
+  p95_r24:
+    ref: VM9
+    kind: M
+    point: r24
+    value: 304.3
+    from: {file: scripts/data/rate-24.point.json, path: client.p95_ms}
+    unit: milliseconds
+    display: 0
+    metric: M2
+    appears_in: [report.md, execution.md]
+
+  p95_r32:
+    ref: VM10
+    kind: M
+    point: r32
+    value: 734.4
+    from: {file: scripts/data/rate-32.point.json, path: client.p95_ms}
+    unit: milliseconds
+    display: 0
+    metric: M2
+    source: 'ledger #05, the excluded one-replica run'
+
+  p95_r32b:
+    ref: VM11
+    kind: M
+    point: r32b
+    value: 1260.8
+    from: {file: scripts/data/rate-32b.point.json, path: client.p95_ms}
+    unit: milliseconds
+    display: 0
+    metric: M2
+    source: 'ledger #06'
+
+  p95_r40:
+    ref: VM12
+    kind: M
+    point: r40
+    value: 10000.8
+    from: {file: scripts/data/rate-40.point.json, path: client.p95_ms}
+    unit: milliseconds
+    display: 0
+    metric: M2
+    source: pinned at the 10 s client timeout
+
+  unserved_r04:
+    ref: VM13
+    kind: M
+    point: r04
+    value: 0
+    from: {file: scripts/data/rate-04.point.json, path: client.failed_share, scale: 100}
+    unit: percent
+    display: 1
+    metric: M3
+
+  unserved_r12:
+    ref: VM14
+    kind: M
+    point: r12
+    value: 0
+    from: {file: scripts/data/rate-12.point.json, path: client.failed_share, scale: 100}
+    unit: percent
+    display: 1
+    metric: M3
+
+  unserved_r24:
+    ref: VM15
+    kind: M
+    point: r24
+    value: 0
+    from: {file: scripts/data/rate-24.point.json, path: client.failed_share, scale: 100}
+    unit: percent
+    display: 1
+    metric: M3
+
+  unserved_r32:
+    ref: VM16
+    kind: M
+    point: r32
+    value: 0
+    from: {file: scripts/data/rate-32.point.json, path: client.failed_share, scale: 100}
+    unit: percent
+    display: 1
+    metric: M3
+    source: 'ledger #05, the excluded one-replica run'
+
+  unserved_r32b:
+    ref: VM17
+    kind: M
+    point: r32b
+    value: 0
+    from: {file: scripts/data/rate-32b.point.json, path: client.failed_share, scale: 100}
+    unit: percent
+    display: 1
+    metric: M3
+    source: 'ledger #06'
+
+  unserved_r40:
+    ref: VM18
+    kind: M
+    point: r40
+    value: 15.02
+    from: {file: scripts/data/rate-40.point.json, path: client.failed_share, scale: 100}
+    unit: percent
+    display: 1
+    metric: M3
+
+  share_r04:
+    ref: VD1
+    kind: D
+    point: r04
+    formula: served_r04 / offered_r04 * 100
+    unit: percent
+    display: 0
+    group: served_share
+
+  share_r12:
+    ref: VD2
+    kind: D
+    point: r12
+    formula: served_r12 / offered_r12 * 100
+    unit: percent
+    display: 0
+    group: served_share
+
+  share_r24:
+    ref: VD3
+    kind: D
+    point: r24
+    formula: served_r24 / offered_r24 * 100
+    unit: percent
+    display: 0
+    group: served_share
+
+  share_r32:
+    ref: VD4
+    kind: D
+    point: r32
+    formula: served_r32 / offered_r32 * 100
+    unit: percent
+    display: 0
+    group: served_share
+
+  share_r32b:
+    ref: VD5
+    kind: D
+    point: r32b
+    formula: served_r32b / offered_r32b * 100
+    unit: percent
+    display: 0
+    group: served_share
+
+  share_r40:
+    ref: VD6
+    kind: D
+    point: r40
+    formula: served_r40 / offered_r40 * 100
+    unit: percent
+    display: 0
+    group: served_share
+    appears_in: [report.md, execution.md]
+
+  offered_r32:
+    ref: VR6
+    kind: R
+    point: r32
+    value: 32
+    from: {file: scripts/data/rate-32.point.json, path: rate}
+    unit: req_per_second
+    display: 0
+    source: TARGET_RATE in scripts/load.js for run rate-32, the excluded one-replica run. Its own value, so the point it belongs to reads its own record
+
+allow: []
+
+retired: []

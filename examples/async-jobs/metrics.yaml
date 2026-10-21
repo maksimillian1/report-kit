@@ -1,0 +1,62 @@
+# The metric register: every ref this execution defines, once. scripts/point.py
+# reads it; `report-kit metrics write` renders the register table from it.
+
+metrics:
+  # Every query here reads the queue exporter or the shared tier, both of which
+  # are still running when the window closes. Nothing here is read from the
+  # worker pods: they scale to zero at the end of every point, and a series that
+  # disappears with its pod cannot be exported for the window it belongs to.
+  M1:
+    what: work queue depth
+    promql: max(jobs_queue_depth{queue="work"})
+    status: confirmed 2026-10-22
+    notes: published by the queue exporter, which never scales to zero
+  M2:
+    what: retry queue depth
+    promql: max(jobs_queue_depth{queue="retry"})
+    status: confirmed 2026-10-22
+    notes: rises *after* M1 reads empty — the retries are produced by the work
+  M3:
+    what: units in flight
+    promql: max(jobs_inflight)
+    status: confirmed 2026-10-22
+    notes: '`enqueued − completed − M1 − M2`. A popped unit is in no queue and in no counter; this is the only place it appears'
+  M4:
+    what: worker pods serving
+    promql: count(up{job="worker"} == 1)
+    status: confirmed 2026-10-22
+    notes: '**scrape targets, not replicas.** Has fewer samples than every other ref in every export here — the pool is absent at both ends of the window, which is the profile, not a gap'
+  M5:
+    what: completion rate
+    promql: sum(rate(jobs_completed_total[30s]))
+    status: confirmed 2026-10-22
+    notes: from a Redis counter, so it survives the pool going away
+  M6:
+    what: shared-tier pods
+    promql: count(up{job="results"} == 1)
+    status: confirmed 2026-10-22
+  M7:
+    what: shared-tier concurrency
+    promql: sum(rate(results_seconds_total[30s]))
+    status: confirmed 2026-10-22
+    notes: service-seconds per second = mean concurrency inside the handler. Wall time, so CPU throttling inflates it
+  D8:
+    what: drain duration
+    source: producer start → the first poll at which `outstanding` reads 0
+    status: active
+    notes: in the point record as `drain_window`; ±1 poll (3 s)
+  D9:
+    what: sustained drain rate
+    source: units ÷ D8
+    status: active
+    notes: the headline of a jobs point
+  D10:
+    what: shared-tier mean service time
+    source: M7 ÷ M5
+    status: active
+    notes: computed from the export, over samples where M5 > 1
+  R11:
+    what: what the pool actually did
+    source: read off M4 per point
+    status: active
+    notes: carried in the ledger's `Signal` column

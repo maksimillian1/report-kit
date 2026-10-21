@@ -35,7 +35,7 @@ are fixed. That is what an example is for.
 
 ## Numbers in the examples
 
-Both examples carry a `figures.yaml`, and their documents mark every figure
+Both examples carry a `report-values.yaml`, and their documents mark every value
 with a ref. `formats.md` ships into every scaffolded project and tells authors
 to do this, so an example that did not would teach the opposite of what the
 kit says.
@@ -45,9 +45,9 @@ latencies and error shares, plus the served-share column as a formula. It shows
 the two cases prose gets wrong on its own — the offered rate is a *setting*
 rather than a reading and is registered anyway, because `D8` divides by it, and
 the excluded run #05 is registered too, since the document prints its numbers
-to explain the exclusion. It also shows one figure rendering two ways: `29.46`
-in the matrix and `29.5` in the BLUF are the same ref, because a check compares
-the number on the page against what the figure rounds to at the precision that
+to explain the exclusion. It also shows one value rendering two ways: `31.33`
+in the matrix and `31.3` in the BLUF are the same ref, because a check compares
+the number on the page against what the value rounds to at the precision that
 page chose.
 
 `async-jobs/` is the richer one, and it carries the three things the api
@@ -59,23 +59,32 @@ example has no occasion to show:
 - **It has an `E` class.** The Expected line is a registered estimate that the
   run then falsified, so the document can print the prediction and the
   measurement side by side and both are checked.
-- **One figure is deliberately *not* derived.** `D9` looks like units ÷ drain,
+- **One value is deliberately *not* derived.** `D9` looks like units ÷ drain,
   and is not: the drain is published rounded to a tenth of a second, so
-  `1200 / 50.3` gives `23.86` where the record says `23.85`. Precision a
+  `1200 / 59.6` gives `20.13` where the record says `20.14`. Precision a
   document threw away cannot be recovered by re-deriving from it, and
   `meta.rounding` says so.
 
 Its §5 guardrail comparing a window rate against a drain rate is left
-**uncovered** on purpose — the third state in `formats.md`. The window figure
+**uncovered** on purpose — the third state in `formats.md`. The window value
 has no basis in the registry, and inventing one to make the row look verified
 is the failure the whole contract exists to prevent.
+
+Every value a run's data holds also names it with `from:` — each measured
+value, and each setting a point record carries — so `values pull` is how the
+values got into the registry, and `check` re-reads every one of them from
+`scripts/data/`. `tier_service_*` is the case that needed it: the registry had
+stored them rounded to a tenth, where the export gives them at full precision.
+Each registry's `points:` block says once what one run adds, and every value of
+a grid point carries the `point:` key that `adopt-point` gave it, so a point can
+be renamed or deleted as a set.
 
 Both are checkable, and checking them is the point — an example whose numbers
 drift teaches the drift:
 
 ```bash
-report-kit figures --path examples/simple-api/figures.yaml check
-report-kit figures --path examples/async-jobs/figures.yaml check
+report-kit values --path examples/simple-api/report-values.yaml check
+report-kit values --path examples/async-jobs/report-values.yaml check
 ```
 
 ## Running one

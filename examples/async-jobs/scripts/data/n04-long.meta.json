@@ -1,11 +1,11 @@
 {
   "run": "n04-long",
-  "exported_at": "2026-09-09T15:59:59Z",
+  "exported_at": "2026-10-22T16:23:32Z",
   "prom_url": "http://localhost:9092",
   "step": "5s",
   "window": {
-    "start": "2026-09-09T15:57:35Z",
-    "end": "2026-09-09T15:59:28Z",
+    "start": "2026-10-22T16:21:09Z",
+    "end": "2026-10-22T16:23:01Z",
     "seconds": 112.5
   },
   "refs": [

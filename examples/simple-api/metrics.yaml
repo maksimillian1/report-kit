@@ -1,0 +1,45 @@
+# The metric register: every ref this execution defines, once. scripts/point.py
+# reads it; `report-kit metrics write` renders the register table from it.
+
+metrics:
+  M1:
+    what: requests served per second
+    source: '`http_reqs.rate`, k6 summary'
+    status: confirmed 2026-10-22
+    notes: client-side; the numerator of D8
+  M2:
+    what: client-observed latency p95
+    source: '`http_req_duration.p(95)`, k6 summary'
+    status: confirmed 2026-10-22
+    notes: includes the port-forward hop
+  M3:
+    what: share of requests not served
+    source: '`http_req_failed.value`, k6 summary'
+    status: confirmed 2026-10-22
+    notes: timeouts at 10 s count here
+  # The server-side view, exported at every point. M1–M3 above are client-side
+  # and come from the k6 summary instead.
+  M4:
+    what: serving instances
+    promql: count(up{job="mock-api"} == 1)
+    status: confirmed 2026-10-22
+    notes: '**scrape targets, not replicas** — a terminating pod and its replacement are both up for one interval, so this overshoots `maxReplicas` during rollover'
+  M5:
+    what: server-side served rate
+    promql: sum(rate(mock_requests_total[30s]))
+    status: confirmed 2026-10-22
+    notes: second opinion on M1
+  M6:
+    what: server-side mean service time
+    promql: sum(rate(mock_request_duration_seconds_sum[30s])) / sum(rate(mock_requests_total[30s]))
+    status: confirmed 2026-10-22
+    notes: excludes queueing, unlike M2
+  R7:
+    what: which component sat at its ceiling
+    source: hand-recorded at the end of each run
+    status: active
+    notes: carried in the ledger `Signal` column
+  D8:
+    what: offered load actually served
+    source: '`M1 ÷ offered rate`'
+    status: active

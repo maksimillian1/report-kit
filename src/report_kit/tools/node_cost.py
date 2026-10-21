@@ -7,7 +7,7 @@
 
 **Provisional, and not a source of record.** The Cost and Usage Report is,
 and it lands a day or more later — by which time the sweep has moved on and a
-figure that looked wrong has no cheap way of being questioned. This gives a
+value that looked wrong has no cheap way of being questioned. This gives a
 number the same afternoon, to sanity-check the shape of a cost curve while
 the runs are still fresh, and to catch an order-of-magnitude mistake before it
 reaches a report. Reconcile against CUR before publishing.
@@ -28,7 +28,7 @@ Prometheus still remembers can no longer be typed or priced.
 Reports gross node cost. Savings Plans, Reserved Instances and any negotiated
 discount are applied by AWS after the fact and are invisible here.
 
-No figure this has produced has yet been compared against a real bill. The
+No value this has produced has yet been compared against a real bill. The
 arithmetic and the failure paths are covered by `report-kit selftest`; the prices
 themselves are not. Treat the first run on a real account as unverified.
 """

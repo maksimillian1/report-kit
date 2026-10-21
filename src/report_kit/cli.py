@@ -24,10 +24,14 @@ import importlib
 import sys
 
 TOOLS = {
-    "figures": ("report_kit.tools.figures",
-                "resolve figures.yaml, and fail when a number drifts"),
+    "values": ("report_kit.tools.values",
+               "resolve report-values.yaml, and fail when a number drifts"),
+    "figures": ("report_kit.tools.values",
+                "the name of values before 0.4; report-kit values migrate moves a report"),
     "charts": ("report_kit.tools.charts",
                "draw a CSV: four shapes, two surfaces, no report knowledge"),
+    "metrics": ("report_kit.tools.metrics",
+                "the metric register: render its table, and fail when it drifts"),
     "export-metrics": ("report_kit.tools.export_metrics",
                        "re-export a window whose metrics are aging out"),
     "inspect-metrics": ("report_kit.tools.inspect_metrics",

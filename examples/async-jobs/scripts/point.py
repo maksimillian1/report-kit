@@ -37,13 +37,15 @@ import argparse
 import sys
 from pathlib import Path
 
-from report_kit import cluster, poll, prometheus, refs, reporting, shell
+from report_kit import cluster, poll, prometheus, reporting, shell
 from report_kit.clock import hms, utcnow
 from report_kit.constants import ARROW, BAD, OK, WARN
 from report_kit.env import Env
 from report_kit.portforward import PortForwards, forward_spec
 from report_kit.preflight import Preflight
 from report_kit.proc import Background
+from report_kit.execution_config import IdleTarget, read_execution, run_guards
+from report_kit.register import read_register, series_rows
 from report_kit.text import fill
 from report_kit.window import Window
 
@@ -87,25 +89,24 @@ def worker_pods(env: Env) -> list[str]:
     return sorted(pod for pods in by_node.values() for pod in pods)
 
 
-def tier_replicas(env: Env) -> dict[str, int]:
-    return {tier["deployment"]: cluster.deployment_replicas(
-        env.namespace_for(tier["deployment"]), tier["deployment"])
-        for tier in env.need("tiers")}
+def tier_replicas(env: Env, tiers: tuple[IdleTarget, ...]) -> dict[str, int]:
+    return {tier.deployment: cluster.deployment_replicas(
+        env.namespace_for(tier.deployment), tier.deployment) for tier in tiers}
 
 
-def system_state(env: Env, redis: Redis) -> dict:
+def system_state(env: Env, redis: Redis, tiers: tuple[IdleTarget, ...]) -> dict:
     """One read of everything the close condition depends on, plus the
     counters, which it deliberately does not — see is_idle()."""
     counts = counters(env, redis)
     return {"depths": queue_depths(env, redis),
             "workers": worker_pods(env),
-            "tiers": tier_replicas(env),
+            "tiers": tier_replicas(env, tiers),
             "outstanding": counts["enqueued"] - counts["completed"],
             "counters": counts}
 
 
-def is_idle(env: Env, state: dict) -> bool:
-    """Empty, at zero, and at floor — all three.
+def is_idle(state: dict, tiers: tuple[IdleTarget, ...]) -> bool:
+    """Empty, at zero, and back at idle — all three.
 
     `outstanding` is not in here, and that is a choice rather than an
     oversight. It is the exact count of units enqueued and not yet completed,
@@ -118,8 +119,8 @@ def is_idle(env: Env, state: dict) -> bool:
     """
     return (sum(state["depths"].values()) == 0
             and not state["workers"]
-            and all(state["tiers"][tier["deployment"]] <= tier["floor"]
-                    for tier in env.need("tiers")))
+            and all(state["tiers"][tier.deployment] <= tier.idle_replicas
+                    for tier in tiers))
 
 
 def render_state(state: dict) -> str:
@@ -138,7 +139,8 @@ def reset(env: Env, redis: Redis) -> None:
     print(f"[{OK}] cleared {removed} key(s): {', '.join(keys)}")
 
 
-def watch(env: Env, pf: PortForwards, redis: Redis, producer: Background):
+def watch(env: Env, pf: PortForwards, redis: Redis, producer: Background,
+          tiers: tuple[IdleTarget, ...]):
     """Watch the drain, from the instant the producer started."""
     started = producer.started_at
     state: dict = {}
@@ -153,7 +155,7 @@ def watch(env: Env, pf: PortForwards, redis: Redis, producer: Background):
         nonlocal peak_workers, drained_at
         for notice in pf.ensure_alive():
             print(f"{WARN} {notice}")
-        state.update(system_state(env, redis))
+        state.update(system_state(env, redis, tiers))
         state["producer"] = "running" if producer.running else "done"
         peak_workers = max(peak_workers, len(state["workers"]))
 
@@ -166,7 +168,7 @@ def watch(env: Env, pf: PortForwards, redis: Redis, producer: Background):
         # slower to start than HOLD_SECONDS would close a window over a
         # system that never did any work, and the point would look clean.
         # This clause is why `poll.wait_until_stable` takes a closure.
-        return arrived and is_idle(env, state)
+        return arrived and is_idle(state, tiers)
 
     settled = poll.wait_until_stable(
         drained, hold_seconds=HOLD_SECONDS, poll_seconds=env.poll_seconds,
@@ -201,6 +203,9 @@ def main() -> int:
 
     env = Env(HERE / "env.yaml")
     out_dir = HERE / "data"
+    register = read_register(HERE.parent / "metrics.yaml")
+    config = read_execution(HERE.parent / "execution.yaml", register)
+    tiers = config.window_closes_when_back_to_idle
 
     with PortForwards([forward_spec(env, "prometheus"),
                        forward_spec(env, "redis")]) as pf, \
@@ -217,18 +222,17 @@ def main() -> int:
 
         # 1. preflight — is the system in the state this point assumes?
         pre = Preflight()
-        state = system_state(env, redis)
+        state = system_state(env, redis, tiers)
         dirty = sum(state["depths"].values())
         pre.check("queues empty", dirty == 0,
                   " ".join(f"{k}={v}" for k, v in sorted(state["depths"].items()))
                   + (" — run --reset" if dirty else ""))
         pre.check("worker pool at zero", not state["workers"],
                   f"{len(state['workers'])} pod(s)")
-        for tier in env.need("tiers"):
-            name = tier["deployment"]
-            pre.check(f"{name} at floor",
-                      state["tiers"][name] <= tier["floor"],
-                      f"{state['tiers'][name]} replica(s), floor {tier['floor']}")
+        for tier in tiers:
+            name = tier.deployment
+            pre.check(f"{name} at idle", state["tiers"][name] <= tier.idle_replicas,
+                      f"{state['tiers'][name]} replica(s), idle {tier.idle_replicas}")
         down = prometheus.prom_targets_down(env.prom_url)
         pre.check("prometheus targets up", not down, ", ".join(down))
         pre.finish()
@@ -247,7 +251,7 @@ def main() -> int:
         print()
         print(f"{ARROW} producer (background) · {' '.join(cmd)}")
         with Background(cmd, log_path, cwd=HERE) as producer:
-            window, drain, observations = watch(env, pf, redis, producer)
+            window, drain, observations = watch(env, pf, redis, producer, tiers)
             producer_rc = producer.poll()
         if producer_rc is None:
             print(f"{WARN} the queues drained while the producer was still "
@@ -267,16 +271,15 @@ def main() -> int:
 
         # 3. export — the series, for this window
         pf.ensure_alive()
+        series = series_rows(register)
         export = prometheus.export_range(
-            env.prom_url, refs.read_ref_file(HERE / "series.txt", 2), window,
+            env.prom_url, series, window,
             out_dir=out_dir, run_id=args.run, step=STEP, force=True)
 
         # 4. guards — as of the close, not now: the export sits between them
         print()
-        failures = prometheus.check_guards(
-            env.prom_url,
-            refs.load_guards(HERE / "guards.txt", {"count": args.count}),
-            at=window.end)
+        guards = run_guards(config, {"count": args.count})
+        failures = prometheus.check_guards(env.prom_url, guards, at=window.end)
 
     # 5. record. The headline of an async point is a duration and a rate the
     #    system sustained, both derived from the window rather than reported
@@ -287,6 +290,7 @@ def main() -> int:
     record = {"run": args.run, "profile": "jobs", "n": args.n,
               "count": args.count, "offered_rate": args.rate,
               "window": window.to_dict(),
+              "queries": dict(series), "guards": guards,
               "drain_window": drain.to_dict() if drain else None,
               "guard_failures": failures,
               "empty_refs": export.empty, "producer_exit": producer_rc,

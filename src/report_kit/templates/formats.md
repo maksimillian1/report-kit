@@ -1,13 +1,13 @@
 # Number formats
 
 How numbers are written so that a script can verify them. Companion to `methodology.md` §2:
-definitions live in each execution's register, values live in one `figures.yaml` per report.
+definitions live in each execution's register, values live in one `report-values.yaml` per report.
 
 ## Rule 0 — no arithmetic in prose
 
 A sentence never computes. "$19,460 extra per 1M docs" is not a subtraction performed while
-writing; it is a figure, resolved from the registry. This rule is what makes the rest
-enforceable: a computed number that is not a figure cannot be verified by any convention,
+writing; it is a value, resolved from the registry. This rule is what makes the rest
+enforceable: a computed number that is not a value cannot be verified by any convention,
 because nothing knows what it should be.
 
 ## Three states, not two
@@ -21,17 +21,17 @@ because nothing knows what it should be.
 The value of the system is proportional to how much is marked, not to how complete the
 exclusion table is. Exclusions remove noise with a distinctive shape; they cannot certify that
 what remains is harmless, because a number's shape never tells you its role — the same `2` is a
-replica count, a multiplier inside a formula, a zone count or a figure.
+replica count, a multiplier inside a formula, a zone count or a value.
 
 ## The ref
 
 Four letters carry the same classes the metric register uses, prefixed so the two namespaces
-never collide: `FM` measured · `FR` recorded · `FD` derived · `FE` estimated. The number is a
+never collide: `VM` measured · `VR` recorded · `VD` derived · `VE` estimated. The number is a
 plain sequence and is never reused. The letter states where an error could originate and how
 far to trust the number; the class of thing it is (a vendor price, a convention, a scenario
 input) is recoverable from its `source`.
 
-Changing a figure's class is a rename, done by the tool, not by hand: an estimate that becomes
+Changing a value's class is a rename, done by the tool, not by hand: an estimate that becomes
 a measurement is the normal direction of travel.
 
 The trust marker is **computed, not typed**. A formula with an estimate anywhere upstream prints
@@ -40,32 +40,34 @@ and nobody has to remember to downgrade one by hand.
 
 ### Renumbering is safe until something is deleted
 
-Refs are assigned by the tool, which is what makes reclassifying a figure cheap, and appending one
-is equally cheap. **Deleting one is not**: every later ref of that letter shifts down by one, while
-the marks already written into documents still name the old numbers. The tool renumbers the
-registry and cannot rewrite the documents. So append rather than insert, and after any delete
-re-run the check — the mark count is the only thing that will notice.
+Refs are assigned by the tool, which is what makes reclassifying a value cheap, and appending one
+is equally cheap. **Deleting one is not**: every later ref of that letter shifts down by one. When
+the tool does it — `delete-point`, `renumber`, `retype` — it moves every mark in every scanned
+document by the same exact old → new map, and writes the registry and the documents together or
+not at all. When a person deletes a value by hand, nothing moves: run `report-kit values
+renumber` next, which refuses while any document marks a ref no value holds, because renumbering
+could hand that ref to another value. So append rather than insert, and delete with the tool.
 
 ## Marking
 
 The ref is glued to the digits, with no character in between, before any closing markup.
 
 ```
-correct     | **552.91<!--FR12-->** |
-correct     $553.83<!--FD7--> / month
-correct     ~$0.51<!--FE4--> ᴱ
-correct     0.2195<!--FM9--> GB/h
-wrong       **552.91**<!--FR12-->      markup between number and ref
-wrong       552.91 <!--FR12-->         a space
-wrong       $0.3833/h<!--FR3-->        unit captured inside the pair
-wrong       $553.83<!--FD07-->         zero-padded; the tool writes FD7
+correct     | **552.91<!--VR12-->** |
+correct     $553.83<!--VD7--> / month
+correct     ~$0.51<!--VE4--> ᴱ
+correct     0.2195<!--VM9--> GB/h
+wrong       **552.91**<!--VR12-->      markup between number and ref
+wrong       552.91 <!--VR12-->         a space
+wrong       $0.3833/h<!--VR3-->        unit captured inside the pair
+wrong       $553.83<!--VD07-->         zero-padded; the tool writes VD7
 ```
 
 Units, currency words and suffixes stay outside the pair: the number and its ref are one
 indivisible token, everything else is prose.
 
 Where a reader benefits from seeing the handle, the visible form is an anchor too and needs no
-comment: `**$554** ᴿ (FD7)`. Between the number and its ref only closing markup, a trust marker
+comment: `**$554** ᴿ (VD7)`. Between the number and its ref only closing markup, a trust marker
 and whitespace may sit — never a word. A ref separated from its number by prose is not a mark: it
 reads like one, nothing checks it, and an unverified number that looks verified is worse than an
 unmarked one.
@@ -79,9 +81,9 @@ trust marker — which is to say, every anchor anyone would really write.
 Mark the report in full: it is the deliverable, and its numbers are the ones a reader acts on.
 In execution documents mark what the registry already claims through `appears_in`. Do not
 retrofit narrative evidence inside journal notes — a per-run cost quoted once to support a
-sentence is evidence, not a figure, and registering it buys nothing.
+sentence is evidence, not a value, and registering it buys nothing.
 
-## How a figure is written
+## How a value is written
 
 | Rule | Write | Not |
 | :--- | :--- | :--- |
@@ -89,16 +91,16 @@ sentence is evidence, not a figure, and registering it buys nothing.
 | Decimal point | `0.00250` | `0,0025` |
 | Currency sign against the digits | `$553.83` | `$ 553.83` |
 | Approximation before the sign | `~$0.51` | `$~0.51` |
-| A range is two marked numbers | `$866.79<!--FD1--> → $753.26<!--FD2-->` | one ref for both |
+| A range is two marked numbers | `$866.79<!--VD1--> → $753.26<!--VD2-->` | one ref for both |
 | No spaces inside a number | `1,166,534` | `1 166 534` |
-| The trust marker stays visible | `$553.83<!--FR12--> ᴿ` | dropping ᴿ ᴰ ᴱ |
+| The trust marker stays visible | `$553.83<!--VR12--> ᴿ` | dropping ᴿ ᴰ ᴱ |
 
-One figure may have more than one legal rendering — prose prints whole dollars, tables print
+One value may have more than one legal rendering — prose prints whole dollars, tables print
 cents, a rate keeps the decimals that separate it from its neighbours — and all of them satisfy
-the check for the same ref. The rule is that the number on the page must be what the figure
+the check for the same ref. The rule is that the number on the page must be what the value
 rounds to **at the precision the page chose**: `$554`, `553.83` and `553.8` all resolve to one
-figure, and `552.91` resolves to none of them. Checking against a single stored precision instead
-would reject most of a rate card, whose figures are written with four decimals and totalled to
+value, and `552.91` resolves to none of them. Checking against a single stored precision instead
+would reject most of a rate card, whose values are written with four decimals and totalled to
 two.
 
 ## Shapes the scan ignores
@@ -127,15 +129,15 @@ paths are full of digits that mean nothing to the report.
 
 Four classes stay semantic. Each needs a habit, not a pattern.
 
-1. **A bare count that is a figure.** `84,018 points` is a figure, `30 replicas` is not, and
+1. **A bare count that is a value.** `84,018 points` is a value, `30 replicas` is not, and
    nothing in their shape separates them. Bare counts the report reuses must be registered.
-2. **A formula input stated in prose.** `2 × 50 GB` feeds a figure. Editing the prose does not
+2. **A formula input stated in prose.** `2 × 50 GB` feeds a value. Editing the prose does not
    change the money and no check sees a conflict. Quantities that enter a formula belong in the
    registry.
 3. **Prose arithmetic.** "2.3× the previous point" is computed while writing. Rule 0 forbids it;
-   only a reader catches a violation. If a sentence states a relationship between two figures,
-   that relationship is itself a figure.
-4. **Ranges derived from a pending input.** Both bounds are figures that resolve to `pending`
+   only a reader catches a violation. If a sentence states a relationship between two values,
+   that relationship is itself a value.
+4. **Ranges derived from a pending input.** Both bounds are values that resolve to `pending`
    until the input exists.
 
 The first three share one shape: a number that should be in the registry and is not. The tool
@@ -148,7 +150,7 @@ A chart is drawn from a CSV by `report-kit charts`. The format is
 `examples/tenant-platform/`; what follows is the part that is about numbers.
 
 **A chart CSV is a view, not a reading and not a result.** An execution's
-`data/` holds what an authority returned (`methodology.md` §2), `figures.yaml`
+`data/` holds what an authority returned (`methodology.md` §2), `report-values.yaml`
 holds every number a document prints, and a chart CSV transcribes what the
 documents already print so that a renderer needs no knowledge of the report.
 Nothing in one is a new claim.
@@ -158,7 +160,7 @@ states `$44,200`, write `44200`.
 
 **An unknown value is an empty cell** — never a plausible number, never one from
 an earlier revision. A row missing what the shape plots is dropped, and a
-caveat that changes what a figure means goes in a label column.
+caveat that changes what a value means goes in a label column.
 
 **Drift is caught here, not by the renderer.** Add the CSVs to `scan`:
 
@@ -168,6 +170,121 @@ scan:
   - charts/*.csv
 ```
 
-`report-kit figures check` then reads them with the prose, and a value this
+`report-kit values check` then reads them with the prose, and a value this
 report has retired is named where it survives in a picture, together with the
-figure that replaced it.
+value that replaced it.
+
+## Where a measured value comes from
+
+A measured value is copied out of a run's committed `data/`, and a copy nobody re-reads is as
+unverified as a number typed from memory. `from:` names where the value sits, so a tool makes the
+copy and the check re-reads it every time:
+
+```yaml
+  p95_r24:
+    ref: VM9
+    kind: M
+    value: 411.7
+    from: {file: executions/01-load/data/r24.point.json, path: client.p95_ms}
+```
+
+| Shape | Keys | Reads |
+| :--- | :--- | :--- |
+| Point record | `file`, `path`, optional `scale` | the key at the dotted `path` of a `.point.json`; a number stored as a string (`"24"`) counts |
+| Export | `file`, `ref`, `reduce`, optional `across`, `per`, `where`, `settle_on`, `until`, `scale` | the samples of `ref` in a `.jsonl`, reduced by `max`, `min`, `mean` or `last` |
+
+**A ref with more than one series is refused unless the value says how to combine them.**
+`across: sum|max|min|mean` combines the series of every ref the value reads, timestamp by
+timestamp, before anything else happens to them. Nothing is summed silently: a sum of per-pod
+maxima, or of per-replica latencies, is a number that means nothing and looks like one that does.
+A ref with one series needs no `across`.
+
+`per: M5` divides sample by sample by another ref at the same timestamps. `where: "M5 > 1"` keeps
+the samples at which another ref passes the comparison — `>`, `>=`, `<` or `<=` against a number.
+`settle_on: M4` keeps the samples from the instant that ref last changed: a window holds the
+system reacting and then settled, and a mean across both describes neither. A ref that never
+changed leaves the whole window. `until: generator_window.end` ends the samples at the instant the
+run's own `.point.json`, beside the export, holds at that key, so the wind-down after the load
+stopped stays out. `scale` multiplies the result: `100` turns a share into a percent, `1000`
+seconds into milliseconds. That is the whole vocabulary. A value the data needs more than this to produce is a
+derived value with a `formula:`, and a value has `from:` or `formula:`, never both. `file` is
+relative to the directory holding `report-values.yaml`.
+
+- **`report-kit values pull [value …]`** rewrites each `value:` line from its data, in place, and
+  no other line: comments and block scalars survive byte for byte. It prints old → new for every
+  value that moved. A reading with no samples is a gap — reported, exit 1, nothing written for
+  that value, and never a zero.
+- **`report-kit values check`** fails when a stored value differs from what its data reproduces at
+  full precision. A data file that is not there is reported and fails only under `--strict`, the
+  same as a missing `appears_in` target.
+
+**A value is stored at full precision and rounded at print.** `display:` decides what a page shows.
+A value rounded by hand to match a page no longer equals its evidence, and the check says so.
+
+**`metric:` names what the value measures.** `metric: M1` is a ref in the register of the
+execution whose data the value's `from:` reads — the first `metrics.yaml` above that file — and
+`metric: 00-baseline/M2` cites another execution's. `check` fails when that register defines no
+such ref. With `metric:` and `from:` both present, `source:` is for what neither says, such as why
+an excluded run is still registered; it is optional.
+
+**Only committed data counts.** `from:` never queries a metrics backend: retention ages a window
+out, CI has no cluster, and a file is what a reviewer can open. A value whose number lives nowhere
+in `data/` — a setting read from a manifest, a price from a bill — keeps its `source:` and no
+`from:`.
+
+## A point's values, added and removed as a set
+
+Every point of a sweep adds the same handful of values, and typing them per run is how two points
+end up registered two ways. A `points:` block in `report-values.yaml` is that handful, written once:
+
+```yaml
+points:
+  axis: n                  # the point record field that names a point
+  label: "n{n:02d}"        # formatted from the record, where "24" counts as 24
+  held: {count: units_per_point}  # optional: the value each record field must equal
+  values:
+    drain_{point}:   {kind: M, unit: seconds, display: 1, from: {path: drain_window.seconds}, metric: D8}
+    peak_{point}:    {kind: M, unit: units, display: 0, from: {ref: M1, reduce: max}}
+    speedup_{point}: {kind: D, unit: ratio, formula: "rate_{point} / rate_n01"}
+```
+
+A template sets no `ref`, `value` or `point`, and its `from:` names no `file:`. The tool fills those
+in: the point's own `.point.json`, or for a `ref:` the `.jsonl` beside it.
+
+- **`report-kit values add-point <run>.point.json`** appends the expanded values at the end of
+  the `values:` block, each with the next ref of its kind, and pulls their values. No ref already
+  cited moves (`methodology.md` §2, append, never insert). A label already taken takes the next
+  letter: `n08`, `n08b`, `n08c`, never an `a` and nothing past `z`. A label is taken when a
+  value's `point:` key carries it or a name the template would produce already exists.
+  `--as <label>` names the point instead, and refuses a label already taken. A run file the
+  registry already reads, its `.point.json` or the `.jsonl` beside it named by any `from:`, is
+  refused whatever the flags: one measurement added twice is not a repeat, and a real repeat is a
+  new run with its own file. A point whose `guard_failures` or `empty_refs` is not empty is
+  refused unless `--allow-invalid` is given. A point whose `held:` fields differ from the
+  values `held:` names is always refused: a different grid is never a repeat of this one, and
+  naming the value keeps the grid's constant written once. A reading that is a gap writes nothing.
+- **`report-kit values adopt-point <label> <run>.point.json`** binds values written before the
+  template to a point. Every value the template makes of that run must already exist and agree
+  in `kind`, `from:` (with its file resolved to this run), `formula` and `metric`; the prose keys —
+  `source`, `display`, `unit`, `group`, `appears_in` — are the author's and may differ. Each then
+  gains `point: <label>`, and nothing else changes: refs stay, so no document does. A value
+  missing or disagreeing is named and nothing is written. So is a run already bound to another
+  label, or one that fails `held:`, or validity without `--allow-invalid`.
+- **`report-kit values rename-point <old> <new>`** renames every value whose `point:` is
+  `<old>`, replacing the label where it stands whole in the name (`n08` never matches inside
+  `n08b`), and rewrites every formula and `replaced_by:` that names one. Refs stay, so no document
+  changes.
+- **`report-kit values delete-point <label>`** removes the point's values, renumbers, and moves
+  every mark that shifted in every scanned document by an exact old → new map. Only the anchors
+  `<!--VM12-->` and `(VM12)` outside fenced code are touched, each matched whole, so `VM1` never
+  matches inside `VM12`. A point that a formula or a `retired` entry outside it still reads is
+  refused. So is a point whose refs a document marks: a cited run is carried as a row, not
+  deleted. `--force` lifts only that second refusal, and removes those marks, so their numbers
+  become unmarked prose.
+
+**Membership is the `point:` key and nothing else.** Two names that share a suffix are not a point,
+and a value registered by hand carries no key until `adopt-point` gives it one, so neither
+`rename-point` nor `delete-point` touches it before then.
+
+**All or nothing.** Each command works out the new registry and every changed document first, and
+writes only when all of it succeeded.

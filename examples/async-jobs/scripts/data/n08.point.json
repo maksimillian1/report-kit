@@ -1,11 +1,11 @@
 {
   "count": 400,
   "drain_window": {
-    "end": "2026-09-09T15:34:40Z",
-    "seconds": 31.4,
-    "start": "2026-09-09T15:34:08Z"
+    "end": "2026-10-22T15:51:57Z",
+    "seconds": 31.5,
+    "start": "2026-10-22T15:51:26Z"
   },
-  "drained_per_second": 12.74,
+  "drained_per_second": 12.69,
   "empty_refs": [],
   "final_counters": {
     "completed": 400,
@@ -13,16 +13,47 @@
     "retried": 20
   },
   "guard_failures": [],
+  "guards": [
+    {
+      "max": 0.0,
+      "query": "max(jobs_enqueued_total) - max(jobs_completed_total)",
+      "ref": "G1"
+    },
+    {
+      "min": 400.0,
+      "query": "max(jobs_enqueued_total)",
+      "ref": "G2"
+    },
+    {
+      "max": 0.0,
+      "query": "max(jobs_queue_depth{queue=\"work\"}) + max(jobs_queue_depth{queue=\"retry\"})",
+      "ref": "G3"
+    },
+    {
+      "min": 1.0,
+      "query": "count(up{job=\"results\"} == 1)",
+      "ref": "G4"
+    }
+  ],
   "n": 8,
   "offered_rate": "40",
   "peak_worker_pods": 8,
   "producer_exit": 0,
   "profile": "jobs",
+  "queries": {
+    "M1": "max(jobs_queue_depth{queue=\"work\"})",
+    "M2": "max(jobs_queue_depth{queue=\"retry\"})",
+    "M3": "max(jobs_inflight)",
+    "M4": "count(up{job=\"worker\"} == 1)",
+    "M5": "sum(rate(jobs_completed_total[30s]))",
+    "M6": "count(up{job=\"results\"} == 1)",
+    "M7": "sum(rate(results_seconds_total[30s]))"
+  },
   "run": "n08",
   "units_outstanding_at_close": 0,
   "window": {
-    "end": "2026-09-09T15:35:14Z",
-    "seconds": 65.9,
-    "start": "2026-09-09T15:34:08Z"
+    "end": "2026-10-22T15:52:22Z",
+    "seconds": 56.4,
+    "start": "2026-10-22T15:51:26Z"
   }
 }

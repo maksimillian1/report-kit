@@ -1,12 +1,12 @@
 {
   "run": "n02",
-  "exported_at": "2026-09-09T15:38:28Z",
+  "exported_at": "2026-10-22T15:55:10Z",
   "prom_url": "http://localhost:9092",
   "step": "5s",
   "window": {
-    "start": "2026-09-09T15:36:29Z",
-    "end": "2026-09-09T15:37:57Z",
-    "seconds": 87.5
+    "start": "2026-10-22T15:53:11Z",
+    "end": "2026-10-22T15:54:39Z",
+    "seconds": 87.6
   },
   "refs": [
     {
@@ -31,7 +31,7 @@
       "ref": "M4",
       "query": "count(up{job=\"worker\"} == 1)",
       "series": 1,
-      "points": 14
+      "points": 15
     },
     {
       "ref": "M5",
