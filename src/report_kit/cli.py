@@ -3,6 +3,7 @@
     report-kit init docs/report --full
     report-kit new-point docs/report/executions/01-load --profile api
     report-kit charts charts/failover.csv --kind line
+    report-kit point finish data/r-200.point.json
     report-kit export-metrics --start … --end …
     report-kit inspect-metrics data/r-200.jsonl --settle-on M4
     report-kit node-cost --last 40m --nodepool apps-compute
@@ -32,6 +33,8 @@ TOOLS = {
                "draw a CSV: four shapes, two surfaces, no report knowledge"),
     "metrics": ("report_kit.tools.metrics",
                 "the metric register: render its table, and fail when it drifts"),
+    "point": ("report_kit.tools.point",
+              "what a point does once its window closed, run again on its record"),
     "export-metrics": ("report_kit.tools.export_metrics",
                        "re-export a window whose metrics are aging out"),
     "inspect-metrics": ("report_kit.tools.inspect_metrics",

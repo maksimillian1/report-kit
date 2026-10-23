@@ -5,7 +5,8 @@
 
 No pytest, no cluster, no AWS. It patches the three functions everything
 bottoms out in (shell.sh / sh_json / http_json) and drives a full point:
-preflight, load, the window closing, export, guards, the point record.
+preflight, load, the window closing, export, guards, the register's refs
+worked out, the point record.
 
 Two things it is for. It proves the seam the docs claim — if this file needs
 anything beyond those three patches to fake a cluster, then something in the
@@ -140,19 +141,25 @@ class FakeCluster:
 
 
 def write_inputs(root: Path, profile: str) -> None:
+    """The execution's own files, as `new-point` leaves them once filled in.
+    The hold is the project's tuning, not the flow's: a 90s hold would make
+    this test take 90s to prove nothing extra."""
     scaled = ("api: {idle_replicas: 1, max_replicas: 10}" if profile == "api"
               else "embeddings: {idle_replicas: 1}")
+    frozen = (["deployment/api"] if profile == "api"
+              else ["deployment/worker", "deployment/embeddings"])
     (root / "metrics.yaml").write_text(
         "metrics:\n"
         "  M1: {what: requests, promql: 'sum(rate(requests_total[1m]))', "
-        "status: unconfirmed}\n")
+        "status: unconfirmed}\n"
+        "  D2: {what: peak request rate, series: {ref: M1, reduce: max}, "
+        "status: active}\n")
     (root / "execution.yaml").write_text(
+        f"point:\n  hold_seconds: 0.2\n  freeze: {json.dumps(frozen)}\n"
         f"window_closes_when_back_to_idle:\n  {scaled}\n"
         "point_validity_guards:\n  G1: {max: 5, promql: sum(errors_total)}\n")
     (root / "image-freeze.json").write_text(json.dumps(
-        {"deployment/api": [IMAGE]} if profile == "api" else
-        {"deployment/worker": [IMAGE], "deployment/embeddings": [IMAGE]},
-        indent=2) + "\n")
+        {name: [IMAGE] for name in frozen}, indent=2) + "\n")
 
 
 def env_yaml(profile: str, marker: Path) -> str:
@@ -191,11 +198,11 @@ def run_profile(profile: str) -> int:
         with patch("report_kit.shell.sh", fake.sh), \
              patch("report_kit.shell.sh_json", fake.sh_json), \
              patch("report_kit.shell.http_json", fake.http_json), \
-             patch.object(runner, "HOLD_SECONDS", 0.2), \
              patch.object(sys, "argv", argv):
             code = runner.main()
 
         record = json.loads((root / "data" / f"smoke-{profile}.point.json").read_text())
+        block = (root / "data" / f"smoke-{profile}.point.md").read_text()
         # > 0, not >= 0. A runner that closes its window at the very first
         # poll records a zero-length window, and every other assertion here
         # passes anyway — which is exactly how jobs_point.py shipped able to
@@ -206,7 +213,16 @@ def run_profile(profile: str) -> int:
         assert record["queries"] == {"M1": "sum(rate(requests_total[1m]))"}, record
         assert record["guards"] == [{"ref": "G1", "query": "sum(errors_total)",
                                      "max": 5.0}], record["guards"]
-        assert (root / "data" / f"smoke-{profile}.point.md").is_file()
+        settings = {"rate": "200", "duration": "10m"} if profile == "api" \
+            else {"n": "8", "count": "100"}
+        assert record["settings"] == settings, record["settings"]
+        events = record["events"]
+        assert events["load_started"] < events["window_closed"], events
+        if profile == "jobs":
+            assert events["load_started"] <= events["queues_empty"], events
+        # The register's D ref, worked out of this run's export by the kit
+        # rather than by the runner: the fake's samples are 1 and 2.
+        assert "| D2 | peak request rate | 2 |" in block, block
         assert (root / "data" / f"smoke-{profile}.jsonl").is_file()
         print(f"\n[  ok  ] {profile}: exit {code}, window "
               f"{record['window']['seconds']}s, point files written")

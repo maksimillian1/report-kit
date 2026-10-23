@@ -18,21 +18,23 @@ Standard library only, except:
 | Needed by | Requirement |
 |---|---|
 | `env.py` | `PyYAML` (import fails loudly with an install hint) |
-| `register.py`, `execution_config.py`, `derive.py` | `PyYAML` |
+| `register.py`, `execution_config.py`, `derive.py`, `point.py`, `finish.py` | `PyYAML` |
 | `cloud/aws_s3.py` | `boto3` / `botocore` |
 | `cloud/aws.py` | the `aws` CLI on PATH (no SDK) |
 | `cluster.py`, `portforward.py`, `reporting.frozen_images` | `kubectl` on PATH, working kubecontext |
 | `reporting.git_facts` | `git` on PATH |
 
-Import cost is per-module, and deliberately so: **`env.py`, `register.py`,
-`execution_config.py` and `derive.py`, which reads a register, are the only
-modules in the library that need a third-party package at all.** The time
+Import cost is per-module, and deliberately so: **`env.py`, `register.py` and
+`execution_config.py` are the only modules in the library that need a
+third-party package at all**, and `derive.py`, `point.py` and `finish.py` need
+it only because they read those files. The time
 helpers live in `clock.py` rather than next to `Env` precisely so that
 importing a timestamp doesn't drag PyYAML in behind it — otherwise most of
 the package would transitively require it, and `report-kit export-metrics`
 would stop being a rescue path for a window whose metrics are aging out.
 Verified: with `yaml` unimportable, every module in the map below loads
-except `env.py`, `register.py`, `execution_config.py` and `derive.py`, by design — `cloud/aws_s3.py` wants boto3
+except `env.py`, `register.py`, `execution_config.py` and the three that read
+them — `derive.py`, `point.py`, `finish.py` — by design — `cloud/aws_s3.py` wants boto3
 on top — and `report-kit export-metrics` still runs: it reads a point record,
 which is JSON.
 
@@ -49,13 +51,17 @@ which is JSON.
 | `records.py` | a point record read back: a field by dotted path, as a number or an instant | reads a file | `read_record`, `field`, `number_at`, `instant_at`, `export_beside`, `record_beside`, `RecordError`, `RECORD_SUFFIX`, `EXPORT_SUFFIX` |
 | `series.py` | an exported ref reduced to one number: `ref`, `across`, `per`, `where`, `settle_on`, `until`, `reduce` | reads a file | `read_series`, `value`, `describe`, `formula_text`, `Series`, `Mask`, `SeriesError` |
 | `arith.py` | `+ - * /` over named numbers — the one evaluator behind a register's `formula:` and a registry's | pure | `parse`, `check`, `names`, `evaluate`, `ArithError` |
-| `execution_config.py` | `execution.yaml`: when a point's window closes (`window_closes_when_back_to_idle`) and what makes it valid (`point_validity_guards`, a guard reusing a register ref by `metric:`), guards with `{sub}` placeholders filled | reads a file | `read_execution`, `parse_execution`, `run_guards`, `Execution`, `IdleTarget`, `Guard`, `ExecutionError`, `EXECUTION`, `WINDOW`, `GUARDS` |
+| `execution_config.py` | `execution.yaml`: what a point is run with (`point:` — settings, load, hold, freeze, step, `guards_at`, over a runner's defaults), when its window closes (`window_closes_when_back_to_idle`) and what makes it valid (`point_validity_guards`, a guard reusing a register ref by `metric:`), guards with `{setting}` placeholders filled | reads a file | `read_execution`, `parse_execution`, `run_guards`, `Execution`, `PointPlan`, `Setting`, `IdleTarget`, `Guard`, `ExecutionError`, `EXECUTION`, `WINDOW`, `GUARDS`, `POINT` |
+| `point.py` | one point's inputs, opened the same way by every runner: a command line built from the declared settings, the three YAML files, port-forwards, the image freeze, the preflight every point shares, the tiers' replicas | integration | `open_point`, `Point`, `require_settings`, `port_forwards`, `record_freeze`, `preflight`, `verdict`, `tier_replicas`, `tiers_at_rest`, `ceilings_reached` |
+| `launch.py` | the load env.yaml names, its command filled from the settings, run to completion or in the background | integration (subprocess) | `run_load`, `start_load`, `load_of`, `load_command`, `Load` |
+| `watch.py` | a window closing on a held condition, never on a system not yet busy; the peak of every reading and the instant each named condition first held | pure (calls what it is handed) | `watch`, `Watched` |
+| `finish.py` | everything after the window closes, on the record alone: export, guards as of the planned instant, every register ref worked out, the journal block, the verdict | integration | `close_point`, `finish_point`, `journal_block`, `window_of`, `guard_instant` |
 | `strict_yaml.py` | YAML with a key written twice refused | pure | `UniqueKeyLoader`, `unknown_keys` |
 | `refs.py` | `ref\|…` pipe-file parsing, for a runner copied before 0.4 and for `export-metrics --queries` | pure | `read_ref_file`, `load_guards` |
 | `prometheus.py` | queries, target health, guard evaluation, exporting a window | integration | `prom_query`, `prom_query_range`, `prom_scalar`, `prom_targets_down`, `check_guards`, `evaluate_guards`, `GuardResult`, `export_range`, `Export` |
 | `cluster.py` | kubectl introspection (nodes, pods-per-node, replicas, interrupt events) | integration | `nodes_by_selector`, `pods_by_node`, `deployment_replicas`, `interrupt_events`, `FORCED_REASONS`, `INTERRUPT_REASONS` |
 | `portforward.py` | `kubectl port-forward` lifecycle incl. relaunch-on-death | integration, background procs | `PortForwards`, `forward_spec` |
-| `reporting.py` | image freeze, git facts, result block writing | mixed | `frozen_images`, `check_freeze`, `git_facts`, `md_table`, `write_point`, `write_record`, `report_validity`, `CONTAINER_PATHS` |
+| `reporting.py` | image freeze, git facts, writing a point's two files, the verdict printed | mixed | `frozen_images`, `check_freeze`, `git_facts`, `md_table`, `write_point`, `write_record`, `report_validity`, `CONTAINER_PATHS` |
 | `jsonl.py` | reading the exported metrics `.jsonl`, and splitting a series at the instant it settled | pure | `load_lines`, `read_lines`, `parse_values`, `label_summary`, `changes`, `split`, `NOISY_LABELS` |
 | `poll.py` | "retry until condition" and "until it has *held*" | pure (does no I/O itself) | `poll_until`, `wait_until_stable` |
 | `text.py` | filename sanitising, `{token}` substitution | pure | `safe_filename`, `fill` |
@@ -220,12 +226,16 @@ Two things sit beside this library, and the split between them is the point:
 - **`templates/runners/`** — exactly two scripts, `api_point.py` (synchronous
   request/response workload) and `jobs_point.py` (asynchronous queue/worker
   one). `report-kit new-point` **copies one into an execution** for you to
-  edit: each has a CONSTANTS block naming what must not move during a sweep.
-  They are not a framework — nothing subclasses anything, and a run is the
-  body of `main()`, readable top to bottom. The copy is deliberate: a runner
-  edited in place would change what the earlier points of the same sweep
-  measured.
-- **`tools/`** — `values`, `charts`, `metrics`, `export_metrics`,
+  edit — what is left in it is only what your system knows, because what a
+  point is run with is declared in the execution's `execution.yaml` under
+  `point:` and every shared step is a call into `point`, `launch`, `watch`
+  and `finish`. They are not a framework — nothing subclasses anything, and a
+  run is the body of `main()`, readable top to bottom. The copy is
+  deliberate: a runner edited in place would change what the earlier points
+  of the same sweep measured. The steps after the window closes are the
+  exception, and on purpose: they read only the record, so running them again
+  under a newer kit re-derives, it does not re-measure.
+- **`tools/`** — `values`, `charts`, `metrics`, `point`, `export_metrics`,
   `inspect_metrics`, `node_cost`, `selftest`, reached as `report-kit <name>`. Generic CLIs that
   **work unedited** in any project, and the reason `cli.py` imports a
   subcommand only after the arguments are parsed. A tool's model sits above its
@@ -277,7 +287,7 @@ are writing a new measurement script, start there, not from a blank file.
 
 ## Why some of this is opinionated
 
-`register.py`, `derive.py` and `reporting.py` encode one specific measurement methodology —
+`register.py`, `derive.py`, `finish.py` and `reporting.py` encode one specific measurement methodology —
 the one in `methodology.md`, which `report-kit init` puts at your report's
 root. A "point" is one measured run; the register's `M` refs are exported per
 point and its guards checked at the window's close; a frozen set of image

@@ -24,9 +24,11 @@ its own profile:
    the pool has gone away, because scale-in is caused by the load. A rate
    averaged over the second one is averaged over the tail of dead air too.
 
-This is `runners/jobs_point.py` with the image freeze, git facts, node-loss
-tracking, cost pass and exit-code contract removed — read this one to see the
-shape, copy that one to actually run a sweep.
+This is the script that produced this example's data, kept as it ran so the
+data can be reproduced by it. It still divides the drain rate itself
+(`drained_per_second`); a runner from `report-kit new-point` records the
+instants instead — `events` — and metrics.yaml derives D8 and D9 from them.
+Read this one to see the shape, copy that one to actually run a sweep.
 
 Requires the example cluster: see README.md.
 """

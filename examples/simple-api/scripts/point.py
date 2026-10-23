@@ -3,10 +3,13 @@
 
     ./point.py --run demo-r20 --rate 20 --duration 30s
 
-Every step of the lifecycle is here, in order, in about seventy lines. This
-is what `runners/api_point.py` looks like with the image freeze, git facts,
-ceiling tracking, exit-code contract and point-block rendering removed — read
-this one to see the shape, copy that one to actually run a sweep.
+Every step of the lifecycle is here, in order, in about seventy lines — the
+script that produced this example's data, kept as it ran so the data can be
+reproduced by it. A runner from `report-kit new-point` reaches the same steps
+through the library instead: its settings come from execution.yaml's point:,
+and everything after the window closes is `report-kit point finish`, which
+also works out every register ref. Read this one to see the shape, copy that
+one to actually run a sweep.
 
 Requires the example cluster: see README.md.
 """

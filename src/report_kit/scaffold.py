@@ -133,9 +133,10 @@ def new_point(target: Path, profile: str, force: bool = False) -> int:
         print(f"    {dst}")
     if not render_register(target):
         return 1
-    print(f"[{OK}] copied. The runner is yours now: edit its CONSTANTS block, "
-          f"fill env.yaml, define the metrics in {target / 'metrics.yaml'}, and "
-          f"the window and the guards in {target / 'execution.yaml'}.")
+    print(f"[{OK}] copied. Fill env.yaml, define the metrics in "
+          f"{target / 'metrics.yaml'}, and what a point is run with, the window "
+          f"and the guards in {target / 'execution.yaml'}. What is left in the "
+          f"runner is what only your system knows.")
     print(f"\nWhy a copy and not an import: a runner edited in place would "
           f"change what the earlier points of the same sweep measured.")
     return 0

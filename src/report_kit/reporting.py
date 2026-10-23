@@ -109,8 +109,8 @@ def write_point(out_dir: Path, run_id: str, markdown: str, record: dict) -> Path
 
 def write_record(out_dir: Path, run_id: str, record: dict) -> Path:
     """The point record alone. A runner writes it once the window is known and
-    before the export, so a run that dies exporting still leaves the window
-    and the queries `report-kit export-metrics --record` re-exports from."""
+    before the export, so a run that dies exporting still leaves everything
+    `report-kit point finish` needs."""
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{run_id}.point.json"
     path.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")

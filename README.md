@@ -114,6 +114,7 @@ One command, installed with the package:
 | `report-kit values migrate` | move a report from before 0.4: `figures.yaml` to `report-values.yaml`, `FM9` to `VM9`, every mark with it |
 | `report-kit metrics` | render an execution's `metrics.yaml` into its register table, and fail when it drifts |
 | `report-kit charts` | draw a CSV: four shapes, two surfaces, no knowledge of your report |
+| `report-kit point finish` | what a point does once its window closed — export, guards, every register ref worked out, the journal block — run again on its record |
 | `report-kit export-metrics` | re-export a window whose metrics are aging out |
 | `report-kit inspect-metrics` | read back what an export actually captured |
 | `report-kit node-cost` | what the nodes cost during a window, the same day |
@@ -130,17 +131,20 @@ What the repository holds:
 
 **A runner is copied, not imported.** It lands in the execution's `scripts/`
 beside its own `env.yaml`, and reads the execution's `metrics.yaml` for what
-it exports and `execution.yaml` for when its window closes and what makes a
-point valid,
-because the axis is
+it exports and works out, and `execution.yaml` for what a point is run with,
+when its window closes and what makes a point valid, because the axis is
 under test and what defines it belongs to the execution. A runner edited in
 place would silently change what earlier points of the same sweep measured.
+What is left in the copy is only what the system knows — how its state is
+read, what a reset clears — and every shared step is a library call; the
+steps after the window closes are `report-kit point finish`, which reads the
+record alone and so can be run again without re-measuring anything.
 
 ### Requirements
 
 Standard library only, except: `PyYAML` for `env.py`, `register.py` and
 `execution_config.py` — the modules in the library that need a package at all,
-and installed for you — `boto3` for
+and the ones that read those files, installed for you — `boto3` for
 `cloud/aws_s3.py` (`pip install "report-kit[s3]"`), `matplotlib` for
 `tools/charts/` (`pip install "report-kit[charts]"`, and only to *render*:
 `charts --format` and `charts --check` draw nothing and need neither), and the

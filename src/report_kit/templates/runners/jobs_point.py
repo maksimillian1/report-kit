@@ -7,10 +7,16 @@ workload: enqueue a batch of work, then measure the system draining it.
     ./jobs_point.py --reset-only          # between points
     ./jobs_point.py --set-freeze
 
-This is a TEMPLATE. Copy it per project and edit the CONSTANTS block below.
-What is exported lives in the execution's metrics.yaml; which always-on
-deployments the window waits for and what makes a point valid live in its
-execution.yaml; addresses live in env.yaml.
+A TEMPLATE, copied into an execution's scripts/ by `report-kit new-point`.
+What a point is run with — its settings, the hold, the image freeze, the
+instant the guards are read as of — is the execution's execution.yaml, under
+`point:`; a key it leaves out takes DEFAULTS below. What is read is its
+metrics.yaml, and addresses are env.yaml: every queue under `sqs:` has to
+drain, `nodepool_workers` selects the worker pool. What stays in this file is
+what only a queue/worker system knows — how its state is read, what a reset
+clears, which losses put a point in doubt — and the order of a run, top to
+bottom in main(). Everything after the window closes is `report-kit point
+finish`, run here in the same process.
 
 The one thing that must not be simplified away: the producer runs
 CONCURRENTLY with the watch loop, not before it. Filling the queue first and
@@ -21,462 +27,211 @@ pattern that produced the backlog is gone from the data.
 The window opens when the producer starts and closes once every queue is
 empty, the worker pool is back to zero, and every deployment in
 window_closes_when_back_to_idle is back at its idle_replicas — all three
-held together, because any one of them alone reads "done" while
-work is still in flight.
+held together, because any one of them alone reads "done" while work is
+still in flight. The instant the queues first read empty is kept as the
+event `queues_empty`, for a D ref to measure the drain from.
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
+from typing import Callable
 
-from report_kit import cluster, poll, prometheus, reporting
+from report_kit import cluster, finish, launch, point as points, watch
+from report_kit.clock import utcnow
 from report_kit.cloud import aws
+from report_kit.constants import ARROW, BAD, EXIT_CLEAN, EXIT_TIMEOUT, OK, WARN
 from report_kit.dbs import qdrant
-from report_kit.constants import (ARROW, BAD, EXIT_CLEAN, EXIT_EXPORT_GAP,
-                                  OK, WARN, die)
 from report_kit.env import Env
-from report_kit.clock import hms, utcnow
-from report_kit.portforward import PortForwards, forward_spec
+from report_kit.execution_config import PointPlan, Setting
 from report_kit.preflight import Preflight
-from report_kit.proc import Background
-from report_kit.execution_config import (EXECUTION, Execution, ExecutionError,
-                                         IdleTarget, read_execution, run_guards)
-from report_kit.register import REGISTER, Register, RegisterError, read_register, series_rows
-from report_kit.text import fill
-from report_kit.window import Window
 
-# --------------------------------------------------------------------- CONSTANTS
+HERE = Path(__file__).resolve().parent
 
-# env.yaml keys holding the queue URLs this point watches. All must reach
-# zero — visible *and* in-flight, see aws.sqs_depth.
-QUEUES = ["work", "retry"]
-
-# env.yaml key for the label selector matching worker nodes. The pool
-# returning to zero is what says the work is finished and the cost stopped.
-WORKER_POOL_KEY = "nodepool_workers"
-
-# The close condition must hold this long. Queue purges and scale-in are
-# eventually consistent — a queue reads zero while messages are still
-# in-flight, a pool reads zero between two node claims.
-HOLD_SECONDS = 90
-
-FREEZE = ["deployment/worker", "deployment/embeddings"]
-
-STEP = "15s"
-# ------------------------------------------------------------------------------
+# The hold outlasts eventual consistency: a queue reads zero while messages
+# are still in flight, a pool reads zero between two node claims.
+DEFAULTS = PointPlan(settings=(Setting("n"), Setting("count")),
+                     load="background", hold_seconds=90, guards_at="window_end")
+RESET_HOLD_SECONDS = 30
 
 
 def queue_depths(env: Env) -> dict[str, int]:
-    return {label: aws.sqs_depth(env.need(f"sqs.{label}")) for label in QUEUES}
+    """Visible and in-flight, for every queue env.yaml lists — see aws.sqs_depth."""
+    return {label: aws.sqs_depth(url) for label, url in env.need("sqs").items()}
 
 
 def worker_nodes(env: Env) -> dict[str, str]:
-    return cluster.nodes_by_selector(env.need(WORKER_POOL_KEY))
+    return cluster.nodes_by_selector(env.need("nodepool_workers"))
 
 
-def tier_replicas(env: Env, back_to_idle: tuple[IdleTarget, ...]) -> dict[str, int]:
-    return {t.deployment: cluster.deployment_replicas(
-        env.namespace_for(t.deployment), t.deployment) for t in back_to_idle}
+def node_losses(env: Env) -> Callable[[dict[str, str]], list[str]]:
+    """Tells a node that vanished while it had pods on it from one the
+    autoscaler retired because it was already empty. Only the first kind
+    threatens the measurement."""
+    seen: dict[str, str] = {}
+    workload: dict[str, int] = {}
+    lost: list[str] = []
+
+    def lost_with_work(nodes: dict[str, str]) -> list[str]:
+        pods = cluster.pods_by_node(env.namespace, env.need("worker_selector"))
+        for name in nodes:
+            workload[name] = max(workload.get(name, 0), len(pods.get(name, [])))
+        for gone in sorted(set(seen) - set(nodes)):
+            if workload.get(gone, 0) > 0 and gone not in lost:
+                lost.append(gone)
+                print(f"{WARN} node {gone} disappeared while it had "
+                      f"{workload[gone]} pod(s) on it")
+        seen.clear()
+        seen.update(nodes)
+        return list(lost)
+
+    return lost_with_work
 
 
-def system_state(env: Env, back_to_idle: tuple[IdleTarget, ...]) -> dict:
+def system_state(point: points.Point,
+                 losses: Callable[[dict[str, str]], list[str]] | None = None) -> dict:
     """One read of everything the close condition depends on."""
-    return {"depths": queue_depths(env), "nodes": worker_nodes(env),
-            "tiers": tier_replicas(env, back_to_idle)}
+    nodes = worker_nodes(point.env)
+    state = {"queues": queue_depths(point.env), "worker_nodes": len(nodes),
+             "tiers": points.tier_replicas(point)}
+    if losses:
+        state["nodes_lost_with_work"] = losses(nodes)
+    return state
 
 
-def is_idle(state: dict, back_to_idle: tuple[IdleTarget, ...]) -> bool:
-    """Empty, at zero and back at idle — all three. Any one of them alone
-    reads "done" while work is still in flight somewhere else."""
-    return (sum(state["depths"].values()) == 0
-            and not state["nodes"]
-            and all(state["tiers"][t.deployment] <= t.idle_replicas
-                    for t in back_to_idle))
+def queues_empty(state: dict) -> bool:
+    return sum(state["queues"].values()) == 0
 
 
-def render_state(state: dict) -> str:
-    depths = " ".join(f"{k}={v}" for k, v in sorted(state["depths"].items()))
-    tiers = " ".join(f"{k}={v}" for k, v in sorted(state["tiers"].items()))
-    return f"q[{depths}] nodes={len(state['nodes']):<3} {tiers}"
+def at_rest(point: points.Point, state: dict) -> bool:
+    """Empty, at zero and back at idle — all three."""
+    return (queues_empty(state) and state["worker_nodes"] == 0
+            and points.tiers_at_rest(point, state["tiers"]))
 
 
-# --------------------------------------------------------------------- reset
-# Between points, not a separate script: resetting needs exactly the constants
-# above, and a second file holding its own copy of them is a second file to
-# keep in sync. EDIT THIS for your system — each step is skipped when its
-# env.yaml key is absent, so a project without an S3 inflow or a vector store
-# just doesn't configure one.
-#
-# Order matters: stop the inflow first, then drop what is already queued, then
-# clear the sink. Reversed, work still in flight refills what you just cleared.
+def system_checks(point: points.Point, pre: Preflight) -> None:
+    """A point that starts dirty measures the previous point's leftovers."""
+    try:
+        depths = queue_depths(point.env)
+        pre.check("queues empty", sum(depths.values()) == 0,
+                  " ".join(f"{k}={v}" for k, v in sorted(depths.items())))
+    except RuntimeError as exc:
+        pre.fail("queues unreadable", str(exc))
+    try:
+        nodes = worker_nodes(point.env)
+        pre.check("worker pool at zero", not nodes, f"{len(nodes)} node(s)")
+    except RuntimeError as exc:
+        pre.fail("worker pool unreadable", str(exc))
+
 
 def reset(env: Env, dry_run: bool = False) -> None:
+    """EDIT THIS for your system — each step is skipped when its env.yaml key
+    is absent. Order matters: stop the inflow, drop what is queued, clear the
+    sink. Reversed, work still in flight refills what was just cleared."""
     bucket, prefix = env.get("s3.bucket"), env.get("s3.prefix")
     if bucket:
         print(f"{ARROW} wiping s3://{bucket}/{prefix or ''}")
         if not dry_run:
             try:
-                print(f"[{OK}] removed "
-                      f"{aws.s3_rm_recursive(bucket, prefix or '')} object(s)")
-            except RuntimeError as e:
-                print(f"{WARN} s3 wipe failed, continuing: {e}")
-
-    for label in QUEUES:
-        url = env.get(f"sqs.{label}")
-        if not url:
-            continue
+                print(f"[{OK}] removed {aws.s3_rm_recursive(bucket, prefix or '')} object(s)")
+            except RuntimeError as exc:
+                print(f"{WARN} s3 wipe failed, continuing: {exc}")
+    for label, url in (env.get("sqs") or {}).items():
         print(f"{ARROW} purging queue {label}")
         if not dry_run:
             requested = aws.sqs_purge(url)
-            print(f"[{OK}] purge "
-                  f"{'requested' if requested else 'already in progress'}")
-
+            print(f"[{OK}] purge {'requested' if requested else 'already in progress'}")
     url, collection = env.get("qdrant.url"), env.get("qdrant.collection")
     if url and collection:
         print(f"{ARROW} clearing collection {collection!r}")
         if not dry_run:
             try:
-                ok = qdrant.delete_collection_if_nonempty(url, collection)
-                print(f"[{OK if ok else BAD}] "
-                      f"{'collection empty' if ok else 'delete failed'}")
-            except RuntimeError as e:
-                print(f"{WARN} qdrant unreachable, leaving it: {e}")
+                emptied = qdrant.delete_collection_if_nonempty(url, collection)
+                print(f"[{OK if emptied else BAD}] "
+                      f"{'collection empty' if emptied else 'delete failed'}")
+            except RuntimeError as exc:
+                print(f"{WARN} qdrant unreachable, leaving it: {exc}")
 
 
-def wait_for_idle(env: Env, hold_seconds: float,
-                  back_to_idle: tuple[IdleTarget, ...]) -> bool:
+def reset_between_points(point: points.Point) -> int:
     """Purges are asynchronous and scale-in is not instant — the reset is only
     finished when the system reads idle and stays that way."""
-    state: dict = {}
-
-    def idle() -> bool:
-        state.update(system_state(env, back_to_idle))
-        return is_idle(state, back_to_idle)
-
-    print()
-    print(f"{ARROW} waiting for idle (timeout {hms(env.max_wait_seconds)})")
-    return poll.wait_until_stable(
-        idle, hold_seconds=hold_seconds, poll_seconds=env.poll_seconds,
-        max_wait_seconds=env.max_wait_seconds,
-        on_tick=lambda ok, held: print(f"    {render_state(state)}"
-                                       f"{f' · held {int(held)}s' if ok else ''}")
-    ) is not None
+    reset(point.env, point.args.dry_run)
+    if point.args.dry_run:
+        return EXIT_CLEAN
+    idle = watch.watch(point, lambda: system_state(point),
+                       lambda state: at_rest(point, state), start=utcnow(),
+                       require_busy=False, label="the reset",
+                       hold_seconds=min(point.plan.hold_seconds, RESET_HOLD_SECONDS))
+    if idle.window is None:
+        print(f"{BAD} still not idle — check the autoscaler by hand")
+        return EXIT_TIMEOUT
+    print(f"[{OK}] ready for the next point")
+    return EXIT_CLEAN
 
 
-def build_producer(env: Env, args, log_path: Path) -> tuple[list[str], dict]:
-    """Whatever puts work in the queue — an uploader, a publisher, a seeding
-    script. Named by env.yaml so this file stays project-independent."""
-    values = {"run": args.run, "n": args.n, "count": args.count,
-              "log": str(log_path)}
-    try:
-        cmd = [fill(part, values) for part in env.need("producer.command")]
-        env_extra = {k: fill(str(v), values)
-                     for k, v in (env.get("producer.env") or {}).items()}
-    except KeyError as e:
-        die(f"producer template references unknown placeholder '{e.args[0]}' — "
-            f"jobs_point.py fills {sorted(values)}")
-    return cmd, env_extra
+def forced_interruptions(since) -> list[str]:
+    """Karpenter's and EC2's own account of why nodes went away. Event TTL is
+    short, so silence here proves nothing — it can only confirm."""
+    return [event for event in cluster.interrupt_events(since)
+            if event.split(" · ")[0] in cluster.FORCED_REASONS]
 
 
-def load_definitions(metrics: Path, execution: Path) -> tuple[Register, Execution]:
-    try:
-        register = read_register(metrics)
-        return register, read_execution(execution, register)
-    except (RegisterError, ExecutionError) as e:
-        die(str(e))
+def doubts(load: launch.Load, observations: dict) -> list[str]:
+    """A node lost while it held work invalidates the window; ordinary
+    consolidation of an idle node does not."""
+    found = [f"node {name} lost while it held work"
+             for name in observations["nodes_lost_with_work"]]
+    found += observations["forced_interruptions"]
+    if load.exit_code is None:
+        found.append("producer outlived the drain — this point measures the "
+                     "producer's speed, not the system's")
+    elif load.exit_code != 0:
+        found.append(f"producer exited {load.exit_code} — the work this point "
+                     f"claims to have measured was not all enqueued")
+    return found
 
 
-def preflight(env: Env, freeze_file: Path,
-              back_to_idle: tuple[IdleTarget, ...]) -> Preflight:
-    """A point that starts dirty measures the previous point's leftovers."""
-    pre = Preflight("preflight")
-
-    try:
-        depths = queue_depths(env)
-        pre.check("queues empty", sum(depths.values()) == 0,
-                  " ".join(f"{k}={v}" for k, v in sorted(depths.items())))
-    except RuntimeError as e:
-        pre.fail("queues unreadable", str(e))
-
-    try:
-        nodes = worker_nodes(env)
-        pre.check("worker pool at zero", not nodes, f"{len(nodes)} node(s)")
-    except RuntimeError as e:
-        pre.fail("worker pool unreadable", str(e))
-
-    for target in back_to_idle:
-        name = target.deployment
-        try:
-            replicas = cluster.deployment_replicas(env.namespace_for(name), name)
-            pre.check(f"{name} at idle", replicas <= target.idle_replicas,
-                      f"{replicas} replica(s), idle {target.idle_replicas}")
-        except RuntimeError as e:
-            pre.fail(f"{name} unreadable", str(e))
-
-    down = prometheus.prom_targets_down(env.prom_url)
-    pre.check("prometheus targets up", not down, ", ".join(down[:5]))
-
-    images = reporting.frozen_images(env, FREEZE)
-    for problem in reporting.check_freeze(freeze_file, images):
-        pre.fail("image freeze", problem)
-    pre.record(images=images, **reporting.git_facts())
-    return pre
-
-
-def watch(env: Env, pf: PortForwards, producer: Background,
-          back_to_idle: tuple[IdleTarget, ...]) -> tuple[Window | None, dict]:
-    """Watch the drain. Returns (window, observations).
-
-    Tracks which nodes hold work, so a node vanishing while it had pods can
-    be told apart from a node the autoscaler retired because it was already
-    empty. Only the first kind threatens the measurement."""
-    # The window opens with the producer, not with this loop: the few
-    # milliseconds between them are the runner's, not the system's.
-    started = producer.started_at or utcnow()
-    seen_busy = False
-    seen_nodes: dict[str, str] = {}
-    node_workload: dict[str, int] = {}
-    lost_with_work: list[str] = []
-    peak_nodes = 0
-    state: dict = {}
-
-    print()
-    print(f"{ARROW} watching the drain — hold {HOLD_SECONDS}s, "
-          f"poll {env.poll_seconds}s, timeout {hms(env.max_wait_seconds)}")
-
-    def drained() -> bool:
-        nonlocal peak_nodes, seen_busy
-        for notice in pf.ensure_alive():
-            print(f"{WARN} {notice}")
-
-        current = system_state(env, back_to_idle)
-        nodes = current["nodes"]
-
-        pods = cluster.pods_by_node(env.namespace, env.need("worker_selector"))
-        for name in nodes:
-            node_workload[name] = max(node_workload.get(name, 0),
-                                       len(pods.get(name, [])))
-        for gone in set(seen_nodes) - set(nodes):
-            if node_workload.get(gone, 0) > 0 and gone not in lost_with_work:
-                lost_with_work.append(gone)
-                print(f"{WARN} node {gone} disappeared while it had "
-                      f"{node_workload[gone]} pod(s) on it")
-        seen_nodes.clear()
-        seen_nodes.update(nodes)
-        peak_nodes = max(peak_nodes, len(nodes))
-
-        state.update(current)
-        state["producer"] = "running" if producer.running else "done"
-
-        # An untouched system satisfies every clause of is_idle(): the queues
-        # are empty, the pool is at zero, every shared tier is at its floor.
-        # That is true at the *first* poll, before the producer has enqueued
-        # anything — so a producer slower to start than HOLD_SECONDS (an
-        # upload, a seeding pass, an image pull) closes a zero-length window
-        # over a system that never did any work, and the point reads clean.
-        # The window cannot close until the system has been seen busy once.
-        idle = is_idle(current, back_to_idle)
-        seen_busy = seen_busy or not idle
-        return seen_busy and idle
-
-    def tick(ok: bool, held: float) -> None:
-        held_note = f" · held {int(held)}s/{HOLD_SECONDS}s" if ok else ""
-        print(f"    {render_state(state)} producer={state['producer']}{held_note}")
-
-    settled_at = poll.wait_until_stable(
-        drained, hold_seconds=HOLD_SECONDS, poll_seconds=env.poll_seconds,
-        max_wait_seconds=env.max_wait_seconds, on_tick=tick)
-
-    # Karpenter/EC2's own account of why nodes went away. Event TTL is short,
-    # so silence here proves nothing — it can only confirm, never clear.
-    events = cluster.interrupt_events(started)
-    forced = [e for e in events if e.split(" · ")[0] in cluster.FORCED_REASONS]
-
-    observations = {
-        "peak_worker_nodes": peak_nodes,
-        "nodes_lost_with_work": lost_with_work,
-        "forced_interruptions": forced,
-    }
-    if settled_at is None:
-        return None, observations
-    return Window(started, settled_at), observations
-
-
-def point_block(args, window: Window, facts: dict, observations: dict,
-                guard_failures: list[str], producer_rc: int | None) -> str:
-    start, end = window.rfc3339
-    rows = [
-        ("run", f"`{args.run}`"),
-        ("profile", "jobs (async)"),
-        ("concurrency", str(args.n)),
-        ("units", str(args.count)),
-        ("window", f"`{start}` .. `{end}` ({window.hms})"),
-        ("commit", f"`{facts.get('commit', '?')[:12]}`"
-                   f"{' (dirty)' if facts.get('dirty') else ''}"),
-        ("peak worker nodes", str(observations["peak_worker_nodes"])),
-        ("producer exit", "still running" if producer_rc is None else str(producer_rc)),
-        ("guards", "clean" if not guard_failures else ", ".join(guard_failures)),
-    ]
-    if observations["nodes_lost_with_work"]:
-        rows.append(("nodes lost with work",
-                     ", ".join(observations["nodes_lost_with_work"])))
-    if observations["forced_interruptions"]:
-        rows.append(("forced interruptions",
-                     str(len(observations["forced_interruptions"]))))
-    return "\n".join(reporting.md_table(rows))
+def reset_flags(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--reset-only", action="store_true",
+                        help="reset the system for the next point and exit")
+    parser.add_argument("--reset-after", action="store_true",
+                        help="reset once this point's files are written")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="with --reset-only: print what would be reset")
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--run", help="point id, e.g. jobs-n50")
-    p.add_argument("--n", help="concurrency / parallelism under test")
-    p.add_argument("--count", help="units of work to enqueue")
-    p.add_argument("--env", type=Path)
-    p.add_argument("--metrics", type=Path,
-                   help=f"{REGISTER} (default: the execution's, above this file)")
-    p.add_argument("--execution", type=Path,
-                   help=f"{EXECUTION} (default: the execution's, above this file)")
-    p.add_argument("--out-dir", type=Path)
-    p.add_argument("--freeze-file", type=Path)
-    p.add_argument("--step", default=STEP)
-    p.add_argument("--preflight-only", action="store_true")
-    p.add_argument("--reset-only", action="store_true",
-                   help="reset the system for the next point and exit")
-    p.add_argument("--reset-after", action="store_true",
-                   help="reset once this point's files are written")
-    p.add_argument("--dry-run", action="store_true",
-                   help="with --reset-only: print what would be reset")
-    p.add_argument("--set-freeze", action="store_true")
-    p.add_argument("--no-port-forward", action="store_true")
-    p.add_argument("--force", action="store_true")
-    args = p.parse_args()
-
-    here = Path(__file__).resolve().parent
-    env = Env(args.env or here / "env.yaml")
-    out_dir = args.out_dir or here / "data"
-    freeze_file = args.freeze_file or here / "image-freeze.json"
-    register, config = load_definitions(args.metrics or here.parent / REGISTER,
-                                        args.execution or here.parent / EXECUTION)
-    back_to_idle = config.window_closes_when_back_to_idle
-
-    forwards = [forward_spec(env, "prometheus"), forward_spec(env, "qdrant")]
-    with PortForwards(forwards, enabled=not args.no_port_forward) as pf:
-        if args.reset_only:
-            reset(env, args.dry_run)
-            if args.dry_run:
-                return EXIT_CLEAN
-            if not wait_for_idle(env, min(HOLD_SECONDS, 30), back_to_idle):
-                print(f"{BAD} still not idle — check the autoscaler by hand")
-                return 4
-            print(f"[{OK}] ready for the next point")
-            return EXIT_CLEAN
-
-        if args.set_freeze:
-            images = reporting.frozen_images(env, FREEZE)
-            freeze_file.parent.mkdir(parents=True, exist_ok=True)
-            freeze_file.write_text(json.dumps(images, indent=2, sort_keys=True) + "\n")
-            print(f"[{OK}] freeze written to {freeze_file}")
-            return EXIT_CLEAN
-
-        pre = preflight(env, freeze_file, back_to_idle)
-        if args.preflight_only:
-            return EXIT_CLEAN if pre.finish(exit_on_fail=False) else 1
+    point = points.open_point(HERE, "jobs", DEFAULTS, __doc__, flags=reset_flags)
+    with points.port_forwards(point, "prometheus", "qdrant") as forwards:
+        if point.args.reset_only:
+            return reset_between_points(point)
+        if point.args.set_freeze:
+            return points.record_freeze(point)
+        pre = points.preflight(point, lambda pre: system_checks(point, pre))
+        if point.args.preflight_only:
+            return points.verdict(pre)
         pre.finish()
+        points.require_settings(point)
 
-        if not args.run or not args.n:
-            die("--run and --n are required for a measured point")
-        series = series_rows(register)
-        try:
-            guards = run_guards(config, {"n": args.n, "count": args.count or 0})
-        except ExecutionError as e:
-            die(str(e))
-
-        log_path = Path(out_dir) / f"{args.run}.producer.log"
-        cmd, env_extra = build_producer(env, args, log_path)
-        print()
-        print(f"{ARROW} producer (background) · {' '.join(cmd)}")
-
-        with Background(cmd, log_path, env_extra=env_extra, cwd=here) as producer:
-            window, observations = watch(env, pf, producer, back_to_idle)
-            producer_rc = producer.poll()
-            if producer_rc is None:
-                print(f"{WARN} the queues drained while the producer is still "
-                      f"running — it is slower than the workers, so this point "
-                      f"measures the producer, not the system")
-            elif producer_rc != 0:
-                print(f"{BAD} producer exited {producer_rc} — tail:")
-                for line in producer.tail():
-                    print(f"         {line}")
-
-        if window is None:
-            print(f"{BAD} never drained within {hms(env.max_wait_seconds)} — "
-                  f"nothing exported")
-            return 4
-        print()
-        print(f"[{OK}] window {window}")
-        measured = {
-            "run": args.run,
-            "profile": "jobs",
-            "n": args.n,
-            "count": args.count,
-            "window": window.to_dict(),
-            "producer_exit": producer_rc,
-            "queries": dict(series),
-            "guards": guards,
-        }
-        reporting.write_record(out_dir, args.run, measured)
-
-        pf.ensure_alive()
-        export = prometheus.export_range(
-            env.prom_url, series, window, out_dir=out_dir, run_id=args.run,
-            step=args.step, force=args.force)
-
-        print()
-        # As of the drain, not now: the export sits between the two.
-        guarded = prometheus.evaluate_guards(env.prom_url, guards,
-                                             at=window.end)
-        guard_failures = guarded.failures
-
-    record = {
-        **measured,
-        "guard_failures": guard_failures,
-        "guard_values": guarded.values,
-        "export": {"path": str(export.path), "series": export.series,
-                   "points": export.points, "empty_refs": export.empty},
-        **observations,
-        **pre.facts,
-    }
-    markdown = point_block(args, window, pre.facts, observations,
-                           guard_failures, producer_rc)
-    path = reporting.write_point(out_dir, args.run, markdown, record)
-    print()
-    print(f"[{OK}] {path}")
-
-    if args.reset_after:
-        print()
-        reset(env)
-        wait_for_idle(env, min(HOLD_SECONDS, 30), back_to_idle)
-
-    if not export.ok:
-        print(f"{WARN} export gaps: {', '.join(export.empty)} — the window is "
-              f"recorded, re-export with report-kit export-metrics --record "
-              f"{out_dir / (args.run + '.point.json')} before retention drops it")
-        return EXIT_EXPORT_GAP
-
-    # A node lost while it held work invalidates the window; ordinary
-    # consolidation of an idle node does not.
-    doubts = observations["nodes_lost_with_work"] + observations["forced_interruptions"]
-    if producer_rc not in (0, None):
-        doubts.append(f"producer exited {producer_rc} — the work this point "
-                      f"claims to have measured was not all enqueued")
-    if producer_rc is None:
-        doubts.append("producer outlived the drain — this point measures the "
-                      "producer's speed, not the system's")
-    return reporting.report_validity(doubts, guard_failures)
+        losses = node_losses(point.env)
+        with launch.start_load(point, "producer") as producer:
+            watched = watch.watch(
+                point, lambda: system_state(point, losses),
+                lambda state: at_rest(point, state), start=producer.started_at,
+                events={"queues_empty": queues_empty}, keep_alive=forwards.ensure_alive)
+            load = launch.load_of(producer)
+        observations = {
+            "nodes_lost_with_work": watched.state.get("nodes_lost_with_work", []),
+            "forced_interruptions": forced_interruptions(producer.started_at)}
+        code = finish.close_point(point, pre, watched, load, observations,
+                                  doubts(load, observations))
+        if point.args.reset_after:
+            print()
+            reset_between_points(point)
+    return code
 
 
 if __name__ == "__main__":

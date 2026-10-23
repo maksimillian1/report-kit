@@ -76,9 +76,10 @@ def check_entry_template(pattern: str, spec: object) -> None:
 
 
 def record_fields(record: dict) -> dict:
-    """The record's top-level fields, a number stored as a string ("24")
-    turned back into one."""
-    return {key: as_number(value) for key, value in record.items()}
+    """The record's top-level fields and its settings, a number stored as a
+    string ("24") turned back into one."""
+    settings = record.get("settings") if isinstance(record.get("settings"), dict) else {}
+    return {key: as_number(value) for key, value in {**settings, **record}.items()}
 
 
 def as_number(value: object) -> object:
@@ -135,7 +136,8 @@ def members(entries: dict[str, dict], label: str) -> list[str]:
 def validity_problems(record: dict) -> list[str]:
     export = record.get("export") if isinstance(record.get("export"), dict) else {}
     found = {"guard_failures": record.get("guard_failures"),
-             "empty_refs": record.get("empty_refs") or export.get("empty_refs")}
+             "empty_refs": record.get("empty_refs") or export.get("empty_refs"),
+             "doubts": record.get("doubts")}
     return [f"{field}: {', '.join(str(item) for item in items)}"
             for field, items in found.items() if items]
 

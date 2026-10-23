@@ -1,8 +1,27 @@
-# How a point of this execution is run and judged: when its window closes,
-# and what makes the point valid. The runner in scripts/ reads it beside
+# How a point of this execution is run and judged: what it is run with,
+# when its window closes, and what makes the point valid. The runner in scripts/ reads it beside
 # metrics.yaml, which says what is read and from where. Neither may change
 # between points of one sweep; env.yaml, which says how to reach the
 # cluster, may.
+
+point:
+  # What a point is run with. A key left out takes the runner's DEFAULTS
+  # (runners.md has both profiles'); nothing here may change between points
+  # of one sweep — a setting's VALUE does, which is why each is a flag.
+  #
+  # Each setting is a --flag on the runner, filled into the load command and
+  # the guards' {placeholders}, and recorded in the point record under
+  # settings, where metrics.yaml reads it: record: settings.rate. One with no
+  # default is given at every point — that is the swept one. A queue/worker
+  # execution names n and count, and runs its load in the background.
+  settings:
+    rate: {}
+    duration: {default: 10m}
+  load: foreground       # background: the producer runs WHILE the window is watched
+  hold_seconds: 60       # longer than one autoscaler decision interval
+  freeze: [deployment/⟨name⟩]
+  step: 15s
+  guards_at: load_end    # window_end: read the guards as of the window's close
 
 window_closes_when_back_to_idle:
   # The deployments the load scales. The window closes once each is back at
@@ -21,7 +40,7 @@ point_validity_guards:
   #
   # min, max or both, and the query: `metric: M1` reuses a register ref's
   # query instead of copying it, `promql:` gives one of its own. A {name}
-  # placeholder is filled from the run's arguments. Each query is evaluated as
+  # placeholder is filled from the run's settings. Each query is evaluated as
   # of the instant the load stopped, not when the check runs: minutes pass in
   # between (scale-in, the hold, the export), and a rate-based guard checked at
   # "now" averages its lookback over dead air and passes quietly.

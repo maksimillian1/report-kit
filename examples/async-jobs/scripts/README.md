@@ -63,10 +63,12 @@ from this directory rather than pasted into YAML. `resp.py` goes into the same
 ConfigMap, so the host and the pods speak to the queue through one file
 instead of two copies that drift.
 
-`point.py` is deliberately smaller than the `jobs_point.py` template: no image
-freeze, git facts, node-loss tracking, cost pass or exit-code contract. Read
-this one to see the shape; run `report-kit new-point --profile jobs` to get
-the real one.
+`point.py` is the script that produced `data/`, kept as it ran: no image
+freeze, git facts or node-loss tracking, and it divides the drain rate
+itself, which is why `../metrics.yaml` reads D8 and D9 as fields of its
+record. Read this one to see the shape; run `report-kit new-point --profile
+jobs` to get the real one, which records the instants and leaves the
+division to the register.
 
 It imports `report_kit` like any other package — this example is an ordinary
 consumer of the installed kit, which is why a green run here also proves the

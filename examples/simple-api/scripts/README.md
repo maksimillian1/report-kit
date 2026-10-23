@@ -34,9 +34,11 @@ point's preflight. Wait until `up == 0` returns nothing — 0–20 s in practice
 | `manifests/` | the mock API with its HPA, and Prometheus with per-pod scraping |
 | `data/` | what the runs wrote — the evidence `../execution.md` cites |
 
-`point.py` is deliberately smaller than the `api_point.py` template: no image
-freeze, git facts, ceiling tracking or exit-code contract. Read this one to
-see the shape; run `report-kit new-point` to get the real one.
+`point.py` is the script that produced `data/`, kept as it ran: no image
+freeze, git facts or ceiling tracking, and its own export and guards rather
+than `report-kit point finish`. Read this one to see the shape; run
+`report-kit new-point` to get the real one, whose settings live in
+`execution.yaml` and whose steps after the window are the library's.
 
 It imports `report_kit` like any other package — this example is an ordinary
 consumer of the installed kit, which is why a green run here also proves the

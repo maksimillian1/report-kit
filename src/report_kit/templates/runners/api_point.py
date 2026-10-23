@@ -6,12 +6,14 @@ workload: drive a fixed load at an API, then measure what it cost to serve.
     ./api_point.py --run x --rate 50 --preflight-only
     ./api_point.py --set-freeze
 
-This is a TEMPLATE. Copy it per project and edit the CONSTANTS block below;
-everything under it should need no changes. What is exported lives in the
-execution's metrics.yaml; when the window closes and what makes a point
-valid live in its execution.yaml; addresses live in env.yaml. That split is
-the point: env.yaml can differ between clusters, the other two and this file
-may not differ between points of one sweep.
+A TEMPLATE, copied into an execution's scripts/ by `report-kit new-point`.
+What a point is run with — its settings, the hold, the image freeze, the
+instant the guards are read as of — is the execution's execution.yaml, under
+`point:`; a key it leaves out takes DEFAULTS below. What is read is its
+metrics.yaml, and addresses are env.yaml. What stays in this file is what
+only this profile knows, and the order of a run, top to bottom in main().
+Everything after the window closes is `report-kit point finish`, run here in
+the same process.
 
 The window opens when the generator starts and closes once every deployment
 in window_closes_when_back_to_idle is back at its idle_replicas and has
@@ -21,298 +23,50 @@ so it belongs inside the window.
 
 from __future__ import annotations
 
-import argparse
-import json
 import sys
 from pathlib import Path
 
-from report_kit import cluster, poll, prometheus, reporting
-from report_kit.constants import (ARROW, BAD, EXIT_CLEAN, EXIT_EXPORT_GAP,
-                                  OK, WARN, die)
-from report_kit.env import Env
-from report_kit.clock import hms, utcnow
-from report_kit.portforward import PortForwards, forward_spec
-from report_kit.preflight import Preflight
-from report_kit.proc import run_logged
-from report_kit.execution_config import (EXECUTION, WINDOW, Execution,
-                                         ExecutionError, IdleTarget,
-                                         read_execution, run_guards)
-from report_kit.register import REGISTER, Register, RegisterError, read_register, series_rows
-from report_kit.text import fill
-from report_kit.window import Window
+from report_kit import finish, launch, point as points, watch
+from report_kit.constants import die
+from report_kit.execution_config import WINDOW, PointPlan, Setting
 
-# --------------------------------------------------------------------- CONSTANTS
-# What must not move across the sweep. Changing anything here starts a new
-# sweep; it does not produce another point of the current one.
+HERE = Path(__file__).resolve().parent
 
-# The close condition must hold this long before the window is called closed.
-# Shorter than one scaling decision interval and a momentary dip at floor
-# closes the window early.
-HOLD_SECONDS = 60
-
-# Container images frozen for the sweep, as kind/name.
-FREEZE = ["deployment/api"]
-
-# Prometheus range-query resolution for the export.
-STEP = "15s"
-# ------------------------------------------------------------------------------
+DEFAULTS = PointPlan(settings=(Setting("rate"), Setting("duration", "10m")),
+                     load="foreground", hold_seconds=60, guards_at="load_end")
 
 
-def build_generator(env: Env, args, log_path: Path) -> tuple[list[str], dict]:
-    """The load generator is named by env.yaml, not by this file — k6, vegeta,
-    locust or a script are all fine as long as the run is one process that
-    exits when the load stops. {run} {rate} {duration} are filled in."""
-    # {summary} lets a generator write its own structured result next to the
-    # point. On a serving path that file usually holds the headline numbers —
-    # what the caller was served and waited — which Prometheus does not see.
-    values = {"run": args.run, "rate": args.rate, "duration": args.duration,
-              "log": str(log_path),
-              "summary": str(log_path.with_name(f"{args.run}.summary.json"))}
-    command = env.need("generator.command")
-    try:
-        cmd = [fill(part, values) for part in command]
-        env_extra = {k: fill(str(v), values)
-                     for k, v in (env.get("generator.env") or {}).items()}
-    except KeyError as e:
-        die(f"generator template references unknown placeholder '{e.args[0]}' — "
-            f"api_point.py fills {sorted(values)}")
-    return cmd, env_extra
-
-
-def load_definitions(metrics: Path, execution: Path) -> tuple[Register, Execution]:
-    try:
-        register = read_register(metrics)
-        config = read_execution(execution, register)
-    except (RegisterError, ExecutionError) as e:
-        die(str(e))
-    if not config.window_closes_when_back_to_idle:
-        die(f"{execution} names no deployment under {WINDOW}, so the window has "
-            f"nothing to wait for")
-    return register, config
-
-
-def preflight(env: Env, freeze_file: Path, back_to_idle: tuple[IdleTarget, ...]) -> Preflight:
-    pre = Preflight("preflight")
-
-    for target in back_to_idle:
-        name = target.deployment
-        try:
-            count = replicas(env, name)
-        except RuntimeError as e:
-            pre.fail(f"{name} replicas unreadable", str(e))
-            continue
-        pre.check(f"{name} at idle", count <= target.idle_replicas,
-                  f"{count} replica(s), idle {target.idle_replicas}")
-
-    down = prometheus.prom_targets_down(env.prom_url)
-    pre.check("prometheus targets up", not down, ", ".join(down[:5]))
-
-    images = reporting.frozen_images(env, FREEZE)
-    for problem in reporting.check_freeze(freeze_file, images):
-        pre.fail("image freeze", problem)
-    pre.record(images=images, **reporting.git_facts())
-    return pre
-
-
-def replicas(env: Env, name: str) -> int:
-    return cluster.deployment_replicas(env.namespace_for(name), name)
-
-
-def wait_for_scale_in(env: Env, back_to_idle: tuple[IdleTarget, ...]
-                      ) -> tuple[Window | None, dict]:
-    """Closes when every deployment is back at its idle_replicas and has held
-    there.
-
-    Returns (window, observations). A None window means it never settled —
-    the point is a timeout, and nothing is exported: an unclosed window has
-    no defined end to export."""
-    floors = {t.deployment: t.idle_replicas for t in back_to_idle}
-    ceilings = {t.deployment: t.max_replicas for t in back_to_idle if t.max_replicas}
-    peak = {name: 0 for name in floors}
-    ceiling_hits: list[str] = []
-    state: dict = {}
-    started = utcnow()
-
-    print()
-    print(f"{ARROW} waiting for scale-in — hold {HOLD_SECONDS}s, "
-          f"poll {env.poll_seconds}s, timeout {hms(env.max_wait_seconds)}")
-
-    def at_floor() -> bool:
-        current = {name: replicas(env, name) for name in floors}
-        for name, value in current.items():
-            peak[name] = max(peak[name], value)
-            if name in ceilings and value >= ceilings[name] \
-                    and name not in ceiling_hits:
-                ceiling_hits.append(name)
-                print(f"{WARN} {name} reached max_replicas ({ceilings[name]}) — "
-                      f"this point measures that limit, not the system")
-        state["current"] = current
-        return all(current[n] <= floor for n, floor in floors.items())
-
-    def tick(ok: bool, held: float) -> None:
-        replicas = " ".join(f"{n}={v}" for n, v in sorted(state["current"].items()))
-        held_note = f" · held {int(held)}s/{HOLD_SECONDS}s" if ok else ""
-        print(f"    {replicas}{held_note}")
-
-    settled_at = poll.wait_until_stable(
-        at_floor, hold_seconds=HOLD_SECONDS, poll_seconds=env.poll_seconds,
-        max_wait_seconds=env.max_wait_seconds, on_tick=tick)
-
-    observations = {"peak_replicas": peak, "ceiling_hits": ceiling_hits}
-    if settled_at is None:
-        return None, observations
-    # t_end is when it settled, not when the hold confirmed it: the buffer is
-    # confirmation that nothing moved, not part of what the load caused.
-    return Window(started, settled_at), observations
-
-
-def point_block(args, window: Window, facts: dict, observations: dict,
-                guard_failures: list[str], generator_rc: int) -> str:
-    start, end = window.rfc3339
-    rows = [
-        ("run", f"`{args.run}`"),
-        ("profile", "api (sync)"),
-        ("rate", str(args.rate)),
-        ("duration", args.duration),
-        ("window", f"`{start}` .. `{end}` ({window.hms})"),
-        ("commit", f"`{facts.get('commit', '?')[:12]}`"
-                   f"{' (dirty)' if facts.get('dirty') else ''}"),
-        ("peak replicas", ", ".join(f"{k}={v}" for k, v in
-                                    sorted(observations["peak_replicas"].items()))),
-        ("generator exit", str(generator_rc)),
-        ("guards", "clean" if not guard_failures else ", ".join(guard_failures)),
-    ]
-    if observations["ceiling_hits"]:
-        rows.append(("max_replicas reached", ", ".join(observations["ceiling_hits"])))
-    return "\n".join(reporting.md_table(rows))
+def doubts(load: launch.Load) -> list[str]:
+    """A generator that failed did not offer the load this point claims, so
+    the point is suspect even when every guard passes. k6 exits 99 when a
+    threshold is breached — the system failing, which is the finding — and
+    which one a non-zero exit was is yours to decide in the copy."""
+    if load.exit_code == 0:
+        return []
+    return [f"generator exited {load.exit_code} — offered load is not what "
+            f"this point claims; see {load.log.name}"]
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--run", help="point id, e.g. api-r200")
-    p.add_argument("--rate", help="offered load, passed to the generator")
-    p.add_argument("--duration", default="10m", help="generator run length")
-    p.add_argument("--env", type=Path, help="env.yaml (default: next to this file)")
-    p.add_argument("--metrics", type=Path,
-                   help=f"{REGISTER} (default: the execution's, above this file)")
-    p.add_argument("--execution", type=Path,
-                   help=f"{EXECUTION} (default: the execution's, above this file)")
-    p.add_argument("--out-dir", type=Path, help="where the point's files land")
-    p.add_argument("--freeze-file", type=Path, help="image-freeze.json")
-    p.add_argument("--step", default=STEP, help=f"export step (default {STEP})")
-    p.add_argument("--preflight-only", action="store_true")
-    p.add_argument("--set-freeze", action="store_true",
-                   help="record the current images as the freeze and exit")
-    p.add_argument("--no-port-forward", action="store_true")
-    p.add_argument("--force", action="store_true",
-                   help="overwrite an existing export for this run id")
-    args = p.parse_args()
-
-    here = Path(__file__).resolve().parent
-    env = Env(args.env or here / "env.yaml")
-    out_dir = args.out_dir or here / "data"
-    freeze_file = args.freeze_file or here / "image-freeze.json"
-    register, config = load_definitions(args.metrics or here.parent / REGISTER,
-                                        args.execution or here.parent / EXECUTION)
-    back_to_idle = config.window_closes_when_back_to_idle
-
-    forwards = [forward_spec(env, "prometheus"), forward_spec(env, "api")]
-    with PortForwards(forwards, enabled=not args.no_port_forward) as pf:
-        if args.set_freeze:
-            images = reporting.frozen_images(env, FREEZE)
-            freeze_file.parent.mkdir(parents=True, exist_ok=True)
-            freeze_file.write_text(json.dumps(images, indent=2, sort_keys=True) + "\n")
-            print(f"[{OK}] freeze written to {freeze_file}")
-            return EXIT_CLEAN
-
-        pre = preflight(env, freeze_file, back_to_idle)
-        if args.preflight_only:
-            return EXIT_CLEAN if pre.finish(exit_on_fail=False) else 1
+    point = points.open_point(HERE, "api", DEFAULTS, __doc__)
+    if not point.execution.window_closes_when_back_to_idle:
+        die(f"{point.execution.path} names no deployment under {WINDOW}, so "
+            f"the window has nothing to wait for")
+    with points.port_forwards(point, "prometheus", "api") as forwards:
+        if point.args.set_freeze:
+            return points.record_freeze(point)
+        pre = points.preflight(point)
+        if point.args.preflight_only:
+            return points.verdict(pre)
         pre.finish()
+        points.require_settings(point)
 
-        if not args.run or not args.rate:
-            die("--run and --rate are required for a measured point")
-        series = series_rows(register)
-        try:
-            guards = run_guards(config, {"rate": args.rate})
-        except ExecutionError as e:
-            die(str(e))
-
-        log_path = Path(out_dir) / f"{args.run}.generator.log"
-        cmd, env_extra = build_generator(env, args, log_path)
-        print()
-        print(f"{ARROW} generator · {' '.join(cmd)}")
-        # cwd is the runner's directory: a generator command naming a script
-        # next to it (load.js, a locustfile) must not depend on where the
-        # operator happened to be standing when they invoked this.
-        generated = run_logged(cmd, log_path, env_extra=env_extra, cwd=here)
-        print(f"[{OK if generated.ok else BAD}] generator exit {generated.returncode} "
-              f"· {generated.window.hms} · {log_path}")
-
-        pf.ensure_alive()
-        window, observations = wait_for_scale_in(env, back_to_idle)
-        if window is None:
-            print(f"{BAD} never returned to idle within "
-                  f"{hms(env.max_wait_seconds)} — nothing exported")
-            return 4
-
-        # The window starts with the load, not with the wait.
-        window = Window(generated.window.start, window.end)
-        print()
-        print(f"[{OK}] window {window}")
-        measured = {
-            "run": args.run,
-            "profile": "api",
-            "rate": args.rate,
-            "duration": args.duration,
-            "window": window.to_dict(),
-            "generator_exit": generated.returncode,
-            "generator_window": generated.window.to_dict(),
-            "queries": dict(series),
-            "guards": guards,
-        }
-        reporting.write_record(out_dir, args.run, measured)
-
-        pf.ensure_alive()
-        export = prometheus.export_range(
-            env.prom_url, series, window, out_dir=out_dir, run_id=args.run,
-            step=args.step, force=args.force)
-
-        print()
-        # As of the generator's end, not now: scale-in and the export sit
-        # between the two, and a rate guard checked after them sees dead air.
-        guarded = prometheus.evaluate_guards(env.prom_url, guards,
-                                             at=generated.window.end)
-        guard_failures = guarded.failures
-
-    record = {
-        **measured,
-        "guard_failures": guard_failures,
-        "guard_values": guarded.values,
-        "export": {"path": str(export.path), "series": export.series,
-                   "points": export.points, "empty_refs": export.empty},
-        **observations,
-        **pre.facts,
-    }
-    markdown = point_block(args, window, pre.facts, observations,
-                           guard_failures, generated.returncode)
-    path = reporting.write_point(out_dir, args.run, markdown, record)
-    print()
-    print(f"[{OK}] {path}")
-
-    if not export.ok:
-        print(f"{WARN} export gaps: {', '.join(export.empty)} — the window is "
-              f"recorded, re-export with report-kit export-metrics --record "
-              f"{out_dir / (args.run + '.point.json')} before retention drops it")
-        return EXIT_EXPORT_GAP
-
-    # A generator that failed did not offer the load this point claims to have
-    # measured, so the point is suspect even when every guard passes.
-    doubts = ([] if generated.ok else
-              [f"generator exited {generated.returncode} — offered load is not "
-               f"what this point claims; see {log_path.name}"])
-    return reporting.report_validity(doubts, guard_failures)
+        load = launch.run_load(point, "generator")
+        watched = watch.watch(
+            point, lambda: {"tiers": points.tier_replicas(point)},
+            lambda state: points.tiers_at_rest(point, state["tiers"]),
+            start=load.started, keep_alive=forwards.ensure_alive)
+        return finish.close_point(point, pre, watched, load, {}, doubts(load))
 
 
 if __name__ == "__main__":

@@ -1,12 +1,13 @@
-"""`execution.yaml`: how a point of this execution is run and judged — when its
-window closes, and what makes the point valid. `metrics.yaml` says what is
-read and from where; this file says when a point is over and whether it counts.
+"""`execution.yaml`: how a point of this execution is run and judged — what it
+is run with, when its window closes, and what makes the point valid.
+`metrics.yaml` says what is read and from where; this file says how a point is
+run, when it is over and whether it counts.
 """
 
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import yaml
@@ -18,12 +19,20 @@ from .text import fill
 EXECUTION = "execution.yaml"
 WINDOW = "window_closes_when_back_to_idle"
 GUARDS = "point_validity_guards"
-SECTIONS = (WINDOW, GUARDS)
+POINT = "point"
+SECTIONS = (POINT, WINDOW, GUARDS)
 
 GUARD_REF = re.compile(r"^G([1-9]\d*)$")
 SUBSTITUTION = re.compile(r"^\{[A-Za-z_]\w*\}$")
 GUARD_KEYS = frozenset({"metric", "promql", "min", "max"})
 IDLE_KEYS = frozenset({"idle_replicas", "max_replicas"})
+POINT_KEYS = frozenset({"settings", "load", "hold_seconds", "freeze", "step", "guards_at"})
+SETTING_KEYS = frozenset({"default"})
+SETTING_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
+LOADS = ("foreground", "background")
+GUARD_INSTANTS = ("load_end", "window_end")
+FREEZE_ENTRY = re.compile(r"^[A-Za-z]+/\S+$")
+STEP = re.compile(r"^\d+(ms|s|m|h)$")
 
 
 class ExecutionError(Exception):
@@ -54,10 +63,36 @@ class Guard:
 
 
 @dataclass(frozen=True)
+class Setting:
+    """What a point is run with: a `--name` flag on the runner, filled into
+    the load command and the guards, and recorded under `settings`."""
+
+    name: str
+    default: str | None = None
+
+
+@dataclass(frozen=True)
+class PointPlan:
+    """How a point is run. A runner holds its profile's defaults; what
+    `execution.yaml` names under `point:` replaces them key by key."""
+
+    settings: tuple[Setting, ...] = ()
+    load: str = "foreground"
+    hold_seconds: float = 60.0
+    freeze: tuple[str, ...] = ()
+    step: str = "15s"
+    guards_at: str = "load_end"
+
+
+@dataclass(frozen=True)
 class Execution:
     path: Path
     window_closes_when_back_to_idle: tuple[IdleTarget, ...] = ()
     point_validity_guards: tuple[Guard, ...] = ()
+    point: dict | None = None
+
+    def plan(self, defaults: PointPlan) -> PointPlan:
+        return replace(defaults, **(self.point or {}))
 
 
 def read_execution(path: Path, register: Register) -> Execution:
@@ -86,7 +121,68 @@ def parse_execution(text: str, path: Path, register: Register) -> Execution:
     idle = tuple(idle_target_of(name, spec) for name, spec in entries(doc, WINDOW, path))
     guards = tuple(guard_of(ref, spec, register) for ref, spec in entries(doc, GUARDS, path))
     check_guard_order(guards, path)
-    return Execution(path, idle, guards)
+    return Execution(path, idle, guards, point_of(doc.get(POINT), path))
+
+
+def point_of(raw: object, path: Path) -> dict:
+    """The `point:` keys this execution sets, each checked; the rest stay the
+    runner's."""
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ExecutionError(f"{path}: {POINT} must be a mapping")
+    refuse_unknown_keys(POINT, raw, POINT_KEYS)
+    readers = {"settings": settings_of, "load": load_of, "hold_seconds": hold_of,
+               "freeze": freeze_of, "step": step_of, "guards_at": guards_at_of}
+    return {key: readers[key](raw[key]) for key in raw}
+
+
+def settings_of(raw: object) -> tuple[Setting, ...]:
+    if not isinstance(raw, dict) or not raw:
+        raise ExecutionError(f"{POINT}.settings must name at least one setting")
+    settings = []
+    for name, spec in raw.items():
+        if not SETTING_NAME.match(str(name)):
+            raise ExecutionError(f"setting {name!r}: lowercase letters, digits and _")
+        spec = spec or {}
+        if not isinstance(spec, dict):
+            raise ExecutionError(f"setting {name}: a mapping, such as {{default: 10m}}")
+        refuse_unknown_keys(f"setting {name}", spec, SETTING_KEYS)
+        default = spec.get("default")
+        settings.append(Setting(str(name), None if default is None else str(default)))
+    return tuple(settings)
+
+
+def load_of(raw: object) -> str:
+    if raw not in LOADS:
+        raise ExecutionError(f"{POINT}.load is {raw!r}, not one of {', '.join(LOADS)}")
+    return raw
+
+
+def hold_of(raw: object) -> float:
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)) or raw <= 0:
+        raise ExecutionError(f"{POINT}.hold_seconds must be a positive number of seconds")
+    return float(raw)
+
+
+def freeze_of(raw: object) -> tuple[str, ...]:
+    if not isinstance(raw, list) or not all(
+            isinstance(entry, str) and FREEZE_ENTRY.match(entry) for entry in raw):
+        raise ExecutionError(f"{POINT}.freeze is a list of kind/name, such as deployment/api")
+    return tuple(raw)
+
+
+def step_of(raw: object) -> str:
+    if not isinstance(raw, str) or not STEP.match(raw):
+        raise ExecutionError(f"{POINT}.step is a Prometheus resolution, such as 15s")
+    return raw
+
+
+def guards_at_of(raw: object) -> str:
+    if raw not in GUARD_INSTANTS:
+        raise ExecutionError(f"{POINT}.guards_at is {raw!r}, not one of "
+                             f"{', '.join(GUARD_INSTANTS)}")
+    return raw
 
 
 def entries(doc: dict, name: str, path: Path) -> list[tuple[str, dict]]:
