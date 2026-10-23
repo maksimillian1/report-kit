@@ -240,7 +240,9 @@ class TestFinish:
     def test_a_gap_in_the_data_is_named_in_the_block_not_raised(self, tmp_path):
         record = {**RECORD, "settings": {"duration": "10m"}}
         code, path = finished(tmp_path, Prometheus(), record)
-        assert "| R3 | offered rate | gap — " in path.with_name("r24.point.md").read_text()
+        block = path.with_name("r24.point.md").read_text()
+        assert "| R3 | offered rate | gap — r24.point.json: no settings.rate" in block
+        assert str(tmp_path) not in block
 
     def test_it_runs_again_on_the_record_and_will_not_overwrite_an_export(self, tmp_path):
         finished(tmp_path, Prometheus())
@@ -262,9 +264,10 @@ class TestFinish:
 
 
 def test_a_record_from_before_events_is_exported_over_its_window():
-    legacy = {key: value for key, value in RECORD.items() if key != "events"}
-    window = finish.window_of(legacy)
-    assert window.seconds == 120
+    legacy = {key: value for key, value in RECORD.items() if key not in ("events", "plan")}
+    assert finish.window_of(legacy).seconds == 120
+    legacy["generator_window"] = {"start": "2026-01-02T00:00:00Z", "end": "2026-01-02T00:01:00Z"}
+    assert finish.guard_instant(legacy) == datetime(2026, 1, 2, 0, 1, tzinfo=timezone.utc)
 
 
 class TestTheRegistryReadsTheRecord:

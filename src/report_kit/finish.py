@@ -114,6 +114,8 @@ def guard_instant(record: dict) -> datetime:
     wanted = (record.get("plan") or {}).get("guards_at", "load_end")
     if wanted == "load_end" and events.get("load_finished"):
         return instant(events["load_finished"])
+    if wanted == "load_end" and (record.get("generator_window") or {}).get("end"):
+        return parse_instant(record["generator_window"]["end"])
     if wanted == "load_end":
         print(f"{WARN} guards_at is load_end, but the load was still running when "
               f"the window closed — guards read as of the window's end")
@@ -128,7 +130,8 @@ def worked_out(register: Register, record_path: Path) -> list[tuple[str, str, st
         if not metric.derived_from_data:
             continue
         try:
-            shown = f"{derive.derive(register, metric.ref, record_path):.6g}"
+            value = derive.derive(register, metric.ref, record_path, record_path.name)
+            shown = f"{value:.6g}"
         except derive.DeriveError as exc:
             shown = f"gap — {exc}"
         rows.append((metric.ref, metric.what, shown))
