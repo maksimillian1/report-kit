@@ -38,8 +38,8 @@
 | :--- | :--- | :--- | :--- | :--- |
 | M1 | ⟨⟩ | `⟨metric_name{selector}⟩` | unconfirmed | ⟨→ K1⟩ |
 | M2 | ⟨⟩ | `⟨metric_name{selector}⟩` | unconfirmed | ⟨what blocks it⟩ |
-| D3 | ⟨⟩ | `⟨M1 / M2⟩` | active | |
-| R4 | ⟨⟩ | hand-recorded at ⟨moment⟩ · ⟨who⟩ | active | |
+| D3 | ⟨⟩ | `mean of M1 per M2` | active | |
+| R4 | ⟨the swept setting⟩ | `settings.⟨name⟩`, point record | active | |
 | E5 | ⟨⟩ | ⟨basis⟩ vs ⟨reference value⟩ | active | |
 
 <!-- /report-kit metrics -->

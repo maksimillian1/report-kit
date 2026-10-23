@@ -18,7 +18,8 @@ points:
   axis: ⟨the point record field that names a point⟩
   label: "⟨n{n:02d}⟩"
   values:
-    ⟨measured⟩_{point}: {kind: M, unit: ⟨unit⟩, from: {path: ⟨key.inside.it⟩}, metric: ⟨M1⟩}
+    ⟨measured⟩_{point}: {kind: M, unit: ⟨unit⟩, from: {metric: M1}}
+    ⟨derived⟩_{point}: {kind: D, unit: ⟨unit⟩, from: {metric: D3}}
 
 values:
   ⟨recorded_name⟩:
@@ -30,17 +31,27 @@ values:
 
   # from: names where the value sits in a run's committed data/, so
   # `report-kit values pull` writes it and `check` fails when the two part.
-  # A point record takes path:, an export takes ref: and reduce:. formats.md.
+  # metric: reads a ref of the run's metrics.yaml, worked out the way the
+  # register defines it; path: reads a point-record field, ref: and reduce:
+  # an export. A value is the kind of the ref it reads. formats.md.
   ⟨measured_name⟩:
     ref: VM1
     kind: M
     value: ⟨number⟩
-    from: {file: ⟨executions/NN-name/data/run.point.json⟩, path: ⟨key.inside.it⟩}
-    metric: ⟨M1, the register ref it measures⟩
+    from: {file: executions/⟨NN-name⟩/data/⟨run⟩.point.json, metric: M1}
     unit: ⟨unit⟩
 
-  ⟨derived_name⟩:
+  ⟨derived_per_run⟩:
     ref: VD1
+    kind: D
+    value: ⟨number⟩
+    from: {file: executions/⟨NN-name⟩/data/⟨run⟩.point.json, metric: D3}
+    unit: ⟨unit⟩
+
+  # A formula spans values — runs, executions, a price — where a register ref
+  # describes one run.
+  ⟨derived_name⟩:
+    ref: VD2
     kind: D
     formula: ⟨expression over other value names⟩
     unit: ⟨unit⟩

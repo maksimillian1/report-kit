@@ -15,7 +15,7 @@ import re
 from dataclasses import dataclass
 from typing import Callable
 
-from .evidence import EXPORT_SUFFIX, RECORD_SUFFIX
+from report_kit.records import EXPORT_SUFFIX, RECORD_SUFFIX
 
 PLACEHOLDER = "{point}"
 REPEAT_LETTERS = "bcdefghijklmnopqrstuvwxyz"

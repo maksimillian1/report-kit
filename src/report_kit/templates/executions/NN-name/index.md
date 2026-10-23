@@ -30,8 +30,8 @@
 | Ref | What it measures | Source | Status | Notes |
 | :--- | :--- | :--- | :--- | :--- |
 | M1 | ⟨⟩ | `⟨metric_name{selector}⟩` | unconfirmed | ⟨→ K1⟩ |
-| D2 | ⟨⟩ | `⟨M1 / 00-baseline/M1⟩` | active | |
-| R3 | ⟨⟩ | hand-recorded at ⟨moment⟩ · ⟨who⟩ | active | |
+| D2 | ⟨⟩ | `mean of M1` | active | |
+| R3 | ⟨the swept setting⟩ | `settings.⟨name⟩`, point record | active | |
 
 <!-- /report-kit metrics -->
 

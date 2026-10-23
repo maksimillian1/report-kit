@@ -106,6 +106,7 @@ One command, installed with the package:
 | `report-kit new-point` | copy a runner and its inputs into one execution |
 | `report-kit values` | resolve `report-values.yaml`, and fail when a number drifts |
 | `report-kit values pull` | write each `value:` from the run data its `from:` names |
+| `report-kit values trace` | follow one value from every line that prints it to the register ref and the run data behind it |
 | `report-kit values add-point` | register one run's values from the `points:` template |
 | `report-kit values adopt-point` | bind values written before the template to their point |
 | `report-kit values rename-point` | rename a point's values and every formula that names them |
@@ -290,6 +291,7 @@ report-kit values adopt-point n08 data/n08.point.json  # bind values typed befor
 report-kit values rename-point n08b n09          # a point's names and the formulas that use them
 report-kit values delete-point n09               # remove, renumber, move every shifted mark
 report-kit values validate           # the registry's own rules
+report-kit values trace rate_n08     # the page → the registry → metrics.yaml → the run's data
 report-kit values served_r24         # one value, its number alone — by name or by ref
 report-kit values orphans report.md  # currency tokens matching no value
 report-kit values retype served_r24 E  # change a kind, renumber, move the marks
@@ -316,7 +318,12 @@ A measured value can say where its value sits in a run's committed `data/` —
 reduction over an exported `.jsonl`. `pull` then writes the value instead of a
 person typing it, and `check` fails the moment a stored value stops matching its
 evidence. `metric: M1` names the register ref a value measures, and `check`
-fails when that execution's `metrics.yaml` defines no such ref. A `points:`
+fails when that execution's `metrics.yaml` defines no such ref.
+`from: {file: …/data/r24.point.json, metric: D8}` goes further: the value is
+worked out the way that register defines D8 — a record field, a reduction of
+the export, or a formula over both — so a derived or recorded number is defined
+once, computed by the kit rather than by a runner or a person, and carries its
+ref's kind onto the page. A `points:`
 block goes one step further: it says once which values a run adds, so
 `add-point` registers a whole point from its point record, and `delete-point`
 removes one without orphaning a single mark. Both are in the last two sections

@@ -1,5 +1,6 @@
 """`metrics.yaml`: an execution's metric register — what is read and from
-where, each ref defined once. A runner exports every M ref with a promql."""
+where, each ref defined once. A runner exports every M ref with a promql;
+`derive.py` works out every ref a run's data holds."""
 
 from __future__ import annotations
 
@@ -9,6 +10,7 @@ from pathlib import Path
 
 import yaml
 
+from . import arith, series
 from .strict_yaml import UniqueKeyLoader, unknown_keys
 
 REGISTER = "metrics.yaml"
@@ -17,7 +19,13 @@ SECTIONS = ("metrics",)
 METRIC_REF = re.compile(r"^([MDRE])([1-9]\d*)$")
 MEASURED_STATUS = re.compile(r"^(confirmed \d{4}-\d{2}-\d{2}|unconfirmed)$")
 
-METRIC_KEYS = frozenset({"what", "promql", "source", "status", "notes"})
+DEFINITIONS = {"M": ("promql", "record", "source"),
+               "D": ("formula", "series", "record", "source"),
+               "R": ("record", "source"),
+               "E": ("source",)}
+DEFINING_KEYS = ("promql", "formula", "series", "record", "source")
+METRIC_KEYS = frozenset({"what", "status", "notes", *DEFINING_KEYS})
+TEXT_KEYS = METRIC_KEYS - {"series"}
 
 
 class RegisterError(Exception):
@@ -32,6 +40,24 @@ class Metric:
     notes: str = ""
     promql: str | None = None
     source: str | None = None
+    formula: str | None = None
+    series: series.Series | None = None
+    record: str | None = None
+
+    @property
+    def derived_from_data(self) -> bool:
+        """A number for one run can be worked out of its committed data."""
+        return any(key is not None for key in (self.formula, self.series, self.record))
+
+    @property
+    def inputs(self) -> list[str]:
+        """The refs of this register its definition reads."""
+        if self.series is not None:
+            return self.series.refs
+        if self.formula is None:
+            return []
+        return [name for name in arith.names(arith.parse(self.formula), dotted=True)
+                if METRIC_REF.match(name)]
 
 
 @dataclass(frozen=True)
@@ -46,6 +72,10 @@ class Register:
     @property
     def exported(self) -> tuple[Metric, ...]:
         return tuple(m for m in self.metrics if m.promql is not None)
+
+    @property
+    def by_ref(self) -> dict[str, Metric]:
+        return {metric.ref: metric for metric in self.metrics}
 
 
 def read_register(path: Path) -> Register:
@@ -71,6 +101,7 @@ def parse_register(text: str, path: Path) -> Register:
     metrics = tuple(metric_of(ref, spec) for ref, spec in section(doc, "metrics", path))
     register = Register(path, metrics)
     check_numbering(register)
+    check_definitions(register)
     if not register.exported:
         raise RegisterError(f"{path}: no metric has a promql — a runner exports "
                             f"those and refuses a register with none")
@@ -93,22 +124,51 @@ def metric_of(ref: str, spec: dict) -> Metric:
     if not found:
         raise RegisterError(f"metric {ref!r} is not M, D, R or E followed by a number")
     refuse_unknown_keys(ref, spec, METRIC_KEYS)
-    text = {key: one_line(ref, key, spec[key]) for key in METRIC_KEYS if key in spec}
+    text = {key: one_line(ref, key, spec[key]) for key in TEXT_KEYS if key in spec}
     for key in ("what", "status"):
         if not text.get(key):
             raise RegisterError(f"{ref}: '{key}' is required")
-    if ("promql" in text) == ("source" in text):
-        raise RegisterError(f"{ref}: give exactly one of promql (exported at every "
-                            f"point) and source (anything else)")
+    check_definition(ref, found.group(1), spec)
     if found.group(1) == "M" and not MEASURED_STATUS.match(text["status"]):
         raise RegisterError(f"{ref}: status {text['status']!r} — an M ref is "
                             f"'confirmed YYYY-MM-DD' or 'unconfirmed'")
-    if "promql" in text and found.group(1) != "M":
-        raise RegisterError(f"{ref}: only an M ref is a query; a {found.group(1)} "
-                            f"ref is written over other refs, in source")
     return Metric(ref=ref, what=text["what"], status=text["status"],
                   notes=text.get("notes", ""), promql=text.get("promql"),
-                  source=text.get("source"))
+                  source=text.get("source"), formula=formula_of(ref, text.get("formula")),
+                  series=series_of(ref, spec.get("series")), record=text.get("record"))
+
+
+def check_definition(ref: str, letter: str, spec: dict) -> None:
+    """One key says how a ref is had, and the letter decides which keys may."""
+    given = [key for key in DEFINING_KEYS if key in spec]
+    allowed = DEFINITIONS[letter]
+    takes = f"a {letter} ref takes {' or '.join(allowed)}"
+    if "promql" in given and letter != "M":
+        raise RegisterError(f"{ref}: only an M ref is a query; {takes}")
+    stray = [key for key in given if key not in allowed]
+    if stray:
+        raise RegisterError(f"{ref}: {stray[0]} is not for it; {takes}")
+    if len(given) != 1:
+        raise RegisterError(f"{ref}: give exactly one of {', '.join(allowed)} — "
+                            f"how a number for it is had")
+
+
+def formula_of(ref: str, formula: str | None) -> str | None:
+    if formula is not None:
+        try:
+            arith.check(arith.parse(formula), dotted=True)
+        except arith.ArithError as exc:
+            raise RegisterError(f"{ref}: formula {exc}") from None
+    return formula
+
+
+def series_of(ref: str, raw: object) -> series.Series | None:
+    if raw is None:
+        return None
+    try:
+        return series.read_series(raw)
+    except series.SeriesError as exc:
+        raise RegisterError(f"{ref}: series {exc}") from None
 
 
 def one_line(ref: str, key: str, value: object) -> str:
@@ -140,11 +200,57 @@ def check_numbering(register: Register) -> None:
         previous = number
 
 
+def check_definitions(register: Register) -> None:
+    """Every ref a definition reads is one this register can answer for a run:
+    a series reads exported refs, a formula reads refs worked out of data."""
+    known = register.by_ref
+    for metric in register.metrics:
+        for name in metric.inputs:
+            problem = unreadable(metric, known.get(name))
+            if problem:
+                raise RegisterError(f"{register.path}: {metric.ref} reads {name}, {problem}")
+    for metric in register.metrics:
+        refuse_cycle(metric.ref, known, ())
+
+
+def unreadable(reader: Metric, metric: Metric | None) -> str | None:
+    if metric is None:
+        return "which this register does not define"
+    if reader.series is not None:
+        return None if metric.promql else "which is not an M ref with a promql"
+    if metric.promql is not None:
+        return "a series — reduce it in a D ref's series: and read that instead"
+    if not metric.derived_from_data:
+        return "which is written by hand, so no run's data holds it"
+    return None
+
+
+def refuse_cycle(ref: str, known: dict[str, Metric], trail: tuple[str, ...]) -> None:
+    if ref in trail:
+        raise RegisterError("cycle: " + " -> ".join((*trail, ref)))
+    for name in known[ref].inputs if known[ref].formula else []:
+        refuse_cycle(name, known, (*trail, ref))
+
+
 def find_register(start: Path) -> Path | None:
     for directory in (start, *start.parents):
         candidate = directory / REGISTER
         if candidate.is_file():
             return candidate
+    return None
+
+
+def register_above(path: Path, root: Path) -> Path | None:
+    """The first register in `path` or a directory above it, no higher than
+    `root`: the execution a run's data belongs to."""
+    root, start = root.resolve(), path.resolve()
+    if root not in (start, *start.parents):
+        return None
+    for directory in (start, *start.parents):
+        if (directory / REGISTER).is_file():
+            return directory / REGISTER
+        if directory == root:
+            break
     return None
 
 

@@ -4,19 +4,19 @@
 metrics:
   M1:
     what: requests served per second
-    source: '`http_reqs.rate`, k6 summary'
+    record: client.served_per_second
     status: confirmed 2026-10-22
-    notes: client-side; the numerator of D8
+    notes: client-side, k6 summary `http_reqs.rate`; the numerator of D8
   M2:
     what: client-observed latency p95
-    source: '`http_req_duration.p(95)`, k6 summary'
+    record: client.p95_ms
     status: confirmed 2026-10-22
-    notes: includes the port-forward hop
+    notes: k6 summary `http_req_duration.p(95)`; includes the port-forward hop
   M3:
     what: share of requests not served
-    source: '`http_req_failed.value`, k6 summary'
+    record: client.failed_share
     status: confirmed 2026-10-22
-    notes: timeouts at 10 s count here
+    notes: k6 summary `http_req_failed.value`; timeouts at 10 s count here
   # The server-side view, exported at every point. M1–M3 above are client-side
   # and come from the k6 summary instead.
   M4:
@@ -41,5 +41,11 @@ metrics:
     notes: carried in the ledger `Signal` column
   D8:
     what: offered load actually served
-    source: '`M1 ÷ offered rate`'
+    formula: M1 / R9
     status: active
+    notes: a share; the report prints it as a percent
+  R9:
+    what: offered rate, the swept axis
+    record: rate
+    status: active
+    notes: TARGET_RATE in scripts/load.js, passed by point.py --rate

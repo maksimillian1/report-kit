@@ -16,8 +16,20 @@ metrics:
   # promql is evaluated over the point's window and written to <run>.jsonl. A
   # ref that returns no series fails the run with exit 2 — an empty result is a
   # gap, not a zero. Where zero is genuinely the answer, write it:
-  # `... or vector(0)`. A metric read from anywhere else, such as a generator's
-  # own summary, carries source instead and is not exported.
+  # `... or vector(0)`.
+  #
+  # Everything else a run's data holds is worked out by the kit, so it is
+  # defined once, here — not again in the runner, nor by hand:
+  #   record: client.p95_ms             a field of the point record: a
+  #                                     generator's summary, a run setting
+  #   series: {ref: M1, reduce: max}    a reduction of an exported ref
+  #   formula: M5 / settings.rate       arithmetic over refs and record fields
+  # An M ref takes promql or record, a D ref formula, series or record, an R
+  # ref record. source: is a sentence, for what a person decides; a D ref left
+  # in one fails `report-kit metrics check --strict`. report-values.yaml reads
+  # any of them by ref: from: {file: data/<run>.point.json, metric: D3}. A
+  # comparison with another execution, M1 against 00-baseline/M1, spans runs:
+  # it is a formula over values in report-values.yaml, not a ref here.
   M1:
     what: ⟨⟩
     promql: ⟨metric_name{selector}⟩
@@ -25,9 +37,9 @@ metrics:
     notes: ⟨→ K1⟩
   D2:
     what: ⟨⟩
-    source: '`⟨M1 / 00-baseline/M1⟩`'
+    series: {ref: M1, reduce: mean}
     status: active
   R3:
-    what: ⟨⟩
-    source: hand-recorded at ⟨moment⟩ · ⟨who⟩
+    what: ⟨the swept setting⟩
+    record: settings.⟨name⟩
     status: active

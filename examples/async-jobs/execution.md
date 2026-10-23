@@ -33,7 +33,7 @@ the system rather than by the client.
 One unit is one queue message. Draining it costs **150 ms of worker CPU, then
 one POST to the shared tier costing 60<!--VR4--> ms of its CPU**. One unit in
 twenty fails after the burn and is requeued exactly once, so 1,200<!--VR1-->
-units are 1,260<!--VD15--> burns and 1,200<!--VR1--> ingests.
+units are 1,260<!--VD30--> burns and 1,200<!--VR1--> ingests.
 
 The failure is **deterministic** — unit `n` is retried when `n % 20 == 0`, not
 at random. Every point on the grid therefore does exactly the same work; a
@@ -58,10 +58,13 @@ never build a backlog, and the backlog is what this execution measures.
 | M5 | completion rate | `sum(rate(jobs_completed_total[30s]))` | confirmed 2026-10-22 | from a Redis counter, so it survives the pool going away |
 | M6 | shared-tier pods | `count(up{job="results"} == 1)` | confirmed 2026-10-22 | |
 | M7 | shared-tier concurrency | `sum(rate(results_seconds_total[30s]))` | confirmed 2026-10-22 | service-seconds per second = mean concurrency inside the handler. Wall time, so CPU throttling inflates it |
-| D8 | drain duration | producer start → the first poll at which `outstanding` reads 0 | active | in the point record as `drain_window`; ±1 poll (3 s) |
-| D9 | sustained drain rate | units ÷ D8 | active | the headline of a jobs point |
-| D10 | shared-tier mean service time | M7 ÷ M5 | active | computed from the export, over samples where M5 > 1 |
+| D8 | drain duration | `drain_window.seconds`, point record | active | producer start to the first poll at which `outstanding` reads 0, as the runner timed it; ±1 poll (3 s) |
+| D9 | sustained drain rate | `drained_per_second`, point record | active | the headline of a jobs point: units completed ÷ D8, divided by the runner before D8 was rounded |
+| D10 | shared-tier mean service time | `mean of M7 per M5 where M5 > 1` | active | seconds; samples where M5 ≤ 1 are the tier idling, and dividing by them measures nothing |
 | R11 | what the pool actually did | read off M4 per point | active | carried in the ledger's `Signal` column |
+| R12 | worker pool ceiling, the swept axis | `n`, point record | active | maxReplicaCount on the ScaledObject, set by point.py before preflight |
+| R13 | units enqueued per point | `count`, point record | active | |
+| R14 | offered rate, units per second | `offered_rate`, point record | active | produce.py --rate, an open model |
 
 <!-- /report-kit metrics -->
 
@@ -156,8 +159,8 @@ alone, and the first is kept because deleting it would delete the reason the
 second exists.
 
 **#10 is a repeat, not a re-run.** #07 was valid; #10 exists to say how much
-two identical points differ. They came out 20.14<!--VM9--> and 22.46<!--VM10--> units/s — about
-10<!--VD13--> % apart — which is the resolution of every other comparison in this
+two identical points differ. They came out 20.14<!--VD9--> and 22.46<!--VD10--> units/s — about
+10<!--VD28--> % apart — which is the resolution of every other comparison in this
 execution. Nothing smaller than that is readable.
 
 **The pool takes 15–30 s to reach its ceiling.** On the `n=1` points that is
@@ -184,8 +187,8 @@ and left work in the queue.
 ## 4 · Results
 
 **Finding** — raising the worker pool ceiling from 1<!--VR5--> to 8<!--VR8-->
-cuts the drain of 1,200<!--VR1--> units from **294<!--VM1--> s to
-60<!--VM4--> s**, a 4.9<!--VD4-->× speed-up for 8<!--VR8-->× the workers.
+cuts the drain of 1,200<!--VR1--> units from **294<!--VD1--> s to
+60<!--VD4--> s**, a 4.9<!--VD19-->× speed-up for 8<!--VR8-->× the workers.
 **No ceiling was found.** Throughput is still climbing at the top of the grid,
 and the shared tier — the component this execution was built expecting to be
 the constraint — never became one.
@@ -193,7 +196,7 @@ the constraint — never became one.
 **Against the Expected line** — wrong, and the way it was wrong is the useful
 part. The prediction was ~16 units/s, from *two replicas at `500m` is one
 core, at 60<!--VR4--> ms of CPU per unit that is 16.7<!--VE1--> units/s*.
-Measured: 20.14<!--VM9--> units/s, with the tier at one replica for most of
+Measured: 20.14<!--VD9--> units/s, with the tier at one replica for most of
 that drain — half of the two the estimate assumed.
 
 The arithmetic modelled the wrong resource. The tier's per-unit cost is 60 ms
@@ -202,9 +205,9 @@ consumes *less* CPU and still returns on schedule. A component like that has a
 **latency, not a throughput ceiling**, and no amount of load will make it
 saturate the way the estimate assumed. Two independent readings agree:
 
-- `D10`, the tier's mean service time, rises **1<!--VD11--> %**
-  (81.6<!--VM11--> → 82.6<!--VM15--> ms) while throughput rises
-  **394<!--VD12--> %**. A saturating tier's service time climbs steeply;
+- `D10`, the tier's mean service time, rises **1<!--VD26--> %**
+  (81.6<!--VD11--> → 82.6<!--VD15--> ms) while throughput rises
+  **394<!--VD27--> %**. A saturating tier's service time climbs steeply;
   this one barely moves.
 - `M6` shows the tier below its own replica ceiling (2, its `maxReplicas`)
   for part of every drain of the second pass, and for all of it at `n = 1` —
@@ -217,21 +220,21 @@ Second pass only. Rows from the first pass are a different *Held constant*
 
 | Point | Pool ceiling | D8 drain | D9 units/s | Speed-up | Per-worker efficiency | M1 peak queue | M6 tier pods | D10 tier service | Signal |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | :--- |
-| n01-long | 1<!--VR5--> | 294.1<!--VM1--> s | 4.08<!--VM6--> | 1.00<!--VD1-->× | 100<!--VD6--> % | 1,066<!--VM16--> | 1 | 81.6<!--VM11--> ms | baseline |
-| n02-long | 2<!--VR6--> | 159.2<!--VM2--> s | 7.54<!--VM7--> | 1.85<!--VD2-->× | 92<!--VD7--> % | 1,006<!--VM17--> | 2 | 80.2<!--VM12--> ms | near-linear |
-| n04-long | 4<!--VR7--> | 87.5<!--VM3--> s | 13.71<!--VM8--> | 3.36<!--VD3-->× | 84<!--VD8--> % | 814<!--VM18--> | 2 | 75.5<!--VM13--> ms | efficiency decaying |
-| n08-long | 8<!--VR8--> | 59.6<!--VM4--> s | 20.14<!--VM9--> | 4.94<!--VD4-->× | 62<!--VD9--> % | 773<!--VM19--> | 2 | 82.5<!--VM14--> ms | still climbing |
-| n08-long-b | 8<!--VR8--> | 53.4<!--VM5--> s | 22.46<!--VM10--> | 5.50<!--VD5-->× | 69<!--VD10--> % | 616<!--VM20--> | 2 | 82.6<!--VM15--> ms | the repeat |
+| n01-long | 1<!--VR5--> | 294.1<!--VD1--> s | 4.08<!--VD6--> | 1.00<!--VD16-->× | 100<!--VD21--> % | 1,066<!--VM1--> | 1 | 81.6<!--VD11--> ms | baseline |
+| n02-long | 2<!--VR6--> | 159.2<!--VD2--> s | 7.54<!--VD7--> | 1.85<!--VD17-->× | 92<!--VD22--> % | 1,006<!--VM2--> | 2 | 80.2<!--VD12--> ms | near-linear |
+| n04-long | 4<!--VR7--> | 87.5<!--VD3--> s | 13.71<!--VD8--> | 3.36<!--VD18-->× | 84<!--VD23--> % | 814<!--VM3--> | 2 | 75.5<!--VD13--> ms | efficiency decaying |
+| n08-long | 8<!--VR8--> | 59.6<!--VD4--> s | 20.14<!--VD9--> | 4.94<!--VD19-->× | 62<!--VD24--> % | 773<!--VM4--> | 2 | 82.5<!--VD14--> ms | still climbing |
+| n08-long-b | 8<!--VR8--> | 53.4<!--VD5--> s | 22.46<!--VD10--> | 5.50<!--VD20-->× | 69<!--VD25--> % | 616<!--VM5--> | 2 | 82.6<!--VD15--> ms | the repeat |
 
 Every point: 1,200<!--VR1--> units offered at a constant 40<!--VR2--> units/s,
-60<!--VD14--> of them retried once, `G1`–`G4` clean.
+60<!--VD29--> of them retried once, `G1`–`G4` clean.
 
 ### Saturation
 
 **No tier is claimed, and that is the result.** `methodology.md` §6's reading
 of three points is explicit: *still falling at the top → the range was wrong,
-extend it*. Efficiency is decaying (100<!--VD6--> → 92<!--VD7--> →
-84<!--VD8--> → 62<!--VD9--> %) but capacity is still rising, so this grid ends
+extend it*. Efficiency is decaying (100<!--VD21--> → 92<!--VD22--> →
+84<!--VD23--> → 62<!--VD24--> %) but capacity is still rising, so this grid ends
 before the system does.
 
 **The range is not extended, and the reason is the rig rather than the
@@ -251,8 +254,8 @@ comparable steady segment, which is a different execution.
 ### Guardrails
 
 - **Do not read `D9` at `n = 8` as a capacity value.** Two identical points
-  came out 10<!--VD13--> % apart, and the drain is ramp-dominated. Anything
-  below about 10<!--VD13--> % is noise in this rig.
+  came out 10<!--VD28--> % apart, and the drain is ramp-dominated. Anything
+  below about 10<!--VD28--> % is noise in this rig.
 - **Nothing here is a CPU cost.** Both `burn()` implementations spin to a
   wall-clock deadline, so every "per-unit cost" in §1 is a *latency*. Capacity
   arithmetic built on those numbers — as the Expected line was — describes a

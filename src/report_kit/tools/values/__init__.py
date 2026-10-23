@@ -16,6 +16,8 @@
     report-kit values rename-point n08c n09
     report-kit values delete-point n09 [--force]
                                           remove them, renumber, move the marks
+    report-kit values trace rate_n08     where a value is printed, how it is had,
+                                          down to the run data that produce it
     report-kit values orphans report.md  currency tokens matching no value
     report-kit values validate           the registry's own rules
     report-kit values retype served_r24 E
@@ -63,6 +65,7 @@ from .checks import check_coverage, check_marks, check_orphans, check_retired, v
 from .readings import check_evidence, pull
 from .links import check_links
 from .migrate import migrate
+from .trace import lines, trace
 from .surgery import value_text
 from .edits import (
     Renumbered, add_point, adopt_point, delete_point, rename_point, renumber,
@@ -202,6 +205,15 @@ def cmd_one(registry: Registry, values: dict, wanted: str) -> int:
         print(f"unknown value or ref '{wanted}'", file=sys.stderr)
         return EXIT_USAGE
     print(registry.display(name, values[name]))
+    return EXIT_OK
+
+
+def cmd_trace(registry: Registry, values: dict, wanted: str) -> int:
+    name = registry.by_ref().get(wanted, wanted)
+    if name not in values:
+        print(f"unknown value or ref '{wanted}'", file=sys.stderr)
+        return EXIT_USAGE
+    print("\n".join(lines(trace(registry, values, name))))
     return EXIT_OK
 
 
@@ -345,6 +357,10 @@ def main(argv: list[str] | None = None) -> int:
             if len(rest) != 2:
                 return usage("orphans <file>")
             return cmd_orphans(registry, values, rest[1])
+        if command == "trace":
+            if len(rest) != 2:
+                return usage("trace <value|ref>")
+            return cmd_trace(registry, values, rest[1])
         if command != "list":
             return cmd_one(registry, values, command)
         return cmd_list(registry, values, opts)

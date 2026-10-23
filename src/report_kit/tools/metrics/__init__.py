@@ -5,6 +5,7 @@
     report-kit metrics check           fail when a view no longer matches the register,
                                        or the register names a ref nothing defines
     report-kit metrics check --all     every metrics.yaml under the working directory
+    report-kit metrics check --strict  a D ref defined in prose alone fails too
     report-kit metrics import          build metrics.yaml from a hand-kept table,
                                        series.txt and guards.txt (before 0.4)
 
@@ -83,13 +84,15 @@ def cmd_write(paths: list[Path]) -> int:
     return EXIT_OK
 
 
-def cmd_check(paths: list[Path]) -> int:
+def cmd_check(paths: list[Path], strict: bool = False) -> int:
     failed = 0
     for path in paths:
         register = read_register(path)
         view = table_view(register)
         stale = not view.is_current()
         dangling = mention_problems(register) + execution_problems(register)
+        if strict:
+            dangling += prose_problems(register)
         if stale:
             print(f"[{BAD}] {shown(path)}: the table in {shown(view.path)} no "
                   f"longer matches — run report-kit metrics write")
@@ -100,6 +103,14 @@ def cmd_check(paths: list[Path]) -> int:
                   f"is defined, and {EXECUTION} beside it reads")
         failed += bool(stale or dangling)
     return EXIT_FAILED if failed else EXIT_OK
+
+
+def prose_problems(register) -> list[str]:
+    """A D ref nothing can work out: its formula lives in a sentence."""
+    return [f"{metric.ref} is derived in prose only — give it formula:, series: "
+            f"or record:, so every run's data produces it"
+            for metric in register.metrics
+            if metric.ref.startswith("D") and not metric.derived_from_data]
 
 
 def execution_problems(register) -> list[str]:
@@ -168,6 +179,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--document", help="import: the document holding the table")
     p.add_argument("--force", action="store_true",
                    help=f"import: replace an existing {REGISTER}")
+    p.add_argument("--strict", action="store_true",
+                   help="check: a D ref with no formula, series or record fails")
     return p
 
 
@@ -177,7 +190,9 @@ def main(argv: list[str] | None = None) -> int:
         if opts.command == "import":
             return cmd_import(opts)
         paths = registers(opts)
-        return cmd_write(paths) if opts.command == "write" else cmd_check(paths)
+        if opts.command == "write":
+            return cmd_write(paths)
+        return cmd_check(paths, opts.strict)
     except (RegisterError, ExecutionError) as exc:
         print(f"{exc}", file=sys.stderr)
         return EXIT_USAGE

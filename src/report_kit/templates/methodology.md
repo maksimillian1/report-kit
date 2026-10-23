@@ -42,13 +42,15 @@ while a value is expected to be revised as data is re-read.
 
 | Ref | Class | Mark on the value | What `Source` holds |
 | :--- | :--- | :--- | :--- |
-| `M⟨n⟩` | Measured | *(unmarked)* | the exposed metric name and its selector |
-| `D⟨n⟩` | Derived | ᴰ | the formula, written over other refs |
-| `R⟨n⟩` | Recorded | ᴿ | the moment it was written down, and by whom |
+| `M⟨n⟩` | Measured | *(unmarked)* | the exposed metric name and its selector (`promql:`), or the point-record field a generator's own summary lands in (`record:`) |
+| `D⟨n⟩` | Derived | ᴰ | the formula, written over other refs and the point record's fields (`formula:`), or the reduction of an exported ref (`series:`) |
+| `R⟨n⟩` | Recorded | ᴿ | the setting or observation the point record carries (`record:`), or the moment it was written down by hand, and by whom (`source:`) |
 | `E⟨n⟩` | Estimated | ᴱ | the basis, and the reference value it is judged against |
 
 The letter is the class, so the register needs no provenance column and a row copied into
-the report needs no lookup. Numbering is a single sequence per execution (`M1, M2, D3, R4`),
+the report needs no lookup. A D or R that a run's data can produce is defined so the kit
+produces it: written as a sentence it is a second definition beside whatever script computes
+it, and nothing notices the day the two disagree. Only what a person decides stays a sentence. Numbering is a single sequence per execution (`M1, M2, D3, R4`),
 never one counter per letter, so a mistyped letter fails to resolve instead of landing on a
 second live metric. **A number is never reused**, including by a dropped ref: raw
 data files and published revisions already point at it.

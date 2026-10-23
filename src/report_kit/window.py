@@ -37,7 +37,7 @@ class Window:
 
     def to_dict(self) -> dict:
         start, end = self.rfc3339
-        return {"start": start, "end": end, "seconds": round(self.seconds, 1)}
+        return {"start": start, "end": end, "seconds": self.seconds}
 
     def __str__(self) -> str:
         start, end = self.rfc3339

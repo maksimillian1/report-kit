@@ -29,7 +29,7 @@
 | Ref | What it measures | Source | Status | Notes |
 | :--- | :--- | :--- | :--- | :--- |
 | M1 | ⟨⟩ | `⟨metric_name{selector}⟩` | unconfirmed | ⟨→ K1⟩ |
-| D2 | ⟨⟩ | `⟨M1 / …⟩` | active | |
+| D2 | ⟨⟩ | `max of M1` | active | |
 | R3 | ⟨⟩ | hand-recorded at ⟨moment⟩ · ⟨who⟩ | active | |
 | E4 | ⟨⟩ | ⟨basis⟩ vs ⟨reference value⟩ | active | |
 

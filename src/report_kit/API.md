@@ -18,21 +18,21 @@ Standard library only, except:
 | Needed by | Requirement |
 |---|---|
 | `env.py` | `PyYAML` (import fails loudly with an install hint) |
-| `register.py`, `execution_config.py` | `PyYAML` |
+| `register.py`, `execution_config.py`, `derive.py` | `PyYAML` |
 | `cloud/aws_s3.py` | `boto3` / `botocore` |
 | `cloud/aws.py` | the `aws` CLI on PATH (no SDK) |
 | `cluster.py`, `portforward.py`, `reporting.frozen_images` | `kubectl` on PATH, working kubecontext |
 | `reporting.git_facts` | `git` on PATH |
 
-Import cost is per-module, and deliberately so: **`env.py`, `register.py` and
-`execution_config.py` are the only modules in the library that need a
-third-party package at all.** The time
+Import cost is per-module, and deliberately so: **`env.py`, `register.py`,
+`execution_config.py` and `derive.py`, which reads a register, are the only
+modules in the library that need a third-party package at all.** The time
 helpers live in `clock.py` rather than next to `Env` precisely so that
 importing a timestamp doesn't drag PyYAML in behind it — otherwise most of
 the package would transitively require it, and `report-kit export-metrics`
 would stop being a rescue path for a window whose metrics are aging out.
 Verified: with `yaml` unimportable, every module in the map below loads
-except `env.py`, `register.py` and `execution_config.py`, by design — `cloud/aws_s3.py` wants boto3
+except `env.py`, `register.py`, `execution_config.py` and `derive.py`, by design — `cloud/aws_s3.py` wants boto3
 on top — and `report-kit export-metrics` still runs: it reads a point record,
 which is JSON.
 
@@ -44,7 +44,11 @@ which is JSON.
 | `env.py` | YAML config access | `Env` reads a file | `Env`, `execution_dir` |
 | `clock.py` | UTC now, RFC3339, duration formatting | pure | `utcnow`, `rfc3339`, `parse_instant`, `hms` |
 | `shell.py` | subprocess and HTTP, JSON-decoded | integration — **the seam** | `sh`, `sh_json`, `http_json` |
-| `register.py` | `metrics.yaml`: what an execution reads and from where, and the M refs a runner exports | reads a file | `read_register`, `parse_register`, `series_rows`, `find_register`, `Register`, `Metric`, `RegisterError`, `REGISTER` |
+| `register.py` | `metrics.yaml`: what an execution reads and from where — the M refs a runner exports, and how every other ref a run's data holds is had (`record:`, `series:`, `formula:`) | reads a file | `read_register`, `parse_register`, `series_rows`, `find_register`, `register_above`, `Register`, `Metric`, `RegisterError`, `REGISTER`, `DEFINITIONS` |
+| `derive.py` | a register ref's number for one run, worked out of its point record and export, with the steps that produced it | reads files | `derive`, `explain`, `Derivation`, `DeriveError` |
+| `records.py` | a point record read back: a field by dotted path, as a number or an instant | reads a file | `read_record`, `field`, `number_at`, `instant_at`, `export_beside`, `record_beside`, `RecordError`, `RECORD_SUFFIX`, `EXPORT_SUFFIX` |
+| `series.py` | an exported ref reduced to one number: `ref`, `across`, `per`, `where`, `settle_on`, `until`, `reduce` | reads a file | `read_series`, `value`, `describe`, `formula_text`, `Series`, `Mask`, `SeriesError` |
+| `arith.py` | `+ - * /` over named numbers — the one evaluator behind a register's `formula:` and a registry's | pure | `parse`, `check`, `names`, `evaluate`, `ArithError` |
 | `execution_config.py` | `execution.yaml`: when a point's window closes (`window_closes_when_back_to_idle`) and what makes it valid (`point_validity_guards`, a guard reusing a register ref by `metric:`), guards with `{sub}` placeholders filled | reads a file | `read_execution`, `parse_execution`, `run_guards`, `Execution`, `IdleTarget`, `Guard`, `ExecutionError`, `EXECUTION`, `WINDOW`, `GUARDS` |
 | `strict_yaml.py` | YAML with a key written twice refused | pure | `UniqueKeyLoader`, `unknown_keys` |
 | `refs.py` | `ref\|…` pipe-file parsing, for a runner copied before 0.4 and for `export-metrics --queries` | pure | `read_ref_file`, `load_guards` |
@@ -253,7 +257,8 @@ Two things sit beside this library, and the split between them is the point:
   documents and the marks in them (`corpus.py`),
   the checks (`checks.py`), the `from:` format and the values it reads back
   (`evidence.py`, `readings.py`), the `metric:` link to the register
-  (`links.py`), the `points:` template (`points.py`), line
+  (`links.py`), one value followed from the page down to its run data
+  (`trace.py`), the `points:` template (`points.py`), line
   edits to `report-values.yaml` (`surgery.py`), and the edits that span the registry
   and the documents citing it (`edits.py`), and the one-way move of a report
   from before 0.4 (`migrate.py`). The rest of `tools/` is one file
@@ -272,7 +277,7 @@ are writing a new measurement script, start there, not from a blank file.
 
 ## Why some of this is opinionated
 
-`register.py` and `reporting.py` encode one specific measurement methodology —
+`register.py`, `derive.py` and `reporting.py` encode one specific measurement methodology —
 the one in `methodology.md`, which `report-kit init` puts at your report's
 root. A "point" is one measured run; the register's `M` refs are exported per
 point and its guards checked at the window's close; a frozen set of image

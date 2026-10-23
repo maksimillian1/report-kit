@@ -7,7 +7,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from report_kit.register import REGISTER, Register, RegisterError
+from report_kit import series
+from report_kit.register import REGISTER, Metric, Register, RegisterError
 
 TABLE_HEADER = ("| Ref | What it measures | Source | Status | Notes |",
                 "| :--- | :--- | :--- | :--- | :--- |")
@@ -29,9 +30,22 @@ class View:
 
 
 def table_lines(register: Register) -> list[str]:
-    rows = [table_row(m.ref, m.what, m.source or f"`{m.promql}`", m.status, m.notes)
+    rows = [table_row(m.ref, m.what, source_cell(m), m.status, m.notes)
             for m in register.metrics]
     return [*TABLE_HEADER, *rows]
+
+
+def source_cell(metric: Metric) -> str:
+    """How a number for the ref is had, in the words its definition uses."""
+    if metric.promql is not None:
+        return f"`{metric.promql}`"
+    if metric.formula is not None:
+        return f"`{metric.formula}`"
+    if metric.series is not None:
+        return f"`{series.formula_text(metric.series)}`"
+    if metric.record is not None:
+        return f"`{metric.record}`, point record"
+    return metric.source or ""
 
 
 def table_row(*cells: str) -> str:

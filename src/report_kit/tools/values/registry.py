@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 import yaml
 
+from report_kit import arith
 from report_kit.strict_yaml import UniqueKeyLoader
 
 from .errors import RegistryError
@@ -28,7 +29,6 @@ HOURS_DECIMALS = 0
 # rewrite a hand-typed VD07 into it — silently orphaning every mark in
 # every document that points at the padded form. Caught here instead.
 REF_RE = re.compile(r"^V([MRDE])([1-9]\d*)$")
-_BINOPS = (ast.Add, ast.Sub, ast.Mult, ast.Div)
 
 
 class Pending:
@@ -195,8 +195,7 @@ class Registry:
         spec = self.spec(name)
         if "formula" not in spec:
             return []
-        tree = _formula(name, spec["formula"])
-        return [n.id for n in ast.walk(tree) if isinstance(n, ast.Name)]
+        return arith.names(_formula(name, spec["formula"]))
 
     def effective_kind(self, name: str, _seen: tuple[str, ...] = ()) -> str:
         """The kind a value prints as: the weakest input decides, so a
@@ -280,40 +279,18 @@ class Registry:
 
 def _formula(name: str, formula: object) -> ast.Expression:
     try:
-        return ast.parse(str(formula), mode="eval")
-    except SyntaxError as exc:
-        raise RegistryError(f"value '{name}': {formula!r} is not an "
-                          f"expression ({exc.msg})") from exc
+        return arith.parse(formula)
+    except arith.ArithError as exc:
+        raise RegistryError(f"value '{name}': {exc}") from exc
 
 
-def _eval(node: ast.AST, entries: dict[str, dict],
+def _eval(tree: ast.Expression, entries: dict[str, dict],
           resolved: dict[str, Value], stack: list[str]) -> Value:
-    if isinstance(node, ast.Expression):
-        return _eval(node.body, entries, resolved, stack)
-    if isinstance(node, ast.Constant):
-        if isinstance(node.value, bool) or not isinstance(node.value, (int, float)):
-            raise RegistryError(f"non-numeric constant {node.value!r}")
-        return float(node.value)
-    if isinstance(node, ast.Name):
-        return _resolve_one(node.id, entries, resolved, stack)
-    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
-        operand = _eval(node.operand, entries, resolved, stack)
-        return PENDING if operand is PENDING else -operand
-    if isinstance(node, ast.BinOp) and isinstance(node.op, _BINOPS):
-        left = _eval(node.left, entries, resolved, stack)
-        right = _eval(node.right, entries, resolved, stack)
-        if left is PENDING or right is PENDING:
-            return PENDING
-        if isinstance(node.op, ast.Add):
-            return left + right
-        if isinstance(node.op, ast.Sub):
-            return left - right
-        if isinstance(node.op, ast.Mult):
-            return left * right
-        if right == 0:
-            raise RegistryError("division by zero")
-        return left / right
-    raise RegistryError(f"unsupported expression node {type(node).__name__}")
+    try:
+        return arith.evaluate(
+            tree, lambda name: _resolve_one(name, entries, resolved, stack))
+    except arith.ArithError as exc:
+        raise RegistryError(str(exc)) from exc
 
 
 def _resolve_one(name: str, entries: dict[str, dict],

@@ -37,14 +37,15 @@ the saturation below would never have appeared.
 
 | Ref | What it measures | Source | Status | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| M1 | requests served per second | `http_reqs.rate`, k6 summary | confirmed 2026-10-22 | client-side; the numerator of D8 |
-| M2 | client-observed latency p95 | `http_req_duration.p(95)`, k6 summary | confirmed 2026-10-22 | includes the port-forward hop |
-| M3 | share of requests not served | `http_req_failed.value`, k6 summary | confirmed 2026-10-22 | timeouts at 10 s count here |
+| M1 | requests served per second | `client.served_per_second`, point record | confirmed 2026-10-22 | client-side, k6 summary `http_reqs.rate`; the numerator of D8 |
+| M2 | client-observed latency p95 | `client.p95_ms`, point record | confirmed 2026-10-22 | k6 summary `http_req_duration.p(95)`; includes the port-forward hop |
+| M3 | share of requests not served | `client.failed_share`, point record | confirmed 2026-10-22 | k6 summary `http_req_failed.value`; timeouts at 10 s count here |
 | M4 | serving instances | `count(up{job="mock-api"} == 1)` | confirmed 2026-10-22 | **scrape targets, not replicas** — a terminating pod and its replacement are both up for one interval, so this overshoots `maxReplicas` during rollover |
 | M5 | server-side served rate | `sum(rate(mock_requests_total[30s]))` | confirmed 2026-10-22 | second opinion on M1 |
 | M6 | server-side mean service time | `sum(rate(mock_request_duration_seconds_sum[30s])) / sum(rate(mock_requests_total[30s]))` | confirmed 2026-10-22 | excludes queueing, unlike M2 |
 | R7 | which component sat at its ceiling | hand-recorded at the end of each run | active | carried in the ledger `Signal` column |
-| D8 | offered load actually served | `M1 ÷ offered rate` | active | |
+| D8 | offered load actually served | `M1 / R9` | active | a share; the report prints it as a percent |
+| R9 | offered rate, the swept axis | `rate`, point record | active | TARGET_RATE in scripts/load.js, passed by point.py --rate |
 
 <!-- /report-kit metrics -->
 

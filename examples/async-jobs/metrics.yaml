@@ -42,21 +42,35 @@ metrics:
     notes: service-seconds per second = mean concurrency inside the handler. Wall time, so CPU throttling inflates it
   D8:
     what: drain duration
-    source: producer start → the first poll at which `outstanding` reads 0
+    record: drain_window.seconds
     status: active
-    notes: in the point record as `drain_window`; ±1 poll (3 s)
+    notes: producer start to the first poll at which `outstanding` reads 0, as the runner timed it; ±1 poll (3 s)
   D9:
     what: sustained drain rate
-    source: units ÷ D8
+    record: drained_per_second
     status: active
-    notes: the headline of a jobs point
+    notes: 'the headline of a jobs point: units completed ÷ D8, divided by the runner before D8 was rounded'
   D10:
     what: shared-tier mean service time
-    source: M7 ÷ M5
+    series: {ref: M7, per: M5, where: "M5 > 1", reduce: mean}
     status: active
-    notes: computed from the export, over samples where M5 > 1
+    notes: seconds; samples where M5 ≤ 1 are the tier idling, and dividing by them measures nothing
   R11:
     what: what the pool actually did
     source: read off M4 per point
     status: active
     notes: carried in the ledger's `Signal` column
+  R12:
+    what: worker pool ceiling, the swept axis
+    record: n
+    status: active
+    notes: maxReplicaCount on the ScaledObject, set by point.py before preflight
+  R13:
+    what: units enqueued per point
+    record: count
+    status: active
+  R14:
+    what: offered rate, units per second
+    record: offered_rate
+    status: active
+    notes: produce.py --rate, an open model

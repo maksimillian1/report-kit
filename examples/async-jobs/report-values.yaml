@@ -2,15 +2,18 @@ meta:
   updated: 2026-10-22
   rule: every value the two documents print exists here; each renders it at whatever precision it needs
   rounding: >-
-    D9 is measured, not derived from D8, and that is deliberate. The drain is published rounded
-    to a tenth of a second, so 1200 / 59.6 gives 20.13 where the point record says 20.14. The
-    rate was computed from the unrounded drain, and re-deriving it here from the printed one
-    would quietly disagree with the evidence. Arithmetic at full precision, rounded once at
-    print -- which also means you cannot recover the precision a document threw away.
+    D9 is read from the point record, not divided out of D8 here, and that is deliberate. These
+    runs stored the drain rounded to a tenth of a second, so 1200 / 59.6 gives 20.13 where the
+    record says 20.14: the runner divided by the unrounded drain. A formula over the printed
+    drain would quietly disagree with the evidence, so metrics.yaml defines D9 as the record's
+    own field. A runner from 0.4 on stores its instants unrounded, and D9 becomes a formula.
+    Arithmetic at full precision, rounded once at print -- which also means you cannot
+    recover the precision a document threw away.
   note: >-
     Checked by `report-kit values --path examples/async-jobs/report-values.yaml check`.
-    D9 is measured rather than derived from D8 — see meta.rounding. Every value a run's data
-    holds names it with from:, so `values pull` writes the value and `check` fails if it drifts.
+    Every value a run's data holds reads it by its register ref -- from: {metric: D9} -- so
+    metrics.yaml defines it once and the kind follows the ref: a value read from D9 is derived.
+    `values pull` writes it, `check` fails if it drifts, `values trace` follows it to the data.
 
 scan:
   - report.md
@@ -29,10 +32,10 @@ points:
   label: "n{n:02d}"
   held: {count: units_per_point, offered_rate: offered_rate}
   values:
-    ceiling_{point}: {kind: R, unit: workers, display: 0, from: {path: n}, source: "maxReplicaCount, as the point record carries it"}
-    drain_{point}: {kind: M, unit: seconds, display: 1, from: {path: drain_window.seconds}, metric: D8}
-    rate_{point}: {kind: M, unit: units_per_second, from: {path: drained_per_second}, metric: D9}
-    tier_service_{point}: {kind: M, unit: milliseconds, display: 1, from: {ref: M7, per: M5, where: M5 > 1, reduce: mean, scale: 1000}, metric: D10}
+    ceiling_{point}: {kind: R, unit: workers, display: 0, from: {metric: R12}}
+    drain_{point}: {kind: D, unit: seconds, display: 1, from: {metric: D8}}
+    rate_{point}: {kind: D, unit: units_per_second, from: {metric: D9}}
+    tier_service_{point}: {kind: D, unit: milliseconds, display: 1, from: {metric: D10, scale: 1000}}
     peak_queue_{point}: {kind: M, unit: units, display: 0, from: {ref: M1, reduce: max}, metric: M1}
     speedup_{point}: {kind: D, unit: ratio, formula: "rate_{point} / rate_n01", group: speedup}
     efficiency_{point}: {kind: D, unit: percent, display: 0, formula: "speedup_{point} / ceiling_{point} * 100", group: efficiency}
@@ -42,7 +45,7 @@ values:
     ref: VR1
     kind: R
     value: 1200
-    from: {file: scripts/data/n01-long.point.json, path: count}
+    from: {file: scripts/data/n01-long.point.json, metric: R13}
     unit: units
     display: 0
     source: the second pass's unit count, a Held constant. The first pass ran 400 and its rows are a different grid
@@ -51,7 +54,7 @@ values:
     ref: VR2
     kind: R
     value: 40
-    from: {file: scripts/data/n01-long.point.json, path: offered_rate}
+    from: {file: scripts/data/n01-long.point.json, metric: R14}
     unit: units_per_second
     display: 0
     source: produce.py --rate, constant offered rate, open model
@@ -77,7 +80,7 @@ values:
     kind: R
     point: n01
     value: 1
-    from: {file: scripts/data/n01-long.point.json, path: n}
+    from: {file: scripts/data/n01-long.point.json, metric: R12}
     unit: workers
     display: 0
     source: maxReplicaCount on the ScaledObject, the swept axis. Registered because per-worker efficiency divides by it
@@ -87,7 +90,7 @@ values:
     kind: R
     point: n02
     value: 2
-    from: {file: scripts/data/n02-long.point.json, path: n}
+    from: {file: scripts/data/n02-long.point.json, metric: R12}
     unit: workers
     display: 0
     source: maxReplicaCount
@@ -97,7 +100,7 @@ values:
     kind: R
     point: n04
     value: 4
-    from: {file: scripts/data/n04-long.point.json, path: n}
+    from: {file: scripts/data/n04-long.point.json, metric: R12}
     unit: workers
     display: 0
     source: maxReplicaCount
@@ -107,160 +110,145 @@ values:
     kind: R
     point: n08
     value: 8
-    from: {file: scripts/data/n08-long.point.json, path: n}
+    from: {file: scripts/data/n08-long.point.json, metric: R12}
     unit: workers
     display: 0
     source: maxReplicaCount
 
   drain_n01:
-    ref: VM1
-    kind: M
+    ref: VD1
+    kind: D
     point: n01
     value: 294.1
-    from: {file: scripts/data/n01-long.point.json, path: drain_window.seconds}
+    from: {file: scripts/data/n01-long.point.json, metric: D8}
     unit: seconds
     display: 1
-    metric: D8
 
   drain_n02:
-    ref: VM2
-    kind: M
+    ref: VD2
+    kind: D
     point: n02
     value: 159.2
-    from: {file: scripts/data/n02-long.point.json, path: drain_window.seconds}
+    from: {file: scripts/data/n02-long.point.json, metric: D8}
     unit: seconds
     display: 1
-    metric: D8
 
   drain_n04:
-    ref: VM3
-    kind: M
+    ref: VD3
+    kind: D
     point: n04
     value: 87.5
-    from: {file: scripts/data/n04-long.point.json, path: drain_window.seconds}
+    from: {file: scripts/data/n04-long.point.json, metric: D8}
     unit: seconds
     display: 1
-    metric: D8
 
   drain_n08:
-    ref: VM4
-    kind: M
+    ref: VD4
+    kind: D
     point: n08
     value: 59.6
-    from: {file: scripts/data/n08-long.point.json, path: drain_window.seconds}
+    from: {file: scripts/data/n08-long.point.json, metric: D8}
     unit: seconds
     display: 1
-    metric: D8
 
   drain_n08b:
-    ref: VM5
-    kind: M
+    ref: VD5
+    kind: D
     point: n08b
     value: 53.4
-    from: {file: scripts/data/n08-long-b.point.json, path: drain_window.seconds}
+    from: {file: scripts/data/n08-long-b.point.json, metric: D8}
     unit: seconds
     display: 1
-    metric: D8
     source: the repeat of n08-long
 
   rate_n01:
-    ref: VM6
-    kind: M
+    ref: VD6
+    kind: D
     point: n01
     value: 4.08
-    from: {file: scripts/data/n01-long.point.json, path: drained_per_second}
+    from: {file: scripts/data/n01-long.point.json, metric: D9}
     unit: units_per_second
-    metric: D9
     source: Taken from the point record rather than recomputed from drain_n01 -- see meta.rounding
 
   rate_n02:
-    ref: VM7
-    kind: M
+    ref: VD7
+    kind: D
     point: n02
     value: 7.54
-    from: {file: scripts/data/n02-long.point.json, path: drained_per_second}
+    from: {file: scripts/data/n02-long.point.json, metric: D9}
     unit: units_per_second
-    metric: D9
 
   rate_n04:
-    ref: VM8
-    kind: M
+    ref: VD8
+    kind: D
     point: n04
     value: 13.71
-    from: {file: scripts/data/n04-long.point.json, path: drained_per_second}
+    from: {file: scripts/data/n04-long.point.json, metric: D9}
     unit: units_per_second
-    metric: D9
 
   rate_n08:
-    ref: VM9
-    kind: M
+    ref: VD9
+    kind: D
     point: n08
     value: 20.14
-    from: {file: scripts/data/n08-long.point.json, path: drained_per_second}
+    from: {file: scripts/data/n08-long.point.json, metric: D9}
     unit: units_per_second
-    metric: D9
 
   rate_n08b:
-    ref: VM10
-    kind: M
+    ref: VD10
+    kind: D
     point: n08b
     value: 22.46
-    from: {file: scripts/data/n08-long-b.point.json, path: drained_per_second}
+    from: {file: scripts/data/n08-long-b.point.json, metric: D9}
     unit: units_per_second
-    metric: D9
 
   tier_service_n01:
-    ref: VM11
-    kind: M
+    ref: VD11
+    kind: D
     point: n01
     value: 81.6015354199508
-    from: {file: scripts/data/n01-long.jsonl, ref: M7, per: M5, where: "M5 > 1", reduce: mean, scale: 1000}
+    from: {file: scripts/data/n01-long.point.json, metric: D10, scale: 1000}
     unit: milliseconds
     display: 1
-    metric: D10
 
   tier_service_n02:
-    ref: VM12
-    kind: M
+    ref: VD12
+    kind: D
     point: n02
     value: 80.1519079329027
-    from: {file: scripts/data/n02-long.jsonl, ref: M7, per: M5, where: "M5 > 1", reduce: mean, scale: 1000}
+    from: {file: scripts/data/n02-long.point.json, metric: D10, scale: 1000}
     unit: milliseconds
     display: 1
-    metric: D10
 
   tier_service_n04:
-    ref: VM13
-    kind: M
+    ref: VD13
+    kind: D
     point: n04
     value: 75.4949784142787
-    from: {file: scripts/data/n04-long.jsonl, ref: M7, per: M5, where: "M5 > 1", reduce: mean, scale: 1000}
+    from: {file: scripts/data/n04-long.point.json, metric: D10, scale: 1000}
     unit: milliseconds
     display: 1
-    metric: D10
 
   tier_service_n08:
-    ref: VM14
-    kind: M
+    ref: VD14
+    kind: D
     point: n08
     value: 82.4518964233111
-    from: {file: scripts/data/n08-long.jsonl, ref: M7, per: M5, where: "M5 > 1", reduce: mean, scale: 1000}
+    from: {file: scripts/data/n08-long.point.json, metric: D10, scale: 1000}
     unit: milliseconds
     display: 1
-    metric: D10
 
   tier_service_n08b:
-    ref: VM15
-    kind: M
+    ref: VD15
+    kind: D
     point: n08b
     value: 82.5780946259551
-    from: {file: scripts/data/n08-long-b.jsonl, ref: M7, per: M5, where: "M5 > 1", reduce: mean, scale: 1000}
+    from: {file: scripts/data/n08-long-b.point.json, metric: D10, scale: 1000}
     unit: milliseconds
     display: 1
-    metric: D10
 
   peak_queue_n01:
-    ref: VM16
+    ref: VM1
     kind: M
     point: n01
     value: 1066
@@ -270,7 +258,7 @@ values:
     metric: M1
 
   peak_queue_n02:
-    ref: VM17
+    ref: VM2
     kind: M
     point: n02
     value: 1006
@@ -280,7 +268,7 @@ values:
     metric: M1
 
   peak_queue_n04:
-    ref: VM18
+    ref: VM3
     kind: M
     point: n04
     value: 814
@@ -290,7 +278,7 @@ values:
     metric: M1
 
   peak_queue_n08:
-    ref: VM19
+    ref: VM4
     kind: M
     point: n08
     value: 773
@@ -300,7 +288,7 @@ values:
     metric: M1
 
   peak_queue_n08b:
-    ref: VM20
+    ref: VM5
     kind: M
     point: n08b
     value: 616
@@ -310,7 +298,7 @@ values:
     metric: M1
 
   speedup_n01:
-    ref: VD1
+    ref: VD16
     kind: D
     point: n01
     formula: rate_n01 / rate_n01
@@ -318,7 +306,7 @@ values:
     group: speedup
 
   speedup_n02:
-    ref: VD2
+    ref: VD17
     kind: D
     point: n02
     formula: rate_n02 / rate_n01
@@ -326,7 +314,7 @@ values:
     group: speedup
 
   speedup_n04:
-    ref: VD3
+    ref: VD18
     kind: D
     point: n04
     formula: rate_n04 / rate_n01
@@ -334,7 +322,7 @@ values:
     group: speedup
 
   speedup_n08:
-    ref: VD4
+    ref: VD19
     kind: D
     point: n08
     formula: rate_n08 / rate_n01
@@ -343,7 +331,7 @@ values:
     appears_in: [report.md, execution.md]
 
   speedup_n08b:
-    ref: VD5
+    ref: VD20
     kind: D
     point: n08b
     formula: rate_n08b / rate_n01
@@ -351,7 +339,7 @@ values:
     group: speedup
 
   efficiency_n01:
-    ref: VD6
+    ref: VD21
     kind: D
     point: n01
     formula: speedup_n01 / ceiling_n01 * 100
@@ -360,7 +348,7 @@ values:
     group: efficiency
 
   efficiency_n02:
-    ref: VD7
+    ref: VD22
     kind: D
     point: n02
     formula: speedup_n02 / ceiling_n02 * 100
@@ -369,7 +357,7 @@ values:
     group: efficiency
 
   efficiency_n04:
-    ref: VD8
+    ref: VD23
     kind: D
     point: n04
     formula: speedup_n04 / ceiling_n04 * 100
@@ -378,7 +366,7 @@ values:
     group: efficiency
 
   efficiency_n08:
-    ref: VD9
+    ref: VD24
     kind: D
     point: n08
     formula: speedup_n08 / ceiling_n08 * 100
@@ -388,7 +376,7 @@ values:
     appears_in: [report.md, execution.md]
 
   efficiency_n08b:
-    ref: VD10
+    ref: VD25
     kind: D
     point: n08b
     formula: speedup_n08b / ceiling_n08b * 100
@@ -397,7 +385,7 @@ values:
     group: efficiency
 
   tier_service_rise:
-    ref: VD11
+    ref: VD26
     kind: D
     formula: (tier_service_n08b - tier_service_n01) / tier_service_n01 * 100
     unit: percent
@@ -406,7 +394,7 @@ values:
     group: constraint
 
   throughput_rise:
-    ref: VD12
+    ref: VD27
     kind: D
     formula: (rate_n08 - rate_n01) / rate_n01 * 100
     unit: percent
@@ -416,7 +404,7 @@ values:
     appears_in: [report.md, execution.md]
 
   repeat_spread:
-    ref: VD13
+    ref: VD28
     kind: D
     formula: (rate_n08b - rate_n08) / rate_n08b * 100
     unit: percent
@@ -425,7 +413,7 @@ values:
     group: constraint
 
   retry_units:
-    ref: VD14
+    ref: VD29
     kind: D
     formula: units_per_point / 20
     unit: units
@@ -434,7 +422,7 @@ values:
     group: workload
 
   total_burns:
-    ref: VD15
+    ref: VD30
     kind: D
     formula: units_per_point + retry_units
     unit: units
@@ -468,14 +456,14 @@ values:
     ref: VR9
     kind: R
     value: 400
-    from: {file: scripts/data/n08.point.json, path: count}
+    from: {file: scripts/data/n08.point.json, metric: R13}
     unit: units
     display: 0
     source: the first pass's unit count. Not a row of the matrix — its drains were ramp-dominated — but the report names it when it says why those rows are excluded
     group: workload
 
   window_n08:
-    ref: VM21
+    ref: VM6
     kind: M
     value: 87.7
     from: {file: scripts/data/n08-long.point.json, path: window.seconds}
@@ -485,27 +473,25 @@ values:
     group: constraint
 
   rate_p1_n08:
-    ref: VM22
-    kind: M
+    ref: VD31
+    kind: D
     value: 12.69
-    from: {file: scripts/data/n08.point.json, path: drained_per_second}
+    from: {file: scripts/data/n08.point.json, metric: D9}
     unit: units_per_second
-    metric: D9
     source: the first pass's n08 point at 400 units. Registered because 7 quotes the pair it belongs to
     group: first_pass
 
   rate_p1_relief:
-    ref: VM23
-    kind: M
+    ref: VD32
+    kind: D
     value: 15.87
-    from: {file: scripts/data/n08-relief.point.json, path: drained_per_second}
+    from: {file: scripts/data/n08-relief.point.json, metric: D9}
     unit: units_per_second
-    metric: D9
     source: n08-relief, the first pass's probe with the shared tier's ceiling at 4
     group: first_pass
 
   efficiency_drop_n02_n04:
-    ref: VD16
+    ref: VD33
     kind: D
     formula: efficiency_n02 - efficiency_n04
     unit: percentage_points
@@ -514,7 +500,7 @@ values:
     group: efficiency
 
   efficiency_gap_n08:
-    ref: VD17
+    ref: VD34
     kind: D
     formula: 100 - efficiency_n08
     unit: percent
@@ -523,16 +509,16 @@ values:
     group: efficiency
 
   window_rate_n08:
-    ref: VD18
+    ref: VD35
     kind: D
     formula: units_per_point / window_n08
     unit: units_per_second
     display: 1
-    source: what n08-long's rate would read if it were averaged over the window instead of the drain. Half of the pair 5 quotes; the other half is VM9
+    source: what n08-long's rate would read if it were averaged over the window instead of the drain. Half of the pair 5 quotes; the other half is VD9
     group: constraint
 
   relief_apparent_gain:
-    ref: VD19
+    ref: VD36
     kind: D
     formula: (rate_p1_relief - rate_p1_n08) / rate_p1_n08 * 100
     unit: percent
@@ -545,7 +531,7 @@ values:
     kind: R
     point: n08b
     value: 8
-    from: {file: scripts/data/n08-long-b.point.json, path: n}
+    from: {file: scripts/data/n08-long-b.point.json, metric: R12}
     unit: workers
     display: 0
     source: maxReplicaCount. Its own value, so the repeat's efficiency divides by its own record

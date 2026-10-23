@@ -10,7 +10,7 @@ from . import evidence, points
 from .errors import RegistryError
 from .registry import KINDS, PENDING, REF_RE, Registry, Value
 from .corpus import Document, MARKED
-from .links import METRIC
+from .links import METRIC, letter_of, metric_of
 from .readings import evidence_source
 
 
@@ -195,9 +195,7 @@ def validate(registry: Registry) -> tuple[list[str], list[str]]:
                 and "from" not in spec:
             problems.append(f"{name}: a leaf with no source")
         problems.extend(evidence_problems(name, spec))
-        if "metric" in spec and not METRIC.match(str(spec["metric"])):
-            problems.append(f"{name}: metric {spec['metric']!r} is not a ref such "
-                            f"as M1 or 00-baseline/M1")
+        problems.extend(metric_problems(name, spec))
         if kind == "D" and registry.effective_kind(name) == "E":
             notes.append(f"{name}: prints ᴱ — a formula, but one of its inputs "
                          f"is an estimate")
@@ -214,6 +212,22 @@ def validate(registry: Registry) -> tuple[list[str], list[str]]:
                          f"value" for field, name in template.held.items()
                          if name not in registry.entries]
     return problems, notes
+
+
+def metric_problems(name: str, spec: dict) -> list[str]:
+    """A value is the kind of the ref it measures: one read from D9 is
+    derived wherever it is printed, and its mark says so."""
+    metric = metric_of(spec)
+    if metric is None:
+        return []
+    if not METRIC.match(metric):
+        return [f"{name}: metric {metric!r} is not a ref such as M1 or "
+                f"00-baseline/M1"]
+    kind, letter = spec.get("kind"), letter_of(metric)
+    if kind in KINDS and kind != letter:
+        return [f"{name}: kind {kind}, but it measures {metric} — a value is "
+                f"the kind of the ref it measures, so it is {letter}"]
+    return []
 
 
 def evidence_problems(name: str, spec: dict) -> list[str]:

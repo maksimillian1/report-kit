@@ -192,6 +192,7 @@ copy and the check re-reads it every time:
 | :--- | :--- | :--- |
 | Point record | `file`, `path`, optional `scale` | the key at the dotted `path` of a `.point.json`; a number stored as a string (`"24"`) counts |
 | Export | `file`, `ref`, `reduce`, optional `across`, `per`, `where`, `settle_on`, `until`, `scale` | the samples of `ref` in a `.jsonl`, reduced by `max`, `min`, `mean` or `last` |
+| Register ref | `file`, `metric`, optional `scale` | the run's number for that ref of its execution's `metrics.yaml`, worked out the way the register defines it |
 
 **A ref with more than one series is refused unless the value says how to combine them.**
 `across: sum|max|min|mean` combines the series of every ref the value reads, timestamp by
@@ -221,11 +222,24 @@ relative to the directory holding `report-values.yaml`.
 **A value is stored at full precision and rounded at print.** `display:` decides what a page shows.
 A value rounded by hand to match a page no longer equals its evidence, and the check says so.
 
+**`from: {metric: D8}` reads a register ref instead of repeating its definition.** `file` is
+the run's `.point.json`, and the ref belongs to the first `metrics.yaml` above it. That register
+says how a run's data turns into the number, once: `record:` a field of the point record,
+`series:` a reduction of the export beside it (the vocabulary above, without `file`), or
+`formula:` arithmetic over the register's other refs and the record's dotted fields. So a
+derived or recorded value is worked out by the kit rather than by the runner or by hand, every
+value of the ref follows its one definition, and `check` re-derives it from the readings each
+time. **A value is the kind of the ref it measures**: one read from D8 is `kind: D` and prints ᴰ,
+one read from R9 is `kind: R`, and `validate` fails a value whose kind disagrees.
+`report-kit values trace <value>` prints the chain — every line that prints the value, the
+registry entry, the register's definition and each record field or reduction under it.
+
 **`metric:` names what the value measures.** `metric: M1` is a ref in the register of the
 execution whose data the value's `from:` reads — the first `metrics.yaml` above that file — and
 `metric: 00-baseline/M2` cites another execution's. `check` fails when that register defines no
-such ref. With `metric:` and `from:` both present, `source:` is for what neither says, such as why
-an excluded run is still registered; it is optional.
+such ref. A `from:` that reads a ref is the value's `metric:`, and a `metric:` beside it has to
+name the same ref. With `metric:` and `from:` both present, `source:` is for what neither says,
+such as why an excluded run is still registered; it is optional.
 
 **Only committed data counts.** `from:` never queries a metrics backend: retention ages a window
 out, CI has no cluster, and a file is what a reviewer can open. A value whose number lives nowhere
@@ -243,8 +257,8 @@ points:
   label: "n{n:02d}"        # formatted from the record, where "24" counts as 24
   held: {count: units_per_point}  # optional: the value each record field must equal
   values:
-    drain_{point}:   {kind: M, unit: seconds, display: 1, from: {path: drain_window.seconds}, metric: D8}
-    peak_{point}:    {kind: M, unit: units, display: 0, from: {ref: M1, reduce: max}}
+    drain_{point}:   {kind: D, unit: seconds, display: 1, from: {metric: D8}}
+    peak_{point}:    {kind: M, unit: units, display: 0, from: {ref: M1, reduce: max}, metric: M1}
     speedup_{point}: {kind: D, unit: ratio, formula: "rate_{point} / rate_n01"}
 ```
 
