@@ -1,4 +1,4 @@
-# The metric register: every ref this execution defines, once. scripts/point.py
+# The metric register: every ref this execution defines, once. scripts/jobs_point.py
 # reads it; `report-kit metrics write` renders the register table from it.
 
 metrics:
@@ -42,14 +42,14 @@ metrics:
     notes: service-seconds per second = mean concurrency inside the handler. Wall time, so CPU throttling inflates it
   D8:
     what: drain duration
-    record: drain_window.seconds
+    formula: events.drained - events.load_started
     status: active
-    notes: producer start to the first poll at which `outstanding` reads 0, as the runner timed it; ±1 poll (3 s)
+    notes: producer start to the first poll at which every unit enqueued has been completed; ±1 poll (3 s)
   D9:
     what: sustained drain rate
-    record: drained_per_second
+    formula: observations.final_counters.completed / D8
     status: active
-    notes: 'the headline of a jobs point: units completed ÷ D8, divided by the runner before D8 was rounded'
+    notes: 'the headline of a jobs point: units completed over the drain, not over the window, which also holds the wind-down'
   D10:
     what: shared-tier mean service time
     series: {ref: M7, per: M5, where: "M5 > 1", reduce: mean}
@@ -62,15 +62,15 @@ metrics:
     notes: carried in the ledger's `Signal` column
   R12:
     what: worker pool ceiling, the swept axis
-    record: n
+    record: settings.n
     status: active
-    notes: maxReplicaCount on the ScaledObject, set by point.py before preflight
+    notes: maxReplicaCount on the ScaledObject, patched by jobs_point.py before the load
   R13:
     what: units enqueued per point
-    record: count
+    record: settings.count
     status: active
   R14:
     what: offered rate, units per second
-    record: offered_rate
+    record: settings.rate
     status: active
-    notes: produce.py --rate, an open model
+    notes: produce.py --rate, passed by jobs_point.py --rate; an open model

@@ -1,11 +1,26 @@
-# How a point of this execution is run and judged: when its window closes,
-# and what makes the point valid. scripts/point.py reads it beside
-# metrics.yaml. Neither may change between points of one sweep.
+# How a point of this execution is run and judged: what it is run with, when
+# its window closes, and what makes the point valid. scripts/jobs_point.py
+# reads it beside metrics.yaml. Neither may change between points of one sweep.
+
+point:
+  settings:
+    n: {}                       # the worker pool ceiling, the swept axis
+    count: {}                   # units enqueued, held within a pass
+    rate: {default: '40'}       # units offered per second, open model
+  load: background
+  # Above the ScaledObject's cooldownPeriod (20 s), or the hold completes while
+  # the pool is still winding down. keda/scaledobject.yaml says so from its side.
+  hold_seconds: 30
+  freeze: [deployment/worker, deployment/results]
+  # The scrape interval: a drain is a minute or two, and a queue-depth curve
+  # sampled six times is not a curve.
+  step: 5s
+  guards_at: window_end
 
 window_closes_when_back_to_idle:
   # The always-on tier the workers lean on: it scales up under load and must
   # come back down for the window to close. The queues and the worker pool are
-  # point.py's own.
+  # jobs_point.py's own.
   results:
     idle_replicas: 1
 

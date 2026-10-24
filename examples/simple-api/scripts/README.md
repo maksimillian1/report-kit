@@ -1,44 +1,53 @@
 # simple-api/scripts — the machinery behind `../execution.md`
 
 A local cluster with a workload that costs CPU to serve, an HPA that scales it,
-Prometheus scraping it per pod, and a ~70-line runner that measures one point.
-Running the grid below is what produced every number in `../execution.md` and
-`../report.md`.
+Prometheus scraping it per pod, and the runner `report-kit new-point --profile
+api` copied here. Running the grid below is what produced every number in
+`../execution.md` and `../report.md`.
 
 ```bash
 ./up.sh                                          # kind cluster + workload (~2 min)
-./point.py --run rate-04 --rate 4  --duration 45s
-./point.py --run rate-24 --rate 24 --duration 45s   # ends and middle first,
-./point.py --run rate-12 --rate 12 --duration 45s   #   methodology.md §6
-./point.py --run rate-40 --rate 40 --duration 45s   # the range was too small
-./point.py --run rate-32 --rate 32 --duration 45s
+./api_point.py --set-freeze                      # once, at the start of the sweep
+./api_point.py --run rate-04 --rate 4
+./api_point.py --run rate-24 --rate 24           # ends and middle first,
+./api_point.py --run rate-12 --rate 12           #   methodology.md §6
+./api_point.py --run rate-40 --rate 40           # the range was too small
+kubectl -n report-kit-example patch hpa mock-api --type=merge -p '{"spec":{"maxReplicas":1}}'
+./api_point.py --run rate-32 --rate 32           # #05, invalid on purpose: one replica
+kubectl -n report-kit-example patch hpa mock-api --type=merge -p '{"spec":{"maxReplicas":4}}'
+./api_point.py --run rate-32b --rate 32          # #06, the re-run
 ./down.sh                                        # delete the cluster
 ```
 
-About **two minutes per point**: 45 s of load, ~40 s waiting for the autoscaler
-to come back down, 20 s of hold, then export and guards.
+About **two minutes per point**: 45 s of load (`duration` defaults to 45s in
+`../execution.yaml`), ~40 s waiting for the autoscaler to come back down,
+20 s of hold, then export and guards.
 
 **Leave a gap between points.** A pod that has just scaled in is still a scrape
 target for an interval or two and reports `up == 0`, which fails the next
-point's preflight. Wait until `up == 0` returns nothing — 0–20 s in practice.
+point's preflight. `./api_point.py --run x --rate 1 --preflight-only` says when
+it is clear — 0–20 s in practice.
 
 ## Files
 
 | | |
 | :--- | :--- |
-| `point.py` | the runner: preflight → load → hold → export → guards → record |
+| `api_point.py` | the runner, from `report-kit new-point`: preflight → load → watch, then `report-kit point finish` |
 | `load.js` | k6, constant arrival rate; writes its summary next to the point |
 | `env.yaml` | addresses, port-forwards, and the generator command |
-| `../metrics.yaml` | what `point.py` exports (M4–M6; M1–M3 are client-side, from k6) |
-| `../execution.yaml` | the deployment the window waits for, and what makes a point invalid |
+| `image-freeze.json` | the image the sweep measured, written by `--set-freeze` |
+| `../metrics.yaml` | what is read: M4–M6 exported from Prometheus, M1–M3 from k6's summary in the record, D8 and R9 worked out of it |
+| `../execution.yaml` | what a point is run with (`point:`), the deployment the window waits for, and what makes a point invalid |
 | `manifests/` | the mock API with its HPA, and Prometheus with per-pod scraping |
 | `data/` | what the runs wrote — the evidence `../execution.md` cites |
 
-`point.py` is the script that produced `data/`, kept as it ran: no image
-freeze, git facts or ceiling tracking, and its own export and guards rather
-than `report-kit point finish`. Read this one to see the shape; run
-`report-kit new-point` to get the real one, whose settings live in
-`execution.yaml` and whose steps after the window are the library's.
+What is left in `api_point.py` beyond the template is what only this system
+knows: how k6's summary reads (`client_summary`, kept unrounded under
+`observations.client`, where `../metrics.yaml` reads M1–M3) and that k6's
+exit 99 — a breached threshold — is the finding rather than a doubt about the
+load. Everything after the window closes is the library's, so
+`report-kit point finish data/<run>.point.json --force` re-exports a point and
+works out every ref again from the record alone.
 
 It imports `report_kit` like any other package — this example is an ordinary
 consumer of the installed kit, which is why a green run here also proves the
@@ -46,31 +55,51 @@ install is sound.
 
 ## What the run shows
 
-Verified output, not an illustration:
+Verified output, not an illustration — `rate-24`, with the watch's per-poll
+lines left out and paths shortened:
 
 ```
-[  ok  ] mock-api at idle — 1 replica(s)
+-> preflight
+[  ok  ] mock-api at idle — 1 replica(s), idle 1
 [  ok  ] prometheus targets up
--> generator · k6 run --quiet --summary-export .../rate-24.summary.json ...
-[  ok  ] generator exit 0 · 0h00m45s
--> waiting for scale-in (hold 20s)
-    replicas=4                          ← the HPA scaled out under load
-    replicas=1 · held 21s               ← held, so the window may close
-[  ok  ] window 2026-10-22T15:19:59Z .. 2026-10-22T15:21:22Z (0h01m22s)
+ warn  not pinned by digest: deployment/mock-api — a tag can move under a frozen name
+[  ok  ] image freeze matches
+-> generator · k6 run --quiet --summary-export data/rate-24.summary.json -e TARGET_RATE=24 -e DURATION=45s ...
+[  ok  ] generator exit 0 · 0h00m45s · data/rate-24.generator.log
+-> watching the window close — hold 20s, poll 3s, timeout 0h05m00s
+ warn  max_replicas reached: mock-api — this point measures that limit, not the system
+[  ok  ] window 2026-10-23T15:14:10Z .. 2026-10-23T15:15:39Z (0h01m28s)
 [  ok  ] M4 — 1 series, 6 points          … M5, M6
 [  ok  ] guard G1 = 4  [min 1]
 [  ok  ] guard G2 = 0  [max 0]
+[  ok  ] data/rate-24.point.md
 ```
 
-Two details there matter more than the rest.
+and the end of `data/rate-24.point.md`, every ref `../metrics.yaml` defines
+worked out of the record by `report-kit point finish`:
 
-**`guard G1 = 4`.** G1 counts serving instances, evaluated at the instant the
-load stopped. Asked at "now" — after scale-in — the same query returns 1.
-Guards run minutes after the load ends, so checking them at "now" measures the
-idle system and passes quietly. That is what `at=` is for.
+```
+| M1 | requests served per second | 23.9457 |
+| M2 | client-observed latency p95 | 386.372 |
+| M3 | share of requests not served | 0 |
+| D8 | offered load actually served | 0.997738 |
+| R9 | offered rate, the swept axis | 24 |
+```
+
+Three details there matter more than the rest.
+
+**`guard G1 = 4`.** G1 counts serving instances, read as of the instant the
+load stopped (`guards_at: load_end`, from `events.load_finished`). Asked at
+"now" — after scale-in — the same query returns 1. Guards run minutes after
+the load ends, so checking them at "now" measures the idle system and passes
+quietly.
+
+**`max_replicas reached`.** Every valid point of this grid reaches the HPA's
+ceiling of 4, and the record says so under `observations.ceilings_reached`:
+the curve describes this autoscaler configuration, not the service.
 
 **The offered rate is not the served rate.** At 40 req/s this cluster served
-22.9 and never started 556 iterations. That gap is the finding, and it only
+27.3 and never started 315 iterations. That gap is the finding, and it only
 appears because the generator offers load on a schedule instead of waiting for
 replies.
 

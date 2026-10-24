@@ -2,12 +2,11 @@ meta:
   updated: 2026-10-22
   rule: every value the two documents print exists here; each renders it at whatever precision it needs
   rounding: >-
-    A value carries what the point record carries, and rounds only at print. The runner already
-    rounded k6's raw summary once — p95 to a tenth, the failure share to four places — and that
-    record is the evidence. Rounding a second time in here looked harmless while every document
-    printed whole milliseconds, but it put the registry and its own source out of step: p95 read
-    103 against a recorded 103.3, so a document that wanted one decimal would have been rejected
-    for printing the true number. display: decides what a page shows; value: stays as measured
+    A value carries what the point record carries, and rounds only at print. The runner keeps
+    k6's summary as k6 wrote it, unrounded, under observations.client, and metrics.yaml reads
+    M1-M3 from there and works D8 out of them, so the registry and its evidence cannot drift
+    apart by a rounding step taken in between. display: decides what a page shows; value: stays
+    as measured
   note: >-
     Checked by `report-kit values --path examples/simple-api/report-values.yaml check`.
     This file is also the shape a project's own registry takes. Every value a run's data
@@ -90,7 +89,7 @@ values:
     ref: VM1
     kind: M
     point: r04
-    value: 4
+    value: 3.99952147947454
     from: {file: scripts/data/rate-04.point.json, metric: M1}
     unit: req_per_second
 
@@ -98,7 +97,7 @@ values:
     ref: VM2
     kind: M
     point: r12
-    value: 11.99
+    value: 11.9985516414996
     from: {file: scripts/data/rate-12.point.json, metric: M1}
     unit: req_per_second
 
@@ -106,7 +105,7 @@ values:
     ref: VM3
     kind: M
     point: r24
-    value: 23.97
+    value: 23.945703383641
     from: {file: scripts/data/rate-24.point.json, metric: M1}
     unit: req_per_second
 
@@ -114,7 +113,7 @@ values:
     ref: VM4
     kind: M
     point: r32
-    value: 31.82
+    value: 31.7172107663363
     from: {file: scripts/data/rate-32.point.json, metric: M1}
     unit: req_per_second
     source: 'ledger #05 - excluded from the curve fit, it ran against one replica. Registered anyway, because the document prints it to explain why it was excluded'
@@ -123,7 +122,7 @@ values:
     ref: VM5
     kind: M
     point: r32b
-    value: 31.33
+    value: 31.7507969118135
     from: {file: scripts/data/rate-32b.point.json, metric: M1}
     unit: req_per_second
     source: 'ledger #06, the re-run at four replicas'
@@ -133,7 +132,7 @@ values:
     ref: VM6
     kind: M
     point: r40
-    value: 22.92
+    value: 27.3007224550132
     from: {file: scripts/data/rate-40.point.json, metric: M1}
     unit: req_per_second
 
@@ -141,7 +140,7 @@ values:
     ref: VM7
     kind: M
     point: r04
-    value: 103.3
+    value: 94.7892
     from: {file: scripts/data/rate-04.point.json, metric: M2}
     unit: milliseconds
     display: 0
@@ -150,7 +149,7 @@ values:
     ref: VM8
     kind: M
     point: r12
-    value: 188
+    value: 241.117849999999
     from: {file: scripts/data/rate-12.point.json, metric: M2}
     unit: milliseconds
     display: 0
@@ -159,7 +158,7 @@ values:
     ref: VM9
     kind: M
     point: r24
-    value: 304.3
+    value: 386.3723
     from: {file: scripts/data/rate-24.point.json, metric: M2}
     unit: milliseconds
     display: 0
@@ -169,7 +168,7 @@ values:
     ref: VM10
     kind: M
     point: r32
-    value: 734.4
+    value: 940.72865
     from: {file: scripts/data/rate-32.point.json, metric: M2}
     unit: milliseconds
     display: 0
@@ -179,7 +178,7 @@ values:
     ref: VM11
     kind: M
     point: r32b
-    value: 1260.8
+    value: 813.4152
     from: {file: scripts/data/rate-32b.point.json, metric: M2}
     unit: milliseconds
     display: 0
@@ -189,7 +188,7 @@ values:
     ref: VM12
     kind: M
     point: r40
-    value: 10000.8
+    value: 9839.97
     from: {file: scripts/data/rate-40.point.json, metric: M2}
     unit: milliseconds
     display: 0
@@ -246,7 +245,7 @@ values:
     ref: VM18
     kind: M
     point: r40
-    value: 15.02
+    value: 4.91251682368775
     from: {file: scripts/data/rate-40.point.json, metric: M3, scale: 100}
     unit: percent
     display: 1
@@ -254,7 +253,7 @@ values:
   share_r04:
     ref: VD1
     kind: D
-    value: 100
+    value: 99.9880369868636
     point: r04
     from: {file: scripts/data/rate-04.point.json, metric: D8, scale: 100}
     unit: percent
@@ -264,7 +263,7 @@ values:
   share_r12:
     ref: VD2
     kind: D
-    value: 99.9166666666667
+    value: 99.9879303458303
     point: r12
     from: {file: scripts/data/rate-12.point.json, metric: D8, scale: 100}
     unit: percent
@@ -274,7 +273,7 @@ values:
   share_r24:
     ref: VD3
     kind: D
-    value: 99.875
+    value: 99.773764098504
     point: r24
     from: {file: scripts/data/rate-24.point.json, metric: D8, scale: 100}
     unit: percent
@@ -284,7 +283,7 @@ values:
   share_r32:
     ref: VD4
     kind: D
-    value: 99.4375
+    value: 99.116283644801
     point: r32
     from: {file: scripts/data/rate-32.point.json, metric: D8, scale: 100}
     unit: percent
@@ -294,7 +293,7 @@ values:
   share_r32b:
     ref: VD5
     kind: D
-    value: 97.90625
+    value: 99.2212403494172
     point: r32b
     from: {file: scripts/data/rate-32b.point.json, metric: D8, scale: 100}
     unit: percent
@@ -304,7 +303,7 @@ values:
   share_r40:
     ref: VD6
     kind: D
-    value: 57.3
+    value: 68.2518061375331
     point: r40
     from: {file: scripts/data/rate-40.point.json, metric: D8, scale: 100}
     unit: percent

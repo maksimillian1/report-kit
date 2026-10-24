@@ -1,18 +1,27 @@
 {
-  "count": 1200,
-  "drain_window": {
-    "end": "2026-10-22T16:24:47Z",
-    "seconds": 53.4,
-    "start": "2026-10-22T16:23:53Z"
+  "commit": "1d9d592182a50bc7253b966089183e55a24dafa5",
+  "dirty": true,
+  "doubts": [],
+  "events": {
+    "drained": 1792774528.032329,
+    "load_finished": 1792774507.749441,
+    "load_started": 1792774477.622634,
+    "queues_empty": 1792774528.032229,
+    "window_closed": 1792774559.336362
   },
-  "drained_per_second": 22.46,
-  "empty_refs": [],
-  "final_counters": {
-    "completed": 1200,
-    "enqueued": 1200,
-    "retried": 60
+  "export": {
+    "empty_refs": [],
+    "path": "/Users/maksimsnitcuk/Applications/personal/report-kit/examples/async-jobs/scripts/data/n08-long-b.jsonl",
+    "points": 115,
+    "series": 7
   },
   "guard_failures": [],
+  "guard_values": {
+    "G1": 0.0,
+    "G2": 1200.0,
+    "G3": 0.0,
+    "G4": 2.0
+  },
   "guards": [
     {
       "max": 0.0,
@@ -35,10 +44,48 @@
       "ref": "G4"
     }
   ],
-  "n": 8,
-  "offered_rate": "40",
-  "peak_worker_pods": 8,
-  "producer_exit": 0,
+  "images": {
+    "deployment/results": [
+      "python:3.12-alpine"
+    ],
+    "deployment/worker": [
+      "python:3.12-alpine"
+    ]
+  },
+  "kit_version": "0.4.0",
+  "load": {
+    "exit": 0,
+    "window": {
+      "end": "2026-10-23T16:55:07Z",
+      "seconds": 30.126807,
+      "start": "2026-10-23T16:54:37Z"
+    }
+  },
+  "observations": {
+    "ceilings_reached": [],
+    "final_counters": {
+      "completed": 1200,
+      "enqueued": 1200,
+      "retried": 60
+    },
+    "peaks": {
+      "counters.completed": 1200.0,
+      "counters.enqueued": 1200.0,
+      "counters.retried": 60.0,
+      "outstanding": 548.0,
+      "queues.retry": 60.0,
+      "queues.work": 505.0,
+      "tiers.results": 2.0,
+      "workers": 8.0
+    },
+    "units_outstanding_at_close": 0
+  },
+  "plan": {
+    "guards_at": "window_end",
+    "hold_seconds": 30.0,
+    "load": "background",
+    "step": "5s"
+  },
   "profile": "jobs",
   "queries": {
     "M1": "max(jobs_queue_depth{queue=\"work\"})",
@@ -50,10 +97,14 @@
     "M7": "sum(rate(results_seconds_total[30s]))"
   },
   "run": "n08-long-b",
-  "units_outstanding_at_close": 0,
+  "settings": {
+    "count": "1200",
+    "n": "8",
+    "rate": "40"
+  },
   "window": {
-    "end": "2026-10-22T16:25:15Z",
-    "seconds": 81.5,
-    "start": "2026-10-22T16:23:53Z"
+    "end": "2026-10-23T16:55:59Z",
+    "seconds": 81.713728,
+    "start": "2026-10-23T16:54:37Z"
   }
 }

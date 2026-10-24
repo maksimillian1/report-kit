@@ -5,16 +5,17 @@ and a producer that runs *while* the system drains. Running the grid below is
 what produced every number in `../execution.md` and `../report.md`.
 
 ```bash
-./up.sh                                              # kind + KEDA + workload (~3 min)
-./point.py --run n01-long --n 1 --count 1200         # ends first,
-./point.py --run n08-long --n 8 --count 1200         #   methodology.md §6
-./point.py --run n02-long --n 2 --count 1200         # then the middle
-./point.py --run n04-long --n 4 --count 1200         # then place the rest by the shape
-./point.py --run n08-long-b --n 8 --count 1200       # a repeat, to size the noise
-./down.sh                                            # delete the cluster
+./up.sh                                                  # kind + KEDA + workload (~3 min)
+./jobs_point.py --set-freeze                             # once, at the start of the sweep
+./jobs_point.py --run n01-long --n 1 --count 1200        # ends first,
+./jobs_point.py --run n08-long --n 8 --count 1200        #   methodology.md §6
+./jobs_point.py --run n02-long --n 2 --count 1200        # then the middle
+./jobs_point.py --run n04-long --n 4 --count 1200        # then place the rest by the shape
+./jobs_point.py --run n08-long-b --n 8 --count 1200      # a repeat, to size the noise
+./down.sh                                                # delete the cluster
 ```
 
-`--n` is the **worker pool ceiling** — the axis. `point.py` patches it into
+`--n` is the **worker pool ceiling** — the axis. `jobs_point.py` patches it into
 the ScaledObject at the start of each point, so the run and the record cannot
 disagree about what was measured.
 
@@ -47,13 +48,14 @@ The last row is the one that bites. See *Counters that outlive the pods*.
 
 | | |
 | :--- | :--- |
-| `point.py` | the runner: preflight → arm → producer+watch → export → guards → record |
+| `jobs_point.py` | the runner, from `report-kit new-point --profile jobs`: preflight → ceiling → arm → producer+watch, then `report-kit point finish` |
 | `produce.py` | the producer: enqueues at a constant offered rate, in the background |
 | `resp.py` | the ten lines of the Redis wire protocol both sides need |
 | `cluster/` | what runs *in* the cluster: `worker.py`, `results.py`, `exporter.py` |
 | `env.yaml` | addresses, queue keys, counter keys, and the producer command |
-| `../metrics.yaml` | what `point.py` exports (M1–M7) |
-| `../execution.yaml` | the tier the window waits for, and what makes a point invalid — conservation, above all |
+| `image-freeze.json` | the images the sweep measured, written by `--set-freeze` |
+| `../metrics.yaml` | what is read: M1–M7 exported, D8–D10 and R12–R14 worked out of each point's record and export |
+| `../execution.yaml` | what a point is run with (`point:`), the tier the window waits for, and what makes a point invalid — conservation, above all |
 | `manifests/` | redis + exporter, the worker deployment, the shared tier and its HPA, Prometheus |
 | `keda/` | the ScaledObject — separate because it needs CRDs `up.sh` installs first |
 | `data/` | what the runs wrote — the evidence `../execution.md` cites |
@@ -63,12 +65,16 @@ from this directory rather than pasted into YAML. `resp.py` goes into the same
 ConfigMap, so the host and the pods speak to the queue through one file
 instead of two copies that drift.
 
-`point.py` is the script that produced `data/`, kept as it ran: no image
-freeze, git facts or node-loss tracking, and it divides the drain rate
-itself, which is why `../metrics.yaml` reads D8 and D9 as fields of its
-record. Read this one to see the shape; run `report-kit new-point --profile
-jobs` to get the real one, which records the instants and leaves the
-division to the register.
+`jobs_point.py` is the template with what only this system knows put in:
+the queues are Redis lists rather than SQS, the pool that has to reach zero is
+the worker pods rather than a node pool, a point starts by patching its
+ceiling into the ScaledObject and clearing the counters, and the watch keeps
+two instants as `events` — `queues_empty`, and `drained`, the first poll at
+which every unit enqueued has been completed. `../metrics.yaml` measures the
+drain between `events.load_started` and `events.drained`, both unrounded, and
+divides the completed count by it; nothing in the runner computes a number a
+document prints. `report-kit point finish data/<run>.point.json --force` works
+every ref out again from the record alone.
 
 It imports `report_kit` like any other package — this example is an ordinary
 consumer of the installed kit, which is why a green run here also proves the
@@ -81,8 +87,8 @@ install is sound.
 Not before it. Filling the queue first and then starting to watch measures a
 system draining a backlog that already exists — a different experiment with a
 different answer, and the arrival pattern that built the backlog is gone from
-the data. `report_kit.proc.Background` is that shape, and `point.py` uses it
-in four lines.
+the data. `report_kit.launch.start_load` is that shape, and `jobs_point.py`
+watches inside it.
 
 ### 2 · The window closes on three conditions, held
 
@@ -99,7 +105,7 @@ them alone reads "done" while work is still in flight somewhere else:
 - **Tier at floor** is the slowest of the three here — the shared tier's HPA
   reacts on a lag and often scales *up* after the drain has finished.
 
-`poll.wait_until_stable` requires all three to hold for `HOLD_SECONDS` (30 s),
+`report_kit.watch` requires all three to hold for `point.hold_seconds` (30 s),
 which has to sit above the ScaledObject's `cooldownPeriod` (20 s) or the hold
 completes while the pool is still winding down.
 
@@ -130,57 +136,69 @@ the pool being absent at both ends of the window, not a gap.
 
 ## What the run shows
 
-Verified output, not an illustration:
+Verified output, not an illustration — `n01-long`, the watch's 110 polls cut
+to the ones where something changed, the counters left off each line:
 
 ```
 [  ok  ] queues empty — retry=0 work=0
 [  ok  ] worker pool at zero — 0 pod(s)
-[  ok  ] results at floor — 1 replica(s), floor 1
+[  ok  ] results at idle — 1 replica(s), idle 1
 [  ok  ] prometheus targets up
--> arming counters
-[  ok  ] cleared 3 key(s): jobs:work, jobs:retry, jobs:enqueued, jobs:done, jobs:retried
+[  ok  ] worker pool ceiling set to 1
+-> clearing jobs:work, jobs:retry, jobs:enqueued, jobs:done, jobs:retried
 
 -> producer (background) · python3 produce.py ... --count 1200 --rate 40
 
--> watching the drain — hold 30s, poll 3.0s, timeout 0h15m00s
-    q[retry=0 work=0]     workers=0  results=1 outstanding=0    producer=running
-    q[retry=0 work=120]   workers=1  results=1 outstanding=121  producer=running
-    q[retry=9 work=676]   workers=1  results=1 outstanding=686  producer=running   ← arrivals outrun the drain
-    q[retry=17 work=1068] workers=1  results=1 outstanding=1086 producer=done
-      … 76 polls …
-    q[retry=48 work=0]    workers=1  results=2 outstanding=49   producer=done      ← work queue empty, 48 retries left
-    q[retry=6 work=0]     workers=1  results=2 outstanding=7    producer=done
-    q[retry=0 work=0]     workers=1  results=2 outstanding=0    producer=done      ← every queue empty; still not done
-    q[retry=0 work=0]     workers=0  results=2 outstanding=0    producer=done      ← pool gone; tier still above floor
-    q[retry=0 work=0]     workers=0  results=1 outstanding=0    producer=done · held 0s/30s
+-> watching the window close — hold 30s, poll 3s, timeout 0h15m00s
+    queues.work=0   queues.retry=0  workers=0 tiers.results=1 outstanding=0      ← idle, and not yet busy: no hold
+    queues.work=121 queues.retry=0  workers=1 tiers.results=1 outstanding=122
+    queues.work=951 queues.retry=18 workers=1 tiers.results=1 outstanding=970    ← arrivals outrun the drain
+      … 85 polls …
+    queues.work=0   queues.retry=57 workers=1 tiers.results=2 outstanding=58     ← work queue empty, 57 retries left
+    queues.work=0   queues.retry=2  workers=1 tiers.results=2 outstanding=3
+    queues.work=0   queues.retry=0  workers=1 tiers.results=2 outstanding=0      ← drained: events.drained; still not done
+    queues.work=0   queues.retry=0  workers=1 tiers.results=1 outstanding=0      ← tier back at its floor; a worker still up
+    queues.work=0   queues.retry=0  workers=0 tiers.results=1 outstanding=0 · held 0s/30s
       … 9 polls …
-    q[retry=0 work=0]     workers=0  results=1 outstanding=0    producer=done · held 31s/30s
+    queues.work=0   queues.retry=0  workers=0 tiers.results=1 outstanding=0 · held 31s/30s
 
-[  ok  ] window 2026-09-09T15:46:23Z .. 2026-09-09T15:51:28Z (0h05m05s)
--> exporting 7 ref(s) · 2026-09-09T15:46:23Z .. 2026-09-09T15:51:28Z · step 5s
-[  ok  ] M1 — 1 series, 62 points          … M2 … M7
-[  ok  ] data/n01-long.jsonl · 7 series · 431 points
+[  ok  ] window 2026-10-23T16:40:23Z .. 2026-10-23T16:45:32Z (0h05m09s)
+-> exporting 7 ref(s) · 2026-10-23T16:40:23Z .. 2026-10-23T16:45:32Z · step 5s
+[  ok  ] data/n01-long.jsonl · 7 series · 432 points
 
-[  ok  ] guard G1 = 0     [max 0]          ← 1200 enqueued, 1200 completed
+[  ok  ] guard G1 = 0  [max 0]          ← 1200 enqueued, 1200 completed
 [  ok  ] guard G2 = 1200  [min 1200]
-[  ok  ] guard G3 = 0     [max 0]
-[  ok  ] guard G4 = 2     [min 1]
+[  ok  ] guard G3 = 0  [max 0]
+[  ok  ] guard G4 = 2  [min 1]
+```
+
+and the end of `data/n01-long.point.md`, every ref `../metrics.yaml` defines
+worked out of the record and its export by `report-kit point finish`:
+
+```
+| D8 | drain duration | 290.338 |
+| D9 | sustained drain rate | 4.13311 |
+| D10 | shared-tier mean service time | 0.077705 |
+| R12 | worker pool ceiling, the swept axis | 1 |
+| R13 | units enqueued per point | 1200 |
+| R14 | offered rate, units per second | 40 |
 ```
 
 Three details there matter more than the rest.
 
-**The three close conditions come true at three different times, in that
-order.** The work queue empties with 48 retried units still waiting. Both
-queues then read empty while a worker is still holding one. The pool reaches
-zero while the shared tier is still at 2 replicas, because its HPA scaled it
-*up* after the drain had already ended. Only on the next poll does the hold
-begin — and a runner closing on any single one of those readings would have
-recorded a shorter window than the run.
+**The close conditions come true at different times.** The work queue empties
+with 57 retried units still waiting. Both queues then read empty, with every
+unit completed — the drain is over, and D8 ends there — while a worker is
+still up and the shared tier is still at 2 replicas. The tier comes back to
+its floor next, the pool reaches zero after it, and only then does the hold
+begin. A runner closing on any single one of those readings would have
+recorded a shorter window than the run; one closing on all of them but
+reporting its rate over the window would have averaged over the wind-down.
 
 **`outstanding` is the number no queue can give you.** `BRPOP` is destructive,
 so a popped unit exists in no queue and in no counter; `enqueued - completed`
-is the only place it shows up. It is what makes `q[retry=0 work=0] …
-outstanding=0` a claim rather than a hope — and `G1` is that same arithmetic
+is the only place it shows up. It is what makes `queues.work=0 queues.retry=0
+… outstanding=0` a claim rather than a hope — and `G1` is that same arithmetic
 checked at the window's close.
 
 **The retry queue refills after the work queue reads empty**, in every run
@@ -224,8 +242,8 @@ the cost or interruption logic is.
 
 - `up.sh` installs metrics-server with `--kubelet-insecure-tls`; kind's kubelet
   serving certificates are self-signed and the shared tier's HPA needs metrics.
-- **`cooldownPeriod` and `HOLD_SECONDS` are one decision made in two files.**
-  `keda/scaledobject.yaml` cuts the cooldown to 20 s and `point.py` holds for
+- **`cooldownPeriod` and `hold_seconds` are one decision made in two files.**
+  `keda/scaledobject.yaml` cuts the cooldown to 20 s and `../execution.yaml` holds for
   30 s. Raise the cooldown without raising the hold and the window closes
   while the pool is still winding down.
 - The shared tier's HPA `scaleDown.stabilizationWindowSeconds` is cut to 15 s

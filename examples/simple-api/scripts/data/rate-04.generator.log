@@ -8,21 +8,21 @@
 
   █ TOTAL RESULTS 
 
-    checks_total.......: 180     3.999435/s
+    checks_total.......: 180     3.999521/s
     checks_succeeded...: 100.00% 180 out of 180
     checks_failed......: 0.00%   0 out of 180
 
     ✓ status 200
 
     HTTP
-    http_req_duration..............: avg=63.9ms  min=53.07ms med=61.18ms max=113.77ms p(90)=66.46ms p(95)=103.26ms
-      { expected_response:true }...: avg=63.9ms  min=53.07ms med=61.18ms max=113.77ms p(90)=66.46ms p(95)=103.26ms
+    http_req_duration..............: avg=68.39ms min=42ms    med=66.86ms max=97.57ms  p(90)=93.99ms p(95)=94.78ms
+      { expected_response:true }...: avg=68.39ms min=42ms    med=66.86ms max=97.57ms  p(90)=93.99ms p(95)=94.78ms
     http_req_failed................: 0.00% 0 out of 180
-    http_reqs......................: 180   3.999435/s
+    http_reqs......................: 180   3.999521/s
 
     EXECUTION
-    iteration_duration.............: avg=64.67ms min=53.25ms med=61.59ms max=116.45ms p(90)=66.74ms p(95)=105.81ms
-    iterations.....................: 180   3.999435/s
+    iteration_duration.............: avg=69.08ms min=42.32ms med=70.02ms max=101.21ms p(90)=95.06ms p(95)=95.67ms
+    iterations.....................: 180   3.999521/s
     vus............................: 0     min=0        max=0 
     vus_max........................: 10    min=10       max=10
 

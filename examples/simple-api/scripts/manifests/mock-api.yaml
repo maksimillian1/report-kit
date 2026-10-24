@@ -140,7 +140,7 @@ spec:
       policies: [{type: Pods, value: 2, periodSeconds: 15}]
     scaleDown:
       # Kubernetes defaults to 300s here. Shortened so the example finishes in
-      # minutes — in a real sweep, leave the default and set HOLD_SECONDS
+      # minutes — in a real sweep, leave the default and set point.hold_seconds
       # longer than it, or the window closes during a lull.
       stabilizationWindowSeconds: 15
       policies: [{type: Pods, value: 2, periodSeconds: 15}]

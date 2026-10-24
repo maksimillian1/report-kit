@@ -1,55 +1,55 @@
 {
   "run": "n02",
-  "exported_at": "2026-10-22T15:55:10Z",
+  "exported_at": "2026-10-23T16:36:53Z",
   "prom_url": "http://localhost:9092",
   "step": "5s",
   "window": {
-    "start": "2026-10-22T15:53:11Z",
-    "end": "2026-10-22T15:54:39Z",
-    "seconds": 87.6
+    "start": "2026-10-23T16:35:07Z",
+    "end": "2026-10-23T16:36:22Z",
+    "seconds": 75.259904
   },
   "refs": [
     {
       "ref": "M1",
       "query": "max(jobs_queue_depth{queue=\"work\"})",
       "series": 1,
-      "points": 18
+      "points": 16
     },
     {
       "ref": "M2",
       "query": "max(jobs_queue_depth{queue=\"retry\"})",
       "series": 1,
-      "points": 18
+      "points": 16
     },
     {
       "ref": "M3",
       "query": "max(jobs_inflight)",
       "series": 1,
-      "points": 18
+      "points": 16
     },
     {
       "ref": "M4",
       "query": "count(up{job=\"worker\"} == 1)",
       "series": 1,
-      "points": 15
+      "points": 14
     },
     {
       "ref": "M5",
       "query": "sum(rate(jobs_completed_total[30s]))",
       "series": 1,
-      "points": 18
+      "points": 16
     },
     {
       "ref": "M6",
       "query": "count(up{job=\"results\"} == 1)",
       "series": 1,
-      "points": 18
+      "points": 16
     },
     {
       "ref": "M7",
       "query": "sum(rate(results_seconds_total[30s]))",
       "series": 1,
-      "points": 18
+      "points": 16
     }
   ]
 }

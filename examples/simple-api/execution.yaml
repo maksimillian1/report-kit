@@ -1,12 +1,23 @@
-# How a point of this execution is run and judged: when its window closes,
-# and what makes the point valid. scripts/point.py reads it beside
-# metrics.yaml. Neither may change between points of one sweep.
+# How a point of this execution is run and judged: what it is run with, when
+# its window closes, and what makes the point valid. scripts/api_point.py
+# reads it beside metrics.yaml. Neither may change between points of one sweep.
+
+point:
+  settings:
+    rate: {}                    # TARGET_RATE in scripts/load.js, the swept axis
+    duration: {default: 45s}
+  # Above the HPA's 15 s scale-down stabilisation, so the hold cannot complete
+  # in a lull between two scaling decisions.
+  hold_seconds: 20
+  freeze: [deployment/mock-api]
+  guards_at: load_end
 
 window_closes_when_back_to_idle:
   # The HPA scales mock-api out under load; the window closes once it is back
   # at one replica and has stayed there.
   mock-api:
     idle_replicas: 1
+    max_replicas: 4             # the HPA's ceiling; every valid point above 4 req/s reaches it
 
 point_validity_guards:
   # What makes a point invalid, not what makes it

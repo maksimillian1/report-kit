@@ -2,13 +2,12 @@ meta:
   updated: 2026-10-22
   rule: every value the two documents print exists here; each renders it at whatever precision it needs
   rounding: >-
-    D9 is read from the point record, not divided out of D8 here, and that is deliberate. These
-    runs stored the drain rounded to a tenth of a second, so 1200 / 59.6 gives 20.13 where the
-    record says 20.14: the runner divided by the unrounded drain. A formula over the printed
-    drain would quietly disagree with the evidence, so metrics.yaml defines D9 as the record's
-    own field. A runner from 0.4 on stores its instants unrounded, and D9 becomes a formula.
-    Arithmetic at full precision, rounded once at print -- which also means you cannot
-    recover the precision a document threw away.
+    D8 and D9 are worked out of each point's record by metrics.yaml, not stored by the runner: D8
+    is events.drained - events.load_started, both epoch seconds kept unrounded, and D9 is the
+    completed count over D8. A value carries that full precision and rounds only at print, so a
+    rate the documents print to two places and a drain they print to one are the same arithmetic
+    the record holds, never one recomputed from the other's printed form -- you cannot recover
+    the precision a document threw away.
   note: >-
     Checked by `report-kit values --path examples/async-jobs/report-values.yaml check`.
     Every value a run's data holds reads it by its register ref -- from: {metric: D9} -- so
@@ -119,7 +118,7 @@ values:
     ref: VD1
     kind: D
     point: n01
-    value: 294.1
+    value: 290.338109970093
     from: {file: scripts/data/n01-long.point.json, metric: D8}
     unit: seconds
     display: 1
@@ -128,7 +127,7 @@ values:
     ref: VD2
     kind: D
     point: n02
-    value: 159.2
+    value: 153.347813129425
     from: {file: scripts/data/n02-long.point.json, metric: D8}
     unit: seconds
     display: 1
@@ -137,7 +136,7 @@ values:
     ref: VD3
     kind: D
     point: n04
-    value: 87.5
+    value: 90.7423188686371
     from: {file: scripts/data/n04-long.point.json, metric: D8}
     unit: seconds
     display: 1
@@ -146,7 +145,7 @@ values:
     ref: VD4
     kind: D
     point: n08
-    value: 59.6
+    value: 53.4224259853363
     from: {file: scripts/data/n08-long.point.json, metric: D8}
     unit: seconds
     display: 1
@@ -155,7 +154,7 @@ values:
     ref: VD5
     kind: D
     point: n08b
-    value: 53.4
+    value: 50.409695148468
     from: {file: scripts/data/n08-long-b.point.json, metric: D8}
     unit: seconds
     display: 1
@@ -165,16 +164,16 @@ values:
     ref: VD6
     kind: D
     point: n01
-    value: 4.08
+    value: 4.13311225358466
     from: {file: scripts/data/n01-long.point.json, metric: D9}
     unit: units_per_second
-    source: Taken from the point record rather than recomputed from drain_n01 -- see meta.rounding
+    source: completed units over the drain, at the record's full precision -- see meta.rounding
 
   rate_n02:
     ref: VD7
     kind: D
     point: n02
-    value: 7.54
+    value: 7.82534798189267
     from: {file: scripts/data/n02-long.point.json, metric: D9}
     unit: units_per_second
 
@@ -182,7 +181,7 @@ values:
     ref: VD8
     kind: D
     point: n04
-    value: 13.71
+    value: 13.2242598047023
     from: {file: scripts/data/n04-long.point.json, metric: D9}
     unit: units_per_second
 
@@ -190,7 +189,7 @@ values:
     ref: VD9
     kind: D
     point: n08
-    value: 20.14
+    value: 22.4624767195968
     from: {file: scripts/data/n08-long.point.json, metric: D9}
     unit: units_per_second
 
@@ -198,7 +197,7 @@ values:
     ref: VD10
     kind: D
     point: n08b
-    value: 22.46
+    value: 23.8049445938073
     from: {file: scripts/data/n08-long-b.point.json, metric: D9}
     unit: units_per_second
 
@@ -206,7 +205,7 @@ values:
     ref: VD11
     kind: D
     point: n01
-    value: 81.6015354199508
+    value: 77.7050462357238
     from: {file: scripts/data/n01-long.point.json, metric: D10, scale: 1000}
     unit: milliseconds
     display: 1
@@ -215,7 +214,7 @@ values:
     ref: VD12
     kind: D
     point: n02
-    value: 80.1519079329027
+    value: 78.9539282720406
     from: {file: scripts/data/n02-long.point.json, metric: D10, scale: 1000}
     unit: milliseconds
     display: 1
@@ -224,7 +223,7 @@ values:
     ref: VD13
     kind: D
     point: n04
-    value: 75.4949784142787
+    value: 81.9381200592455
     from: {file: scripts/data/n04-long.point.json, metric: D10, scale: 1000}
     unit: milliseconds
     display: 1
@@ -233,7 +232,7 @@ values:
     ref: VD14
     kind: D
     point: n08
-    value: 82.4518964233111
+    value: 87.2059168150033
     from: {file: scripts/data/n08-long.point.json, metric: D10, scale: 1000}
     unit: milliseconds
     display: 1
@@ -242,7 +241,7 @@ values:
     ref: VD15
     kind: D
     point: n08b
-    value: 82.5780946259551
+    value: 77.8447632546445
     from: {file: scripts/data/n08-long-b.point.json, metric: D10, scale: 1000}
     unit: milliseconds
     display: 1
@@ -251,7 +250,7 @@ values:
     ref: VM1
     kind: M
     point: n01
-    value: 1066
+    value: 1069
     from: {file: scripts/data/n01-long.jsonl, ref: M1, reduce: max}
     unit: units
     display: 0
@@ -261,7 +260,7 @@ values:
     ref: VM2
     kind: M
     point: n02
-    value: 1006
+    value: 959
     from: {file: scripts/data/n02-long.jsonl, ref: M1, reduce: max}
     unit: units
     display: 0
@@ -271,7 +270,7 @@ values:
     ref: VM3
     kind: M
     point: n04
-    value: 814
+    value: 896
     from: {file: scripts/data/n04-long.jsonl, ref: M1, reduce: max}
     unit: units
     display: 0
@@ -281,7 +280,7 @@ values:
     ref: VM4
     kind: M
     point: n08
-    value: 773
+    value: 568
     from: {file: scripts/data/n08-long.jsonl, ref: M1, reduce: max}
     unit: units
     display: 0
@@ -291,7 +290,7 @@ values:
     ref: VM5
     kind: M
     point: n08b
-    value: 616
+    value: 521
     from: {file: scripts/data/n08-long-b.jsonl, ref: M1, reduce: max}
     unit: units
     display: 0
@@ -465,7 +464,7 @@ values:
   window_n08:
     ref: VM6
     kind: M
-    value: 87.7
+    value: 78.485137
     from: {file: scripts/data/n08-long.point.json, path: window.seconds}
     unit: seconds
     display: 1
@@ -475,7 +474,7 @@ values:
   rate_p1_n08:
     ref: VD31
     kind: D
-    value: 12.69
+    value: 15.8872392310914
     from: {file: scripts/data/n08.point.json, metric: D9}
     unit: units_per_second
     source: the first pass's n08 point at 400 units. Registered because 7 quotes the pair it belongs to
@@ -484,7 +483,7 @@ values:
   rate_p1_relief:
     ref: VD32
     kind: D
-    value: 15.87
+    value: 12.7398613267584
     from: {file: scripts/data/n08-relief.point.json, metric: D9}
     unit: units_per_second
     source: n08-relief, the first pass's probe with the shared tier's ceiling at 4
@@ -505,7 +504,7 @@ values:
     formula: 100 - efficiency_n08
     unit: percent
     display: 0
-    source: the per-worker efficiency unaccounted for at the top of the grid — the "missing 38 %" the Coverage table declares unseparated
+    source: the per-worker efficiency unaccounted for at the top of the grid — the "missing 32 %" the Coverage table declares unseparated
     group: efficiency
 
   window_rate_n08:

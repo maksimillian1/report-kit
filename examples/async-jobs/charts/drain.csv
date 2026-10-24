@@ -1,7 +1,7 @@
 point,ceiling,throughput
 label,workers,units/s
-n01-long,1,4.08
-n02-long,2,7.54
-n04-long,4,13.71
-n08-long,8,20.14
-n08-long-b,8,22.46
+n01-long,1,4.13
+n02-long,2,7.83
+n04-long,4,13.22
+n08-long,8,22.46
+n08-long-b,8,23.80

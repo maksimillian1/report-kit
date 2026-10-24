@@ -170,11 +170,11 @@ in this repository.
 ### Start here
 
 ```bash
-cd examples/simple-api/scripts && ./up.sh && ./point.py --run demo --rate 8 --duration 45s
+cd examples/simple-api/scripts && ./up.sh && ./api_point.py --run demo --rate 8
 ```
 
 `examples/simple-api/` is the whole loop end to end: `scripts/up.sh` brings
-up a local cluster, six runs of `scripts/point.py` produce the ledger in
+up a local cluster, six runs of `scripts/api_point.py` produce the ledger in
 `execution.md`, and `report.md` is what those rows support.
 One of the six is invalid — it ran against the wrong replica count — and is
 carried as a row rather than deleted, which is the part worth reading.
@@ -352,8 +352,8 @@ pytest                               # scaffolding, and the registry's arithmeti
 report-kit values --path examples/simple-api/report-values.yaml check
 report-kit values --path examples/async-jobs/report-values.yaml check
 report-kit metrics check --all       # every register's table and the refs it names, examples and templates
-cd examples/simple-api/scripts  && ./up.sh && ./point.py --run demo --rate 8 --duration 45s
-cd examples/async-jobs/scripts  && ./up.sh && ./point.py --run demo --n 2 --count 400
+cd examples/simple-api/scripts  && ./up.sh && ./api_point.py --run demo --rate 8
+cd examples/async-jobs/scripts  && ./up.sh && ./jobs_point.py --run demo --n 2 --count 400
 ```
 
 The last two are the only checks that the kit still *measures* anything; the

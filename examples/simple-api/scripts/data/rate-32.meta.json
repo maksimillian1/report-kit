@@ -1,12 +1,12 @@
 {
   "run": "rate-32",
-  "exported_at": "2026-10-22T15:37:16Z",
+  "exported_at": "2026-10-23T15:30:01Z",
   "prom_url": "http://localhost:9091",
   "step": "15s",
   "window": {
-    "start": "2026-10-22T15:36:08Z",
-    "end": "2026-10-22T15:36:54Z",
-    "seconds": 45.5
+    "start": "2026-10-23T15:28:54Z",
+    "end": "2026-10-23T15:29:40Z",
+    "seconds": 45.52554
   },
   "refs": [
     {

@@ -20,11 +20,11 @@ spec:
   # drain is most of the run.
   pollingInterval: 2
   # How long both triggers must read inactive before the pool goes to zero.
-  # The default is 300s; the runner's HOLD_SECONDS has to sit above whatever
+  # The default is 300s; point.hold_seconds in ../execution.yaml has to sit above whatever
   # this is, or the window closes while the pool is still winding down.
   cooldownPeriod: 20
   minReplicaCount: 0
-  # The varied parameter. point.py patches this per point — it is the axis,
+  # The varied parameter. jobs_point.py patches this per point — it is the axis,
   # so it is the one thing in this file that is allowed to move during a sweep.
   maxReplicaCount: 1
   advanced:

@@ -59,11 +59,13 @@ example has no occasion to show:
 - **It has an `E` class.** The Expected line is a registered estimate that the
   run then falsified, so the document can print the prediction and the
   measurement side by side and both are checked.
-- **One value is deliberately *not* derived.** `D9` looks like units ÷ drain,
-  and is not: the drain is published rounded to a tenth of a second, so
-  `1200 / 59.6` gives `20.13` where the record says `20.14`. Precision a
-  document threw away cannot be recovered by re-deriving from it, and
-  `meta.rounding` says so.
+- **Its headline is worked out by the kit, not by the runner.** `D8`, the
+  drain, is `events.drained - events.load_started` — two instants the runner
+  records unrounded — and `D9` is the completed count over it. The runner
+  computes no number a document prints; `report-kit point finish` and
+  `values pull` both get there from the record, so a drain printed to a tenth
+  and a rate printed to a hundredth are one piece of arithmetic, not one
+  recomputed from the other's printed form. `meta.rounding` says so.
 
 Its §5 guardrail comparing a window rate against a drain rate is left
 **uncovered** on purpose — the third state in `formats.md`. The window value
@@ -94,12 +96,12 @@ pip install -e .                                    # from the repo root
 
 cd examples/simple-api/scripts
 ./up.sh                                             # kind cluster + workload, ~2 min
-./point.py --run demo --rate 8 --duration 45s
+./api_point.py --run demo --rate 8                 # --duration defaults to 45s
 ./down.sh                                           # delete the cluster
 
 cd examples/async-jobs/scripts
 ./up.sh                                             # kind + KEDA + workload, ~3 min
-./point.py --run demo --n 2 --count 400
+./jobs_point.py --run demo --n 2 --count 400
 ./down.sh
 ```
 

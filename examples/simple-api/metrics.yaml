@@ -1,20 +1,20 @@
-# The metric register: every ref this execution defines, once. scripts/point.py
+# The metric register: every ref this execution defines, once. scripts/api_point.py
 # reads it; `report-kit metrics write` renders the register table from it.
 
 metrics:
   M1:
     what: requests served per second
-    record: client.served_per_second
+    record: observations.client.served_per_second
     status: confirmed 2026-10-22
     notes: client-side, k6 summary `http_reqs.rate`; the numerator of D8
   M2:
     what: client-observed latency p95
-    record: client.p95_ms
+    record: observations.client.p95_ms
     status: confirmed 2026-10-22
     notes: k6 summary `http_req_duration.p(95)`; includes the port-forward hop
   M3:
     what: share of requests not served
-    record: client.failed_share
+    record: observations.client.failed_share
     status: confirmed 2026-10-22
     notes: k6 summary `http_req_failed.value`; timeouts at 10 s count here
   # The server-side view, exported at every point. M1–M3 above are client-side
@@ -46,6 +46,6 @@ metrics:
     notes: a share; the report prints it as a percent
   R9:
     what: offered rate, the swept axis
-    record: rate
+    record: settings.rate
     status: active
-    notes: TARGET_RATE in scripts/load.js, passed by point.py --rate
+    notes: TARGET_RATE in scripts/load.js, passed by api_point.py --rate

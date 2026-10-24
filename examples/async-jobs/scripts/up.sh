@@ -49,4 +49,4 @@ kubectl -n "$NS" rollout status deploy/results --timeout=180s
 kubectl -n "$NS" rollout status deploy/prometheus --timeout=180s
 
 echo
-echo "ready. run:  ./point.py --run demo --n 2 --count 200"
+echo "ready. run:  ./jobs_point.py --run demo --n 2 --count 200"

@@ -1,18 +1,23 @@
 {
-  "client": {
-    "failed_share": 0.1502,
-    "p95_ms": 10000.8,
-    "requests": 1245,
-    "served_per_second": 22.92
+  "commit": "1d9d592182a50bc7253b966089183e55a24dafa5",
+  "dirty": true,
+  "doubts": [],
+  "events": {
+    "load_finished": 1792768746.465253,
+    "load_started": 1792768691.699642,
+    "window_closed": 1792768795.465787
   },
-  "empty_refs": [],
-  "generator_exit": 99,
-  "generator_window": {
-    "end": "2026-10-22T15:34:37Z",
-    "seconds": 54.7,
-    "start": "2026-10-22T15:33:42Z"
+  "export": {
+    "empty_refs": [],
+    "path": "/Users/maksimsnitcuk/Applications/personal/report-kit/examples/simple-api/scripts/data/rate-40.jsonl",
+    "points": 21,
+    "series": 3
   },
   "guard_failures": [],
+  "guard_values": {
+    "G1": 4.0,
+    "G2": 0.0
+  },
   "guards": [
     {
       "min": 1.0,
@@ -25,16 +30,55 @@
       "ref": "G2"
     }
   ],
+  "images": {
+    "deployment/mock-api": [
+      "python:3.12-alpine"
+    ]
+  },
+  "kit_version": "0.4.0",
+  "load": {
+    "exit": 0,
+    "window": {
+      "end": "2026-10-23T15:19:06Z",
+      "seconds": 54.765611,
+      "start": "2026-10-23T15:18:11Z"
+    }
+  },
+  "observations": {
+    "ceilings_reached": [
+      "mock-api"
+    ],
+    "client": {
+      "dropped_iterations": 315,
+      "failed_share": 0.04912516823687752,
+      "p95_ms": 9839.97,
+      "requests": 1486,
+      "served_per_second": 27.300722455013243
+    },
+    "peaks": {
+      "tiers.mock-api": 4.0
+    }
+  },
+  "plan": {
+    "guards_at": "load_end",
+    "hold_seconds": 20.0,
+    "load": "foreground",
+    "step": "15s"
+  },
+  "profile": "api",
   "queries": {
     "M4": "count(up{job=\"mock-api\"} == 1)",
     "M5": "sum(rate(mock_requests_total[30s]))",
     "M6": "sum(rate(mock_request_duration_seconds_sum[30s])) / sum(rate(mock_requests_total[30s]))"
   },
-  "rate": "40",
   "run": "rate-40",
+  "settings": {
+    "duration": "45s",
+    "rate": "40"
+  },
   "window": {
-    "end": "2026-10-22T15:35:24Z",
-    "seconds": 101.7,
-    "start": "2026-10-22T15:33:42Z"
+    "end": "2026-10-23T15:19:55Z",
+    "seconds": 103.766145,
+    "start": "2026-10-23T15:18:11Z"
   }
 }

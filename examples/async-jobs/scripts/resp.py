@@ -1,12 +1,12 @@
 """resp.py — the ten lines of the Redis wire protocol this example needs.
 
-Shared by the host-side scripts (`point.py`, `produce.py`) and, through the
+Shared by the host-side scripts (`jobs_point.py`, `produce.py`) and, through the
 `jobs-src` ConfigMap that `up.sh` builds from this directory, by the pods
 inside the cluster. One file, so the queue is spoken the same way on both
 sides.
 
-Not in `report_kit`, on purpose. It is the same call as `read_k6_summary` in
-`../../simple-api/scripts/point.py`: the shape of one queue is the example's
+Not in `report_kit`, on purpose. It is the same call as `client_summary` in
+`../../simple-api/scripts/api_point.py`: the shape of one queue is the example's
 business, and the kit stays queue-agnostic. If a project needs Redis for real
 it should install `redis-py`, not copy this.
 """

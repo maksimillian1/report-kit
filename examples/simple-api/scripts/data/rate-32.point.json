@@ -1,18 +1,23 @@
 {
-  "client": {
-    "failed_share": 0,
-    "p95_ms": 734.4,
-    "requests": 1434,
-    "served_per_second": 31.82
+  "commit": "1d9d592182a50bc7253b966089183e55a24dafa5",
+  "dirty": true,
+  "doubts": [],
+  "events": {
+    "load_finished": 1792769380.125867,
+    "load_started": 1792769334.657477,
+    "window_closed": 1792769380.183017
   },
-  "empty_refs": [],
-  "generator_exit": 0,
-  "generator_window": {
-    "end": "2026-10-22T15:36:54Z",
-    "seconds": 45.4,
-    "start": "2026-10-22T15:36:08Z"
+  "export": {
+    "empty_refs": [],
+    "path": "/Users/maksimsnitcuk/Applications/personal/report-kit/examples/simple-api/scripts/data/rate-32.jsonl",
+    "points": 12,
+    "series": 3
   },
   "guard_failures": [],
+  "guard_values": {
+    "G1": 1.0,
+    "G2": 0.0
+  },
   "guards": [
     {
       "min": 1.0,
@@ -25,16 +30,53 @@
       "ref": "G2"
     }
   ],
+  "images": {
+    "deployment/mock-api": [
+      "python:3.12-alpine"
+    ]
+  },
+  "kit_version": "0.4.0",
+  "load": {
+    "exit": 0,
+    "window": {
+      "end": "2026-10-23T15:29:40Z",
+      "seconds": 45.46839,
+      "start": "2026-10-23T15:28:54Z"
+    }
+  },
+  "observations": {
+    "ceilings_reached": [],
+    "client": {
+      "dropped_iterations": 9,
+      "failed_share": 0,
+      "p95_ms": 940.72865,
+      "requests": 1432,
+      "served_per_second": 31.71721076633632
+    },
+    "peaks": {
+      "tiers.mock-api": 1.0
+    }
+  },
+  "plan": {
+    "guards_at": "load_end",
+    "hold_seconds": 20.0,
+    "load": "foreground",
+    "step": "15s"
+  },
+  "profile": "api",
   "queries": {
     "M4": "count(up{job=\"mock-api\"} == 1)",
     "M5": "sum(rate(mock_requests_total[30s]))",
     "M6": "sum(rate(mock_request_duration_seconds_sum[30s])) / sum(rate(mock_requests_total[30s]))"
   },
-  "rate": "32",
   "run": "rate-32",
+  "settings": {
+    "duration": "45s",
+    "rate": "32"
+  },
   "window": {
-    "end": "2026-10-22T15:36:54Z",
-    "seconds": 45.5,
-    "start": "2026-10-22T15:36:08Z"
+    "end": "2026-10-23T15:29:40Z",
+    "seconds": 45.52554,
+    "start": "2026-10-23T15:28:54Z"
   }
 }
