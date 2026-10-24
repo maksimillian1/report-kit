@@ -1,0 +1,55 @@
+{
+  "run": "rate-02",
+  "exported_at": "2026-10-24T09:22:55Z",
+  "prom_url": "http://localhost:9092",
+  "step": "15s",
+  "window": {
+    "start": "2026-10-24T09:21:05Z",
+    "end": "2026-10-24T09:22:34Z",
+    "seconds": 88.211572
+  },
+  "refs": [
+    {
+      "ref": "M10",
+      "query": "sum(max by (service_name) (kubecost_load_balancer_cost{namespace=\"report-kit-priced\"}))",
+      "series": 1,
+      "points": 6
+    },
+    {
+      "ref": "M11",
+      "query": "max(kubecost_cluster_management_cost)",
+      "series": 1,
+      "points": 6
+    },
+    {
+      "ref": "M4",
+      "query": "count(up{job=\"mock-api\"} == 1)",
+      "series": 1,
+      "points": 6
+    },
+    {
+      "ref": "M6",
+      "query": "sum(max by (node) (node_total_hourly_cost) * on (node) group_left () max by (node) (kube_node_labels{label_karpenter_sh_nodepool=\"apps\"}))",
+      "series": 1,
+      "points": 6
+    },
+    {
+      "ref": "M7",
+      "query": "sum(kube_pod_container_resource_requests{job=\"kube-state-metrics\", namespace=\"report-kit-priced\", resource=\"cpu\"} * on (node) group_left () max by (node) (node_cpu_hourly_cost)) + sum(kube_pod_container_resource_requests{job=\"kube-state-metrics\", namespace=\"report-kit-priced\", resource=\"memory\"} / 1073741824 * on (node) group_left () max by (node) (node_ram_hourly_cost))",
+      "series": 1,
+      "points": 6
+    },
+    {
+      "ref": "M8",
+      "query": "sum(container_cpu_allocation{namespace=\"report-kit-priced\"} * on (node) group_left () max by (node) (node_cpu_hourly_cost)) + sum(container_memory_allocation_bytes{namespace=\"report-kit-priced\"} / 1073741824 * on (node) group_left () max by (node) (node_ram_hourly_cost))",
+      "series": 1,
+      "points": 6
+    },
+    {
+      "ref": "M9",
+      "query": "sum(max by (persistentvolume) (pv_hourly_cost) * on (persistentvolume) group_left () max by (persistentvolume) (kube_persistentvolume_capacity_bytes{job=\"kube-state-metrics\"}) / 1073741824 * on (persistentvolume) group_left () max by (persistentvolume) (kube_persistentvolume_claim_ref{job=\"kube-state-metrics\", claim_namespace=\"report-kit-priced\"}))",
+      "series": 1,
+      "points": 6
+    }
+  ]
+}

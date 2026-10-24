@@ -54,3 +54,12 @@ point_validity_guards:
   G2:
     max: 0
     promql: sum(increase(your_errors_total[5m])) or vector(0)
+
+# Optional. Every price OpenCost published during a point, held against what
+# AWS publishes for the same node, EBS volume, load balancer and control
+# plane; a price further off than `within` (a share of AWS's) puts the point
+# in doubt. Only for a register that reads OpenCost's prices — runners.md,
+# "Pricing a point with OpenCost".
+#
+# prices_match_aws:
+#   within: 0.01

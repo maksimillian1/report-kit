@@ -1,0 +1,310 @@
+meta:
+  updated: 2026-10-24
+  rule: every value the two documents print exists here; each renders it at whatever precision it needs
+  rounding: >-
+    A value carries what the register works out of the point record and its export, and rounds
+    only at print. Every dollar value is a D ref of ../metrics.yaml, so `point finish`, `values
+    pull` and `check` reach it by one piece of arithmetic over the exported prices
+  note: >-
+    The rates behind every dollar value are INVENTED (scripts/manifests/opencost.yaml): what is
+    real is the arithmetic from those rates and the measured replicas, requests and windows to a
+    cost per point. Checked by `report-kit values --path examples/priced-api/report-values.yaml
+    check`.
+
+scan:
+  - report.md
+  - execution.md
+
+# What one point of the sweep adds: `report-kit values add-point
+# scripts/data/<run>.point.json`.
+points:
+  axis: rate
+  label: "r{rate:02d}"
+  values:
+    offered_{point}: {kind: R, unit: req_per_second, display: 0, from: {metric: R21}}
+    served_{point}: {kind: M, unit: req_per_second, display: 2, from: {metric: M1}}
+    requests_{point}: {kind: R, unit: requests, display: 0, from: {metric: R5}}
+    p95_{point}: {kind: M, unit: milliseconds, display: 0, from: {metric: M2}}
+    requested_{point}: {kind: D, unit: usd_per_hour, display: 5, from: {metric: D13}}
+    allocated_{point}: {kind: D, unit: usd_per_hour, display: 5, from: {metric: D14}}
+    own_cost_{point}: {kind: D, unit: usd, display: 6, from: {metric: D18}}
+    shared_cost_{point}: {kind: D, unit: usd, display: 5, from: {metric: D19}}
+    per_thousand_{point}: {kind: D, unit: usd, display: 4, from: {metric: D20}}
+
+values:
+  # The price basis: OpenCost's rates for this cluster, as its ConfigMap sets
+  # them. Recorded, not measured, and invented.
+  cpu_rate:
+    ref: VR1
+    kind: R
+    value: 0.03
+    unit: usd_per_vcpu_hour
+    display: 2
+    source: scripts/manifests/opencost.yaml, ConfigMap opencost-pricing, CPU — invented 2026-10-24
+
+  memory_rate:
+    ref: VR2
+    kind: R
+    value: 0.004
+    unit: usd_per_gib_hour
+    display: 3
+    source: scripts/manifests/opencost.yaml, ConfigMap opencost-pricing, RAM — invented 2026-10-24
+
+  storage_rate:
+    ref: VR3
+    kind: R
+    value: 0.00012
+    unit: usd_per_gib_hour
+    display: 5
+    source: scripts/manifests/opencost.yaml, ConfigMap opencost-pricing, storage — invented 2026-10-24
+
+  load_balancer_rate:
+    ref: VR4
+    kind: R
+    value: 0.025
+    unit: usd_per_hour
+    display: 3
+    source: scripts/manifests/opencost.yaml, ConfigMap opencost-pricing, firstFiveForwardingRulesCost — invented 2026-10-24
+
+  offered_r02:
+    ref: VR5
+    kind: R
+    point: r02
+    value: 2
+    unit: req_per_second
+    display: 0
+    from: {file: scripts/data/rate-02.point.json, metric: R21}
+
+  served_r02:
+    ref: VM1
+    kind: M
+    point: r02
+    value: 2.02015718571828
+    unit: req_per_second
+    display: 2
+    from: {file: scripts/data/rate-02.point.json, metric: M1}
+
+  requests_r02:
+    ref: VR6
+    kind: R
+    point: r02
+    value: 91
+    unit: requests
+    display: 0
+    from: {file: scripts/data/rate-02.point.json, metric: R5}
+
+  p95_r02:
+    ref: VM2
+    kind: M
+    point: r02
+    value: 45.6655635
+    unit: milliseconds
+    display: 0
+    from: {file: scripts/data/rate-02.point.json, metric: M2}
+
+  requested_r02:
+    ref: VD1
+    kind: D
+    point: r02
+    value: 0.0024375
+    unit: usd_per_hour
+    display: 5
+    from: {file: scripts/data/rate-02.point.json, metric: D13}
+
+  allocated_r02:
+    ref: VD2
+    kind: D
+    point: r02
+    value: 0.00189583333333333
+    unit: usd_per_hour
+    display: 5
+    from: {file: scripts/data/rate-02.point.json, metric: D14}
+
+  own_cost_r02:
+    ref: VD3
+    kind: D
+    point: r02
+    value: 0.000678187717786111
+    unit: usd
+    display: 6
+    from: {file: scripts/data/rate-02.point.json, metric: D18}
+
+  shared_cost_r02:
+    ref: VD4
+    kind: D
+    point: r02
+    value: 0.00442083550737693
+    unit: usd
+    display: 5
+    from: {file: scripts/data/rate-02.point.json, metric: D19}
+
+  per_thousand_r02:
+    ref: VD5
+    kind: D
+    point: r02
+    value: 0.00745261228336386
+    unit: usd
+    display: 4
+    from: {file: scripts/data/rate-02.point.json, metric: D20}
+
+  offered_r16:
+    ref: VR7
+    kind: R
+    point: r16
+    value: 16
+    unit: req_per_second
+    display: 0
+    from: {file: scripts/data/rate-16.point.json, metric: R21}
+
+  served_r16:
+    ref: VM3
+    kind: M
+    point: r16
+    value: 15.9902014898633
+    unit: req_per_second
+    display: 2
+    from: {file: scripts/data/rate-16.point.json, metric: M1}
+
+  requests_r16:
+    ref: VR8
+    kind: R
+    point: r16
+    value: 720
+    unit: requests
+    display: 0
+    from: {file: scripts/data/rate-16.point.json, metric: R5}
+
+  p95_r16:
+    ref: VM4
+    kind: M
+    point: r16
+    value: 249.56508335
+    unit: milliseconds
+    display: 0
+    from: {file: scripts/data/rate-16.point.json, metric: M2}
+
+  requested_r16:
+    ref: VD6
+    kind: D
+    point: r16
+    value: 0.00446875
+    unit: usd_per_hour
+    display: 5
+    from: {file: scripts/data/rate-16.point.json, metric: D13}
+
+  allocated_r16:
+    ref: VD7
+    kind: D
+    point: r16
+    value: 0.00307983321467355
+    unit: usd_per_hour
+    display: 5
+    from: {file: scripts/data/rate-16.point.json, metric: D14}
+
+  own_cost_r16:
+    ref: VD8
+    kind: D
+    point: r16
+    value: 0.00090572901901632
+    unit: usd
+    display: 6
+    from: {file: scripts/data/rate-16.point.json, metric: D18}
+
+  shared_cost_r16:
+    ref: VD9
+    kind: D
+    point: r16
+    value: 0.00543848510665806
+    unit: usd
+    display: 5
+    from: {file: scripts/data/rate-16.point.json, metric: D19}
+
+  per_thousand_r16:
+    ref: VD10
+    kind: D
+    point: r16
+    value: 0.001257956970856
+    unit: usd
+    display: 4
+    from: {file: scripts/data/rate-16.point.json, metric: D20}
+
+  offered_r08:
+    ref: VR9
+    kind: R
+    point: r08
+    value: 8
+    unit: req_per_second
+    display: 0
+    from: {file: scripts/data/rate-08.point.json, metric: R21}
+
+  served_r08:
+    ref: VM5
+    kind: M
+    point: r08
+    value: 7.99991741774138
+    unit: req_per_second
+    display: 2
+    from: {file: scripts/data/rate-08.point.json, metric: M1}
+
+  requests_r08:
+    ref: VR10
+    kind: R
+    point: r08
+    value: 360
+    unit: requests
+    display: 0
+    from: {file: scripts/data/rate-08.point.json, metric: R5}
+
+  p95_r08:
+    ref: VM6
+    kind: M
+    point: r08
+    value: 102.17185595
+    unit: milliseconds
+    display: 0
+    from: {file: scripts/data/rate-08.point.json, metric: M2}
+
+  requested_r08:
+    ref: VD11
+    kind: D
+    point: r08
+    value: 0.00379166666666667
+    unit: usd_per_hour
+    display: 5
+    from: {file: scripts/data/rate-08.point.json, metric: D13}
+
+  allocated_r08:
+    ref: VD12
+    kind: D
+    point: r08
+    value: 0.0022115736450101
+    unit: usd_per_hour
+    display: 5
+    from: {file: scripts/data/rate-08.point.json, metric: D14}
+
+  own_cost_r08:
+    ref: VD13
+    kind: D
+    point: r08
+    value: 0.000637780838548611
+    unit: usd
+    display: 6
+    from: {file: scripts/data/rate-08.point.json, metric: D18}
+
+  shared_cost_r08:
+    ref: VD14
+    kind: D
+    point: r08
+    value: 0.00393376867266911
+    unit: usd
+    display: 5
+    from: {file: scripts/data/rate-08.point.json, metric: D19}
+
+  per_thousand_r08:
+    ref: VD15
+    kind: D
+    point: r08
+    value: 0.00177161344041281
+    unit: usd
+    display: 4
+    from: {file: scripts/data/rate-08.point.json, metric: D20}

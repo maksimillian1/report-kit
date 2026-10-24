@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""selftest.py — run both runner templates end to end against a faked cluster.
+"""selftest.py — run both runner templates, node-cost and the price check end
+to end against a faked cluster.
 
     report-kit selftest
 
@@ -31,7 +32,7 @@ from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
-from report_kit import shell  # (patched by name below)
+from report_kit import opencost, price_check, shell  # (shell patched by name below)
 from report_kit.tools import node_cost
 
 
@@ -286,9 +287,57 @@ def run_node_cost() -> int:
         return 1
 
 
+def run_price_check() -> int:
+    """OpenCost's prices against AWS's, on the same three patches: one
+    on-demand node at its listed rate, and one spot node priced at that same
+    rate — what OpenCost publishes for spot with no data feed. Exactly the
+    second is a doubt."""
+    from datetime import datetime, timezone
+    from report_kit.window import Window
+    start = datetime(2026, 1, 2, 10, 0, tzinfo=timezone.utc)
+    nodes = [{"metric": {"node": name, "instance_type": "c6i.large",
+                         "region": "eu-central-1",
+                         "provider_id": f"aws:///eu-central-1a/i-{name}"},
+              "values": [[start.timestamp(), "0.0970"]]} for name in ("a", "b")]
+
+    def http_json(method, url, body=None, timeout=30):
+        query = parse_qs(urlparse(url).query).get("query", [""])[0]
+        if query == opencost.LINE_QUERIES[opencost.NODES]:
+            result = nodes
+        elif query == opencost.SPOT_QUERY:
+            result = [{"metric": {"node": "b"}, "values": [[start.timestamp(), "1"]]}]
+        else:                                   # every node was priced
+            result = []
+        return {"status": "success", "data": {"result": result}}
+
+    def sh_json(cmd, timeout=60):
+        if cmd[:3] == ["aws", "pricing", "get-products"]:
+            return {"PriceList": ['{"terms":{"OnDemand":{"t":{"priceDimensions":'
+                                  '{"d":{"pricePerUnit":{"USD":"0.0970"}}}}}}}']}
+        if cmd[:3] == ["aws", "ec2", "describe-spot-price-history"]:
+            return {"SpotPriceHistory": [{"SpotPrice": "0.0390"}]}
+        raise AssertionError(f"unexpected aws: {cmd}")
+
+    try:
+        plan = {"within": 0.01, "lines": [opencost.NODES], "eks_cluster": None}
+        with patch("report_kit.shell.http_json", http_json), \
+             patch("report_kit.shell.sh_json", sh_json):
+            check = price_check.check_prices(
+                "http://p", Window(start, start.replace(minute=15)), plan)
+        assert len(check.checked) == 2, check.checked
+        assert len(check.doubts) == 1 and "node b" in check.doubts[0], check.doubts
+        print("\n[  ok  ] price_check: a spot node at the on-demand rate doubted, "
+              "an on-demand one not")
+        return 0
+    except Exception as e:
+        print(f"\n[ FAIL ] price_check: {type(e).__name__}: {e}")
+        return 1
+
+
 def main(argv: list[str] | None = None) -> int:
     failures = sum(run_profile(profile) for profile in ("api", "jobs"))
     failures += run_node_cost()
+    failures += run_price_check()
     print()
     print("smoke test: " + ("everything passed" if not failures
                             else f"{failures} case(s) FAILED"))

@@ -47,7 +47,7 @@ metrics:
     what: OpenCost's allocation of the same, USD/h
     promql: sum(container_cpu_allocation{namespace="report-kit-priced"} * on (node) group_left () max by (node) (node_cpu_hourly_cost)) + sum(container_memory_allocation_bytes{namespace="report-kit-priced"} / 1073741824 * on (node) group_left () max by (node) (node_ram_hourly_cost))
     status: confirmed 2026-10-24
-    notes: second opinion on M7 — the larger of request and use, but published about a minute after a pod starts and for minutes after it is gone; see the Journal
+    notes: second opinion on M7 — the larger of request and use, but recomputed once a minute, so it runs up to a minute behind the replicas; see the Journal
   M9:
     what: price of the service's volumes, USD/h
     promql: sum(max by (persistentvolume) (pv_hourly_cost) * on (persistentvolume) group_left () max by (persistentvolume) (kube_persistentvolume_capacity_bytes{job="kube-state-metrics"}) / 1073741824 * on (persistentvolume) group_left () max by (persistentvolume) (kube_persistentvolume_claim_ref{job="kube-state-metrics", claim_namespace="report-kit-priced"}))

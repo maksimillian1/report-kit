@@ -13,6 +13,7 @@ the library by path, so a green run in one of these is also proof that
 | :--- | :--- | :--- |
 | [`simple-api/`](simple-api/) | api — request/response | complete: a local cluster, six runs, and the two documents they support |
 | [`async-jobs/`](async-jobs/) | jobs — queue/worker | complete for the **measurement loop**: a queue, a pool that scales to zero, ten runs. Node autoscaling, interruption and cost stay untested — see below |
+| [`priced-api/`](priced-api/) | api — request/response, priced | complete for the **price wiring**: the same service on k3s beside OpenCost, kube-state-metrics and cAdvisor, three runs, every price line in the register worked into a cost per point — **at invented rates**, so its dollars are arithmetic, not anyone's bill |
 | [`tenant-platform/`](tenant-platform/) | none — charts only | **invented numbers**, no cluster and no execution: one CSV per chart shape and flag, for the cost and time-axis charts the two real examples cannot produce |
 
 The jobs row used to read *none*, on the argument that a local cluster cannot
@@ -33,9 +34,28 @@ zero-length window over a system that had never done any work, and
 `selftest` was asserting `window >= 0`, so its own gate passed on it. Both
 are fixed. That is what an example is for.
 
+## The priced example
+
+`priced-api/` answers the question the other two leave open — can a local
+run carry what it cost? — for everything up to the rate. OpenCost prices the
+cluster with rates its ConfigMap invents, publishes them into the same
+Prometheus the runner exports from, and the register works a cost per point
+out of them: the pool's nodes, the service's requests, its volume, its load
+balancer and the control-plane fee. So the queries `runners.md` recommends
+have run against a real OpenCost, and the two traps it lists were found here:
+OpenCost's allocation runs a minute behind the pods it allocates, and
+OpenCost republishes kube-state-metrics' series, so a request summed without
+`job=` counts twice.
+
+What it cannot show is a price anyone charges. Its node is not an EC2
+instance, so `prices_match_aws` — which holds every price OpenCost published
+against AWS's — stays off in its `execution.yaml`, and is exercised by
+`selftest` and `tests/test_price_check.py` against fakes. Until a point runs
+with it on a real EKS cluster, treat its first verdict there as unverified.
+
 ## Numbers in the examples
 
-Both examples carry a `report-values.yaml`, and their documents mark every value
+Each measured example carries a `report-values.yaml`, and its documents mark every value
 with a ref. `formats.md` ships into every scaffolded project and tells authors
 to do this, so an example that did not would teach the opposite of what the
 kit says.
@@ -103,10 +123,16 @@ cd examples/async-jobs/scripts
 ./up.sh                                             # kind + KEDA + workload, ~3 min
 ./jobs_point.py --run demo --n 2 --count 400
 ./down.sh
+
+cd examples/priced-api/scripts
+./up.sh                                             # onto the current context — a k3s cluster
+./api_point.py --run demo --rate 8
+./down.sh                                           # what up.sh applied; the cluster stays
 ```
 
-The two clusters use different names and different port-forwards, so both can
-be up at once.
+The two kind clusters use different names and different port-forwards, so
+both can be up at once. `priced-api` creates no cluster: its
+`scripts/README.md` says which one its runs used and why not kind.
 
 Each example's own `scripts/README.md` carries its grid, its timings and the
 traps its runs turned up.

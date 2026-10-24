@@ -21,6 +21,9 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 
 from report_kit import finish, opencost, price_check
+from report_kit import point as points
+from report_kit.execution_config import PointPlan, Setting
+from report_kit.preflight import Preflight
 from report_kit.cloud import aws
 from report_kit.constants import EXIT_CLEAN, EXIT_SUSPECT
 from report_kit.execution_config import ExecutionError, PriceMatch, parse_execution
@@ -288,6 +291,23 @@ class TestLoadBalancersAndControlPlane:
                                 f"checked against AWS — {problem}"]
 
 
+class TestWhatOpenCostDidNotPublish:
+    def test_a_line_the_register_reads_with_no_price_at_all_is_doubted(self):
+        check = checked(Prometheus(nodes=[node("n1", "0.1000")]),
+                        lines=[opencost.NODES, opencost.LOAD_BALANCERS])
+        assert check.doubts == ["the register reads a load balancer price, and OpenCost "
+                                "published none during the window"]
+
+    def test_prometheus_failing_is_a_doubt_not_an_exception(self):
+        def down(method, url, body=None, timeout=30):
+            raise RuntimeError("connection refused")
+        with patch("report_kit.shell.http_json", down):
+            check = price_check.check_prices("http://prom", WINDOW, {
+                "within": 0.01, "lines": [opencost.NODES], "eks_cluster": None})
+        assert check.doubts == ["OpenCost's prices could not be read — connection refused"]
+        assert price_check.recorded(check)["unread"] == "connection refused"
+
+
 class TestTheListedRates:
     def test_a_usage_type_is_matched_without_its_region_prefix(self):
         with patch("report_kit.shell.sh_json", Aws().sh_json):
@@ -404,6 +424,7 @@ class TestTheRecordCarriesIt:
         assert record["prices"]["checked"] == [
             {"line": "nodes", "item": "n1", "opencost": 0.1, "aws": 0.1,
              "since": "2026-01-02T10:00:00Z", "problem": ""}]
+        assert (record["prices"]["silent"], record["prices"]["unread"]) == ([], "")
         assert "| prices | 1 checked against AWS within 1.0%, clean |" in block
 
     def test_a_price_in_doubt_makes_the_point_suspect(self, tmp_path):
@@ -421,3 +442,27 @@ class TestTheRecordCarriesIt:
         assert code == EXIT_CLEAN
         assert record["prices"] is None
         assert "| prices |" not in block
+
+
+class TestPreflightNamesTheCluster:
+    """The control-plane fee is checked against a named cluster; finding it
+    unnamed after the window closed would cost the point."""
+
+    def opened(self, tmp_path: Path, env: str):
+        (tmp_path / "metrics.yaml").write_text(
+            "metrics:\n  M1: {what: fee, promql: max(kubecost_cluster_management_cost), "
+            "status: unconfirmed}\n")
+        (tmp_path / "execution.yaml").write_text("prices_match_aws: {within: 0.01}\n")
+        scripts = tmp_path / "scripts"
+        scripts.mkdir()
+        (scripts / "env.yaml").write_text("namespace: app\nprometheus: {url: 'http://prom'}\n"
+                                          + env)
+        return points.open_point(scripts, "api", PointPlan(settings=(Setting("rate"),)),
+                                 "", ["--run", "r1", "--rate", "1"])
+
+    @pytest.mark.parametrize("env, failures", [("", 1), ("eks_cluster: demo\n", 0)])
+    def test_a_checked_fee_needs_eks_cluster(self, tmp_path, env, failures):
+        pre = Preflight("preflight")
+        with contextlib.redirect_stdout(io.StringIO()):
+            points.check_price_inputs(self.opened(tmp_path, env), pre)
+        assert len(pre.failures) == failures

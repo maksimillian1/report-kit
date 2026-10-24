@@ -58,8 +58,10 @@ kit. Re-running it re-exports and re-reads; it never re-measures.
 **Python**: standard library, plus `PyYAML` (for `env.yaml`), both pulled in
 by `pip install report-kit`. Add `report-kit[s3]` only if you use
 `report_kit.cloud.aws_s3`. **On PATH**: `kubectl` with a working context,
-`aws` for the jobs profile's queue reads, `git` for the commit the point
-records. **Prometheus** is assumed as the metrics backend.
+`aws` for the jobs profile's queue reads and for `prices_match_aws`, `git` for
+the commit the point records. **Prometheus** is assumed as the metrics
+backend, and **OpenCost** scraped by it wherever a point is priced — see
+[Pricing a point with OpenCost](#pricing-a-point-with-opencost).
 
 The library is a dependency, so a copied runner imports it like any other
 package — there is no path to configure and nothing at the top of the file to
@@ -112,6 +114,7 @@ Required keys, both profiles:
 | `max_wait_seconds` | give up on the window after this; must exceed `point.hold_seconds` |
 | `prometheus.url` | where to query |
 | `prometheus.service` / `.namespace` / `.mapping` | optional: open a port-forward instead of assuming reachability |
+| `eks_cluster` | the EKS cluster whose control-plane fee `prices_match_aws` checks; needed only when the register reads that fee |
 
 `api_point.py` also needs `generator.command` (a list) and optionally
 `generator.env`; `jobs_point.py` needs `producer.command` the same way. In
@@ -204,6 +207,12 @@ point_validity_guards:
 A guard whose query returns nothing **fails** — an empty result is a gap,
 not a pass. Write `or vector(0)` where zero is genuinely the answer.
 
+`prices_match_aws: {within: 0.01}` holds every price OpenCost published
+during a point against AWS's for the same thing, and doubts the point when
+one is further off than `within`, a share of AWS's price. It is refused in an
+execution whose register reads no OpenCost price. See
+[Pricing a point with OpenCost](#pricing-a-point-with-opencost).
+
 ### 4. `image-freeze.json` — what the sweep claims to have measured
 
 Generated, not hand-written: name the workloads under `point.freeze`, run
@@ -241,7 +250,9 @@ only those two.
                               observations (peaks of every reading, ceilings
                               reached, the profile's own) · doubts · plan ·
                               queries · guards, their failures and what each
-                              read · export · image digests · commit · kit_version
+                              read · export · price_check and prices, when the
+                              execution asks for the check · image digests ·
+                              commit · kit_version
 <out-dir>/<run>.point.md      the block to paste into the Journal: the run, then
                               every ref metrics.yaml defines worked out of it
 <out-dir>/<run>.jsonl         the exported series
@@ -260,8 +271,100 @@ difference of two timestamps rounded to the second.
 | 0 | clean |
 | 1 | preflight or usage failed — nothing ran |
 | 2 | the run is valid but at least one ref exported nothing. **The window and the queries are in the point record; run `report-kit point finish <run>.point.json --force` before retention drops it.** |
-| 3 | ran, but validity is in doubt: a guard breached, or a doubt was recorded — a generator that failed, a node lost while it held work. `report-kit values add-point` refuses such a point without `--allow-invalid` |
+| 3 | ran, but validity is in doubt: a guard breached, or a doubt was recorded — a generator that failed, a node lost while it held work, a price that does not match AWS's. `report-kit values add-point` refuses such a point without `--allow-invalid` |
 | 4 | the window never closed inside the timeout — nothing exported, because an unclosed window has no end |
+
+## Pricing a point with OpenCost
+
+What a point cost comes out of the same Prometheus as what it measured, once
+OpenCost runs in the cluster and that Prometheus scrapes it. A price is an
+ordinary `M` ref with a `promql`, exported over the window like any other, and
+a cost is a `D` ref over it — so no runner, tool or person computes one, and
+`report-kit values` reads it by ref like any other number. The rates are list
+prices, which is what `methodology.md` §8 prices a window at; CUR is still the
+source of record.
+
+**In the cluster**: Prometheus; kube-state-metrics, with
+`--metric-labels-allowlist=nodes=[karpenter.sh/nodepool]` when a ref sums one
+pool; cAdvisor scraped, since OpenCost works usage out of it; and OpenCost,
+its `PROMETHEUS_SERVER_ENDPOINT` at that Prometheus, scraped by it once a
+minute. `examples/priced-api/` in the report-kit repository is the four wired
+together and run.
+
+**One `M` ref per line**, USD per hour at each instant. `max by` drops the
+second copy of a series scraped twice.
+
+| Line | `promql` |
+| :--- | :--- |
+| a pool's nodes | `sum(max by (node) (node_total_hourly_cost) * on (node) group_left () max by (node) (kube_node_labels{label_karpenter_sh_nodepool="⟨pool⟩"}))` |
+| a namespace's requests | `sum(kube_pod_container_resource_requests{job="kube-state-metrics", namespace="⟨ns⟩", resource="cpu"} * on (node) group_left () max by (node) (node_cpu_hourly_cost)) + sum(kube_pod_container_resource_requests{job="kube-state-metrics", namespace="⟨ns⟩", resource="memory"} / 1073741824 * on (node) group_left () max by (node) (node_ram_hourly_cost))` |
+| a namespace's allocation, as OpenCost has it | `sum(container_cpu_allocation{namespace="⟨ns⟩"} * on (node) group_left () max by (node) (node_cpu_hourly_cost)) + sum(container_memory_allocation_bytes{namespace="⟨ns⟩"} / 1073741824 * on (node) group_left () max by (node) (node_ram_hourly_cost))` |
+| a namespace's volumes | `sum(max by (persistentvolume) (pv_hourly_cost) * on (persistentvolume) group_left () max by (persistentvolume) (kube_persistentvolume_capacity_bytes{job="kube-state-metrics"}) / 1073741824 * on (persistentvolume) group_left () max by (persistentvolume) (kube_persistentvolume_claim_ref{job="kube-state-metrics", claim_namespace="⟨ns⟩"}))` |
+| a namespace's load balancers | `sum(max by (service_name) (kubecost_load_balancer_cost{namespace="⟨ns⟩"}))` |
+| the control plane | `max(kubecost_cluster_management_cost)` |
+
+Then a mean per price and a cost per window:
+
+```yaml
+  D12:
+    what: mean pool price over the window, USD/h
+    series: {ref: M6, reduce: mean}
+    status: active
+  D18:
+    what: the service's own cost over the window, USD
+    formula: (D13 + D15 + D16) * window.seconds / 3600
+    status: active
+```
+
+The mean times the window's hours is the price integrated over the window,
+because the export samples it at one step from one end to the other. The
+service's own cost — its requests, volumes and load balancers — is §8's B;
+the pool's price less those requests, plus the control plane, is A, and is
+never divided among the tenants.
+
+### Checking them against AWS
+
+`prices_match_aws` in `execution.yaml` turns the check on:
+
+```yaml
+prices_match_aws:
+  within: 0.01          # how far apart, as a share of AWS's price
+```
+
+When the point finishes, every price OpenCost published during the window,
+for every line the register reads, is held against what AWS publishes for the
+same thing:
+
+| Line | AWS's price |
+| :--- | :--- |
+| nodes | the on-demand rate for the instance type in its region (Linux, shared tenancy), or the spot price in its zone at the instant OpenCost first published that price |
+| volumes | the EBS GB-month rate for the volume's type, over 730 hours — provisioned IOPS and throughput are not in it |
+| load balancers | the NLB hourly rate in the region, before LCUs |
+| control plane | EKS's per-cluster hour, plus extended support while the cluster's version is in it; `eks_cluster` in `env.yaml` names the cluster |
+
+A price further off than `within`, a price that cannot be checked — not an
+EC2 instance, a volume EC2 no longer describes, a region `cloud/aws.py` has
+no location for — and a node kube-state-metrics saw that OpenCost never
+priced are each a doubt: exit 3, and `values add-point` refuses the point.
+Whatever the outcome, the record keeps `prices`, every price and AWS's beside
+it: the dated price basis of that window, §5's first unrecoverable item. The
+`aws` CLI needs `pricing:GetProducts`, `ec2:DescribeSpotPriceHistory`,
+`ec2:DescribeVolumes`, `eks:DescribeCluster` and `eks:DescribeClusterVersions`.
+
+What it is there to catch, each read out of OpenCost's own source (1.115):
+
+- **A spot node without a Spot Data Feed is priced at the on-demand rate**,
+  or at the configured default spot rate where the price list has no entry
+  for its type. OpenCost after 1.115 asks spot price history first.
+- **Every load balancer is $0.025/h.** OpenCost downloads only the EC2 price
+  list, which holds no load balancer, so its default stands whatever the
+  region's NLB costs.
+- **The EKS fee is $0.10/h only while some node is in a managed node group.**
+  A cluster on Karpenter alone reads 0; extended support, Auto Mode's
+  per-node fee and provisioned control-plane tiers are in no OpenCost price.
+- **Savings Plans and Reserved Instances**, once OpenCost is configured with
+  them, turn a node's price into the effective rate. §8 prices at published
+  rates, so the check flags it.
 
 ## Resetting between points
 
@@ -315,6 +418,23 @@ Subcommands of the same CLI; `report-kit <tool> --help` for the options.
 ## Traps these encode
 
 Each of these cost someone a wasted run:
+
+- **OpenCost's allocation runs a minute behind the pods.** It recomputes
+  `container_*_allocation` once a minute, so a pod enters it up to a minute
+  after it starts and leaves it up to a minute after it is gone, and one that
+  lives less than that can be missed altogether. Over a window of a few
+  minutes it trails the replicas: 22–42 % below their requests in
+  `examples/priced-api/`. Requests from kube-state-metrics follow the
+  replicas at scrape resolution — price the service's share with those, and
+  keep the allocation as a second opinion.
+- **OpenCost republishes kube-state-metrics' series under its own job.**
+  `kube_pod_container_resource_requests` and the volume series arrive twice,
+  so a `sum` over them without `job="kube-state-metrics"` counts every
+  request twice.
+- **A pool that can scale to zero returns no series while it is empty.** The
+  export calls that a gap, and `or vector(0)` makes it a free pool — which is
+  also what an OpenCost that stopped publishing looks like. Add it only with
+  `prices_match_aws` on, whose unpriced-node check tells the two apart.
 
 - **A condition that is true right now is not a condition that has held.** A
   queue reads zero while messages are still in flight; a deployment touches

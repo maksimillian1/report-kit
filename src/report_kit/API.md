@@ -20,7 +20,7 @@ Standard library only, except:
 | `env.py` | `PyYAML` (import fails loudly with an install hint) |
 | `register.py`, `execution_config.py`, `derive.py`, `point.py`, `finish.py` | `PyYAML` |
 | `cloud/aws_s3.py` | `boto3` / `botocore` |
-| `cloud/aws.py` | the `aws` CLI on PATH (no SDK) |
+| `cloud/aws.py`, `price_check.py` | the `aws` CLI on PATH (no SDK) |
 | `cluster.py`, `portforward.py`, `reporting.frozen_images` | `kubectl` on PATH, working kubecontext |
 | `reporting.git_facts` | `git` on PATH |
 
@@ -51,14 +51,16 @@ which is JSON.
 | `records.py` | a point record read back: a field by dotted path, as a number or an instant | reads a file | `read_record`, `field`, `number_at`, `instant_at`, `export_beside`, `record_beside`, `RecordError`, `RECORD_SUFFIX`, `EXPORT_SUFFIX` |
 | `series.py` | an exported ref reduced to one number: `ref`, `across`, `per`, `where`, `settle_on`, `until`, `reduce` | reads a file | `read_series`, `value`, `describe`, `formula_text`, `Series`, `Mask`, `SeriesError` |
 | `arith.py` | `+ - * /` over named numbers — the one evaluator behind a register's `formula:` and a registry's | pure | `parse`, `check`, `names`, `evaluate`, `ArithError` |
-| `execution_config.py` | `execution.yaml`: what a point is run with (`point:` — settings, load, hold, freeze, step, `guards_at`, over a runner's defaults), when its window closes (`window_closes_when_back_to_idle`) and what makes it valid (`point_validity_guards`, a guard reusing a register ref by `metric:`), guards with `{setting}` placeholders filled | reads a file | `read_execution`, `parse_execution`, `run_guards`, `Execution`, `PointPlan`, `Setting`, `IdleTarget`, `Guard`, `ExecutionError`, `EXECUTION`, `WINDOW`, `GUARDS`, `POINT` |
+| `execution_config.py` | `execution.yaml`: what a point is run with (`point:` — settings, load, hold, freeze, step, `guards_at`, over a runner's defaults), when its window closes (`window_closes_when_back_to_idle`) and what makes it valid (`point_validity_guards`, a guard reusing a register ref by `metric:`; `prices_match_aws`, how far OpenCost's prices may be from AWS's), guards with `{setting}` placeholders filled | reads a file | `read_execution`, `parse_execution`, `run_guards`, `Execution`, `PointPlan`, `Setting`, `IdleTarget`, `Guard`, `PriceMatch`, `ExecutionError`, `EXECUTION`, `WINDOW`, `GUARDS`, `POINT`, `PRICES` |
 | `point.py` | one point's inputs, opened the same way by every runner: a command line built from the declared settings, the three YAML files, port-forwards, the image freeze, the preflight every point shares, the tiers' replicas | integration | `open_point`, `Point`, `require_settings`, `port_forwards`, `record_freeze`, `preflight`, `verdict`, `tier_replicas`, `tiers_at_rest`, `ceilings_reached` |
 | `launch.py` | the load env.yaml names, its command filled from the settings, run to completion or in the background | integration (subprocess) | `run_load`, `start_load`, `load_of`, `load_command`, `Load` |
 | `watch.py` | a window closing on a held condition, never on a system not yet busy; the peak of every reading and the instant each named condition first held | pure (calls what it is handed) | `watch`, `Watched` |
-| `finish.py` | everything after the window closes, on the record alone: export, guards as of the planned instant, every register ref worked out, the journal block, the verdict | integration | `close_point`, `finish_point`, `journal_block`, `window_of`, `guard_instant` |
+| `finish.py` | everything after the window closes, on the record alone: export, guards as of the planned instant, the price check when the execution asks for it, every register ref worked out, the journal block, the verdict | integration | `close_point`, `finish_point`, `journal_block`, `window_of`, `guard_instant` |
 | `strict_yaml.py` | YAML with a key written twice refused | pure | `UniqueKeyLoader`, `unknown_keys` |
 | `refs.py` | `ref\|…` pipe-file parsing, for a runner copied before 0.4 and for `export-metrics --queries` | pure | `read_ref_file`, `load_guards` |
 | `prometheus.py` | queries, target health, guard evaluation, exporting a window | integration | `prom_query`, `prom_query_range`, `prom_scalar`, `prom_targets_down`, `check_guards`, `evaluate_guards`, `GuardResult`, `export_range`, `Export` |
+| `opencost.py` | what OpenCost publishes in Prometheus, read back over a window: each price it held per node, volume, load balancer and control plane, the nodes it never priced, and which of those lines a register's queries read | integration (via `prometheus`) | `published_prices`, `price_changes`, `unpriced_nodes`, `regions`, `lines_read`, `Price`, `NODES`, `VOLUMES`, `LOAD_BALANCERS`, `CONTROL_PLANE`, `LINE_METRICS`, `LINE_QUERIES` |
+| `price_check.py` | `prices_match_aws`: those prices held against AWS's for the same thing, the doubts it raises and what the point record keeps | integration (via `opencost`, `cloud/aws`) | `check_prices`, `plan_of`, `recorded`, `print_check`, `PriceCheck`, `Checked`, `HOURS_PER_MONTH` |
 | `cluster.py` | kubectl introspection (nodes, pods-per-node, replicas, interrupt events) | integration | `nodes_by_selector`, `pods_by_node`, `deployment_replicas`, `interrupt_events`, `FORCED_REASONS`, `INTERRUPT_REASONS` |
 | `portforward.py` | `kubectl port-forward` lifecycle incl. relaunch-on-death | integration, background procs | `PortForwards`, `forward_spec` |
 | `reporting.py` | image freeze, git facts, writing a point's two files, the verdict printed | mixed | `frozen_images`, `check_freeze`, `git_facts`, `md_table`, `write_point`, `write_record`, `report_validity`, `CONTAINER_PATHS` |
@@ -69,7 +71,7 @@ which is JSON.
 | `proc.py` | running load: blocking, or in the background | integration (subprocess) | `run_logged`, `Completed`, `Background` |
 | `preflight.py` | a checklist that collects every failure before stopping | prints; no I/O of its own | `Preflight` |
 | `dbs/qdrant.py` | Qdrant point counts / collection reset | integration | `points_count`, `delete_collection_if_nonempty` |
-| `cloud/aws.py` | SQS depth/purge, S3 prefix wipe, EC2 lookup and on-demand / spot pricing | integration (via `aws` CLI) | `sqs_depth`, `sqs_purge`, `s3_rm_recursive`, `describe_instances`, `ondemand_hourly`, `spot_hourly`, `LOCATION_BY_REGION` |
+| `cloud/aws.py` | SQS depth/purge, S3 prefix wipe, EC2 and EBS lookup, the EKS cluster and its version's support, on-demand / spot / EBS / NLB / EKS rates | integration (via `aws` CLI) | `sqs_depth`, `sqs_purge`, `s3_rm_recursive`, `describe_instances`, `describe_volumes`, `describe_cluster`, `cluster_version_status`, `ondemand_hourly`, `spot_hourly`, `listed_rates`, `ebs_gb_month`, `nlb_hourly`, `eks_cluster_hourly`, `eks_extended_support_hourly`, `location_of`, `region_of_zone`, `LOCATION_BY_REGION` |
 | `cloud/aws_s3.py` | concurrent directory upload with skip-existing | integration (boto3) | `upload_dir`, `object_exists` |
 
 A new data store goes in `dbs/<store>.py`; a new provider in

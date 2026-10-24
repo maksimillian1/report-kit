@@ -118,7 +118,7 @@ One command, installed with the package:
 | `report-kit export-metrics` | re-export a window whose metrics are aging out |
 | `report-kit inspect-metrics` | read back what an export actually captured |
 | `report-kit node-cost` | what the nodes cost during a window, the same day |
-| `report-kit selftest` | drive both runner templates against a faked cluster |
+| `report-kit selftest` | drive both runner templates, `node-cost` and the price check against a faked cluster |
 
 What the repository holds:
 
@@ -127,7 +127,7 @@ What the repository holds:
 | [src/report_kit/](src/report_kit/) | the **library you import** — windows, polling, Prometheus export, guard evaluation, the point record |
 | [src/report_kit/templates/](src/report_kit/templates/) | what `init` and `new-point` **copy into a project**: the report and execution documents, the number registry, and the two runners |
 | [src/report_kit/tools/](src/report_kit/tools/) | **run as-is**, as the subcommands above |
-| [examples/](examples/) | *(repo only)* worked directories — [simple-api/](examples/simple-api/) and [async-jobs/](examples/async-jobs/) are real local-cluster runs with the `execution.md` / `report.md` they produced; [tenant-platform/](examples/tenant-platform/) is an invented multi-tenant SaaS, one CSV per chart shape and flag, **with invented numbers**, because neither cluster is billed for and the cost shapes need a priced platform |
+| [examples/](examples/) | *(repo only)* worked directories — [simple-api/](examples/simple-api/) and [async-jobs/](examples/async-jobs/) are real local-cluster runs with the `execution.md` / `report.md` they produced; [priced-api/](examples/priced-api/) is the same kind of run priced by OpenCost, every price line in its register, **at invented rates**; [tenant-platform/](examples/tenant-platform/) is an invented multi-tenant SaaS, one CSV per chart shape and flag, **with invented numbers**, because no local cluster is billed for and the cost shapes need a priced platform |
 
 **A runner is copied, not imported.** It lands in the execution's `scripts/`
 beside its own `env.yaml`, and reads the execution's `metrics.yaml` for what
@@ -151,6 +151,20 @@ and the ones that read those files, installed for you — `boto3` for
 `aws` / `kubectl` / `git` CLIs for the modules that shell out to them.
 Prometheus is assumed as the metrics backend and spoken to directly, rather
 than hidden behind an interface with one implementation.
+
+**Pricing a point** needs three more things in the cluster, all scraped by
+that same Prometheus: kube-state-metrics (with
+`--metric-labels-allowlist=nodes=[karpenter.sh/nodepool]` to sum one pool),
+the kubelet's cAdvisor endpoint, and [OpenCost](https://opencost.io), whose
+`PROMETHEUS_SERVER_ENDPOINT` points back at it. Its prices are then ordinary
+refs in `metrics.yaml`, and `prices_match_aws` in `execution.yaml` holds each
+one against AWS's for the same node, volume, load balancer and control plane —
+that needs the `aws` CLI with `pricing:GetProducts`,
+`ec2:DescribeSpotPriceHistory`, `ec2:DescribeVolumes`, `eks:DescribeCluster`
+and `eks:DescribeClusterVersions`. The queries, the check and the traps are in
+[runners.md](src/report_kit/templates/runners.md), "Pricing a point with
+OpenCost"; [examples/priced-api/](examples/priced-api/) is the four wired
+together.
 
 ### Where the detail lives
 
@@ -347,27 +361,30 @@ Four gates. Each has failed before, which is why they are run and not assumed:
 ```bash
 pip install -e ".[dev]"
 git config core.hooksPath .githooks  # pytest before every commit; a skipped test fails it
-report-kit selftest                  # both runner templates + node-cost, faked cluster
+report-kit selftest                  # both runner templates, node-cost, the price check — faked cluster
 pytest                               # scaffolding, and the registry's arithmetic and marks
 report-kit values --path examples/simple-api/report-values.yaml check
 report-kit values --path examples/async-jobs/report-values.yaml check
+report-kit values --path examples/priced-api/report-values.yaml check
 report-kit metrics check --all       # every register's table and the refs it names, examples and templates
 cd examples/simple-api/scripts  && ./up.sh && ./api_point.py --run demo --rate 8
 cd examples/async-jobs/scripts  && ./up.sh && ./jobs_point.py --run demo --n 2 --count 400
+cd examples/priced-api/scripts  && ./up.sh && ./api_point.py --run demo --rate 8   # on a k3s cluster
 ```
 
-The last two are the only checks that the kit still *measures* anything; the
-others prove it is wired correctly. The two `values check` runs are the
-examples checking themselves: every marked number in both reports still equals
+The last three are the only checks that the kit still *measures* anything; the
+others prove it is wired correctly. The three `values check` runs are the
+examples checking themselves: every marked number in each report still equals
 what the registry resolves to, which is the guarantee the marks exist to give.
 `tests/test_values.py` is one level under that — it checks the checker, because a
 mark that silently stops being parsed takes the whole contract with it and the
 only symptom is a count going down.
 
 An example runs against the installed package like any other project, so a
-green run there is also proof the install works. Run both: they exercise different halves — the api example
-never closes a window on a composite condition, and the jobs example never
-reads a client-side summary.
+green run there is also proof the install works. Run all three: they exercise different halves — the api example
+never closes a window on a composite condition, the jobs example never
+reads a client-side summary, and only the priced example exports what a
+window cost.
 
 The rules live next to what they constrain —
 [src/report_kit/API.md](src/report_kit/API.md) for the library's contract,

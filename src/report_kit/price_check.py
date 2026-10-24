@@ -40,18 +40,28 @@ class Checked:
 
 @dataclass(frozen=True)
 class PriceCheck:
+    """`unpriced` are nodes OpenCost never priced, `silent` the lines the
+    register reads that it published nothing for, `unread` why its prices
+    could not be read at all."""
+
     within: float
-    checked: tuple[Checked, ...]
-    unpriced: tuple[str, ...]
+    checked: tuple[Checked, ...] = ()
+    unpriced: tuple[str, ...] = ()
+    silent: tuple[str, ...] = ()
+    unread: str = ""
 
     def differs(self, one: Checked) -> bool:
         return one.aws is not None and one.apart() > self.within
 
     @property
     def doubts(self) -> list[str]:
-        doubts = [f"OpenCost's price for {named(one.price)} could not be checked "
-                  f"against AWS — {one.problem}"
-                  for one in self.checked if one.aws is None]
+        if self.unread:
+            return [f"OpenCost's prices could not be read — {self.unread}"]
+        doubts = [f"the register reads a {NOUN[line]} price, and OpenCost published "
+                  f"none during the window" for line in self.silent]
+        doubts += [f"OpenCost's price for {named(one.price)} could not be checked "
+                   f"against AWS — {one.problem}"
+                   for one in self.checked if one.aws is None]
         doubts += [f"OpenCost priced {named(one.price)} at "
                    f"${one.price.hourly:.6g}/h from {rfc3339(one.price.since)}, AWS "
                    f"publishes ${one.aws:.6g}/h — {one.apart():.1%} apart, more than "
@@ -76,17 +86,23 @@ def plan_of(within: float | None, queries, eks_cluster: str | None) -> dict | No
 
 
 def check_prices(prom_url: str, window: Window, plan: dict) -> PriceCheck:
-    lines = tuple(plan["lines"])
-    prices = opencost.published_prices(prom_url, window, lines)
-    region = cluster_region(prom_url, window, prices)
-    checked = [*node_checks([p for p in prices if p.line == NODES]),
-               *volume_checks([p for p in prices if p.line == VOLUMES], region),
-               *load_balancer_checks([p for p in prices if p.line == LOAD_BALANCERS],
-                                     region),
-               *control_plane_checks([p for p in prices if p.line == CONTROL_PLANE],
+    """Prometheus failing is a doubt rather than an exception: the export
+    before it has already succeeded, and the record must still be written."""
+    lines, within = tuple(plan["lines"]), float(plan["within"])
+    try:
+        prices = opencost.published_prices(prom_url, window, lines)
+        region = cluster_region(prom_url, window, prices)
+        unpriced = opencost.unpriced_nodes(prom_url, window) if NODES in lines else []
+    except RuntimeError as exc:
+        return PriceCheck(within, unread=str(exc))
+    of = {line: [p for p in prices if p.line == line] for line in lines}
+    checked = [*node_checks(of.get(NODES, [])),
+               *volume_checks(of.get(VOLUMES, []), region),
+               *load_balancer_checks(of.get(LOAD_BALANCERS, []), region),
+               *control_plane_checks(of.get(CONTROL_PLANE, []),
                                      plan.get("eks_cluster"), region)]
-    unpriced = opencost.unpriced_nodes(prom_url, window) if NODES in lines else []
-    return PriceCheck(float(plan["within"]), tuple(checked), tuple(unpriced))
+    return PriceCheck(within, tuple(checked), tuple(unpriced),
+                      tuple(line for line in lines if not of[line]))
 
 
 def cluster_region(prom_url: str, window: Window, prices: list[Price]) -> str | None:
@@ -194,11 +210,15 @@ def recorded(check: PriceCheck) -> dict:
                          "opencost": one.price.hourly, "aws": one.aws,
                          "since": rfc3339(one.price.since), "problem": one.problem}
                         for one in check.checked],
-            "unpriced": list(check.unpriced),
-            "doubts": check.doubts}
+            "unpriced": list(check.unpriced), "silent": list(check.silent),
+            "unread": check.unread, "doubts": check.doubts}
 
 
 def print_check(check: PriceCheck) -> None:
+    if check.unread:
+        print(f"[{BAD}] prices — {check.unread}")
+    for line in check.silent:
+        print(f"[{BAD}] price of every {NOUN[line]} — none published by OpenCost")
     for one in check.checked:
         mark = OK if one.aws is not None and not check.differs(one) else BAD
         aws_side = f"${one.aws:.6g}/h" if one.aws is not None else one.problem
