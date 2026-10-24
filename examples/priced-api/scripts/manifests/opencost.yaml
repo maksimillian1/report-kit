@@ -1,0 +1,124 @@
+# OpenCost, pricing what kube-state-metrics and cAdvisor report and
+# publishing the prices back into the same Prometheus.
+#
+# A local cluster has no cloud provider, so OpenCost prices it with the
+# "custom" provider and the rates in the ConfigMap below. THOSE RATES ARE
+# INVENTED: round numbers in the range of a small cloud instance, chosen so
+# the arithmetic is easy to follow. On EKS the same Deployment detects AWS from
+# each node's providerID and prices from the AWS price list instead — and
+# that is what execution.yaml's prices_match_aws checks it against.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: opencost
+  namespace: report-kit-priced-monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: report-kit-priced-opencost
+rules:
+  - apiGroups: [""]
+    resources: [configmaps, nodes, pods, services, resourcequotas,
+                replicationcontrollers, limitranges, persistentvolumeclaims,
+                persistentvolumes, namespaces, endpoints]
+    verbs: [get, list, watch]
+  - apiGroups: [apps]
+    resources: [statefulsets, deployments, daemonsets, replicasets]
+    verbs: [list, watch]
+  - apiGroups: [batch]
+    resources: [cronjobs, jobs]
+    verbs: [get, list, watch]
+  - apiGroups: [autoscaling]
+    resources: [horizontalpodautoscalers]
+    verbs: [get, list, watch]
+  - apiGroups: [policy]
+    resources: [poddisruptionbudgets]
+    verbs: [get, list, watch]
+  - apiGroups: [storage.k8s.io]
+    resources: [storageclasses]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: report-kit-priced-opencost
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: report-kit-priced-opencost
+subjects:
+  - kind: ServiceAccount
+    name: opencost
+    namespace: report-kit-priced-monitoring
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opencost-pricing
+  namespace: report-kit-priced-monitoring
+data:
+  # Invented rates, USD: per vCPU-hour, per GiB-hour of memory, per
+  # GiB-hour of storage, per load balancer hour.
+  default.json: |
+    {
+      "provider": "custom",
+      "description": "invented rates for a local cluster — not any provider's",
+      "CPU": "0.0300",
+      "spotCPU": "0.0100",
+      "RAM": "0.0040",
+      "spotRAM": "0.0013",
+      "GPU": "0",
+      "storage": "0.00012",
+      "zoneNetworkEgress": "0",
+      "regionNetworkEgress": "0",
+      "internetNetworkEgress": "0",
+      "firstFiveForwardingRulesCost": "0.0250",
+      "additionalForwardingRuleCost": "0",
+      "LBIngressDataCost": "0"
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opencost
+  namespace: report-kit-priced-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: opencost}
+  template:
+    metadata:
+      labels: {app: opencost}
+    spec:
+      serviceAccountName: opencost
+      containers:
+        - name: opencost
+          image: ghcr.io/opencost/opencost:1.115.0
+          env:
+            - name: PROMETHEUS_SERVER_ENDPOINT
+              value: http://prometheus.report-kit-priced-monitoring:9090
+            - name: CLUSTER_ID
+              value: priced-api
+            - name: CONFIG_PATH
+              value: /models/
+          ports:
+            - {name: http, containerPort: 9003}
+          readinessProbe:
+            httpGet: {path: /healthz, port: 9003}
+            periodSeconds: 5
+          volumeMounts:
+            - {name: pricing, mountPath: /models}
+      volumes:
+        - name: pricing
+          configMap: {name: opencost-pricing}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: opencost
+  namespace: report-kit-priced-monitoring
+spec:
+  selector: {app: opencost}
+  ports:
+    - {name: http, port: 9003, targetPort: 9003}

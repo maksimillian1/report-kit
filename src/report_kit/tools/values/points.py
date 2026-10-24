@@ -135,9 +135,11 @@ def members(entries: dict[str, dict], label: str) -> list[str]:
 
 def validity_problems(record: dict) -> list[str]:
     export = record.get("export") if isinstance(record.get("export"), dict) else {}
+    prices = record.get("prices") if isinstance(record.get("prices"), dict) else {}
     found = {"guard_failures": record.get("guard_failures"),
              "empty_refs": record.get("empty_refs") or export.get("empty_refs"),
-             "doubts": record.get("doubts")}
+             "doubts": record.get("doubts"),
+             "price doubts": prices.get("doubts")}
     return [f"{field}: {', '.join(str(item) for item in items)}"
             for field, items in found.items() if items]
 

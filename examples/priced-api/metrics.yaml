@@ -1,0 +1,110 @@
+# The metric register: every ref this execution defines, once. scripts/api_point.py
+# reads it; `report-kit metrics write` renders the register table from it.
+#
+# M6–M11 are prices, read out of the same Prometheus as the rest and exported
+# over the same window. A price is USD per hour at each instant; what a point
+# cost is the price's mean over its window times the window's hours, worked out
+# below by the kit and never by the runner. The rates behind them are INVENTED
+# (scripts/manifests/opencost.yaml): a local cluster is billed by no one.
+
+metrics:
+  M1:
+    what: requests served per second
+    record: observations.client.served_per_second
+    status: confirmed 2026-10-24
+    notes: client-side, k6 summary `http_reqs.rate`
+  M2:
+    what: client-observed latency p95
+    record: observations.client.p95_ms
+    status: confirmed 2026-10-24
+    notes: k6 summary `http_req_duration.p(95)`; includes the port-forward hop
+  M3:
+    what: share of requests not served
+    record: observations.client.failed_share
+    status: confirmed 2026-10-24
+    notes: k6 summary `http_req_failed.value`
+  M4:
+    what: serving instances
+    promql: count(up{job="mock-api"} == 1)
+    status: confirmed 2026-10-24
+    notes: '**scrape targets, not replicas**; guarded by G1'
+  R5:
+    what: requests served in the point
+    record: observations.client.requests
+    status: active
+    notes: k6 summary `http_reqs.count` — the denominator of D20
+  M6:
+    what: price of the apps pool's nodes, USD/h
+    promql: sum(max by (node) (node_total_hourly_cost) * on (node) group_left () max by (node) (kube_node_labels{label_karpenter_sh_nodepool="apps"}))
+    status: confirmed 2026-10-24
+    notes: every node the label names, whoever runs on it. No `or vector(0)`, because this pool never empties — one that can would add it and turn that gap into a zero
+  M7:
+    what: price of the service's CPU and memory requests, USD/h
+    promql: sum(kube_pod_container_resource_requests{job="kube-state-metrics", namespace="report-kit-priced", resource="cpu"} * on (node) group_left () max by (node) (node_cpu_hourly_cost)) + sum(kube_pod_container_resource_requests{job="kube-state-metrics", namespace="report-kit-priced", resource="memory"} / 1073741824 * on (node) group_left () max by (node) (node_ram_hourly_cost))
+    status: confirmed 2026-10-24
+    notes: 'requests from kube-state-metrics at OpenCost''s node rates, so it follows the replicas at scrape resolution. **`job=` is required**: OpenCost republishes these requests under its own job, and without it every request counts twice'
+  M8:
+    what: OpenCost's allocation of the same, USD/h
+    promql: sum(container_cpu_allocation{namespace="report-kit-priced"} * on (node) group_left () max by (node) (node_cpu_hourly_cost)) + sum(container_memory_allocation_bytes{namespace="report-kit-priced"} / 1073741824 * on (node) group_left () max by (node) (node_ram_hourly_cost))
+    status: confirmed 2026-10-24
+    notes: second opinion on M7 — the larger of request and use, but published about a minute after a pod starts and for minutes after it is gone; see the Journal
+  M9:
+    what: price of the service's volumes, USD/h
+    promql: sum(max by (persistentvolume) (pv_hourly_cost) * on (persistentvolume) group_left () max by (persistentvolume) (kube_persistentvolume_capacity_bytes{job="kube-state-metrics"}) / 1073741824 * on (persistentvolume) group_left () max by (persistentvolume) (kube_persistentvolume_claim_ref{job="kube-state-metrics", claim_namespace="report-kit-priced"}))
+    status: confirmed 2026-10-24
+    notes: '`pv_hourly_cost` is per GiB, so times the size; billed whether or not the volume is used'
+  M10:
+    what: price of the service's load balancers, USD/h
+    promql: sum(max by (service_name) (kubecost_load_balancer_cost{namespace="report-kit-priced"}))
+    status: confirmed 2026-10-24
+    notes: one per Service of type LoadBalancer; OpenCost prices no ingress
+  M11:
+    what: control-plane fee, USD/h
+    promql: max(kubecost_cluster_management_cost)
+    status: confirmed 2026-10-24
+    notes: '**0 here, and 0 is right**: k3s charges no fee. On EKS OpenCost publishes $0.10 only while some node is in a managed node group — see runners.md'
+  D12:
+    what: mean pool price over the window, USD/h
+    series: {ref: M6, reduce: mean}
+    status: active
+  D13:
+    what: mean price of the service's requests, USD/h
+    series: {ref: M7, reduce: mean}
+    status: active
+    notes: rises with replicas — the part of B the load causes
+  D14:
+    what: mean of OpenCost's allocation, USD/h
+    series: {ref: M8, reduce: mean}
+    status: active
+  D15:
+    what: mean price of the service's volumes, USD/h
+    series: {ref: M9, reduce: mean}
+    status: active
+  D16:
+    what: mean price of the service's load balancers, USD/h
+    series: {ref: M10, reduce: mean}
+    status: active
+  D17:
+    what: mean control-plane fee over the window, USD/h
+    series: {ref: M11, reduce: mean}
+    status: active
+  D18:
+    what: the service's own cost over the window, USD
+    formula: (D13 + D15 + D16) * window.seconds / 3600
+    status: active
+    notes: B in methodology.md §8 — what would go if the service did
+  D19:
+    what: shared cost over the window, USD
+    formula: (D12 - D13 + D17) * window.seconds / 3600
+    status: active
+    notes: A — the pool's price less what the service requested, plus the control plane. Not divided among tenants
+  D20:
+    what: the service's own cost per thousand requests, USD
+    formula: D18 / R5 * 1000
+    status: active
+    notes: over the whole window, scale-in included, which the load caused
+  R21:
+    what: offered rate, the swept axis
+    record: settings.rate
+    status: active
+    notes: TARGET_RATE in scripts/load.js, passed by api_point.py --rate

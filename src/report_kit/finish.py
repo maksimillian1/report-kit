@@ -9,7 +9,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import derive, prometheus, reporting
+from . import derive, price_check, prometheus, reporting
 from .clock import hms, parse_instant
 from .constants import BAD, EXIT_EXPORT_GAP, EXIT_TIMEOUT, OK, WARN
 from .execution_config import run_guards
@@ -63,8 +63,16 @@ def point_record(point: Point, pre: Preflight, watched: Watched, load: Load,
                  "step": plan.step, "guards_at": plan.guards_at},
         "queries": dict(series_rows(point.register)),
         "guards": run_guards(point.execution, point.settings),
+        "price_check": price_plan(point),
         **pre.facts,
     }
+
+
+def price_plan(point: Point) -> dict | None:
+    match = point.execution.prices_match_aws
+    return price_check.plan_of(match and match.within,
+                               (metric.promql for metric in point.register.exported),
+                               point.env.get("eks_cluster"))
 
 
 def finish_point(record_path: Path, prom_url: str, register: Register, *,
@@ -84,12 +92,29 @@ def finish_point(record_path: Path, prom_url: str, register: Register, *,
                                          at=guard_instant(record))
     record.update(guard_failures=guarded.failures, guard_values=guarded.values,
                   export={"path": str(export.path), "series": export.series,
-                          "points": export.points, "empty_refs": export.empty})
+                          "points": export.points, "empty_refs": export.empty},
+                  prices=prices_checked(prom_url, record))
     markdown = journal_block(record, worked_out(register, record_path))
     path = reporting.write_point(record_path.parent, record["run"], markdown, record)
     print()
     print(f"[{OK}] {path}")
     return verdict(record, record_path)
+
+
+def prices_checked(prom_url: str, record: dict) -> dict | None:
+    """None when the execution does not ask for the check — a record from
+    before it, or one whose execution.yaml has no prices_match_aws."""
+    plan = record.get("price_check")
+    if not plan:
+        return None
+    print()
+    check = price_check.check_prices(prom_url, window_of(record), plan)
+    price_check.print_check(check)
+    return price_check.recorded(check)
+
+
+def price_doubts(record: dict) -> list[str]:
+    return (record.get("prices") or {}).get("doubts") or []
 
 
 def instant(epoch: float) -> datetime:
@@ -151,6 +176,8 @@ def journal_block(record: dict, refs: list[tuple[str, str, str]]) -> str:
              ("guards", ", ".join(record["guard_failures"]) or "clean"),
              ("series exported", f"{record['export']['series']} "
                                  f"({record['export']['points']} points)")]
+    if record.get("prices") is not None:
+        rows += [("prices", prices_summary(record["prices"]))]
     rows += [(name, listed(value)) for name, value in
              (record.get("observations") or {}).items()]
     rows += [("doubts", "; ".join(record.get("doubts") or []) or "none")]
@@ -159,6 +186,12 @@ def journal_block(record: dict, refs: list[tuple[str, str, str]]) -> str:
         lines += ["", "| Ref | What it measures | This run |", "| :--- | :--- | ---: |"]
         lines += [f"| {ref} | {what} | {shown} |" for ref, what, shown in refs]
     return "\n".join(lines)
+
+
+def prices_summary(prices: dict) -> str:
+    doubted = len(prices["doubts"])
+    return (f"{len(prices['checked'])} checked against AWS within "
+            f"{prices['within']:.1%}, " + (f"{doubted} in doubt" if doubted else "clean"))
 
 
 def listed(value: object) -> str:
@@ -177,4 +210,5 @@ def verdict(record: dict, record_path: Path) -> int:
               f"run report-kit point finish {record_path} --force before "
               f"retention drops it")
         return EXIT_EXPORT_GAP
-    return reporting.report_validity(record.get("doubts") or [], record["guard_failures"])
+    return reporting.report_validity([*(record.get("doubts") or []), *price_doubts(record)],
+                                     record["guard_failures"])

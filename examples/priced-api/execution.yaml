@@ -1,0 +1,35 @@
+# How a point of this execution is run and judged: what it is run with, when
+# its window closes, and what makes the point valid. scripts/api_point.py
+# reads it beside metrics.yaml. Neither may change between points of one sweep.
+
+point:
+  settings:
+    rate: {}                    # TARGET_RATE in scripts/load.js, the swept axis
+    duration: {default: 45s}
+  # Above the HPA's 15 s scale-down stabilisation, so the hold cannot complete
+  # in a lull between two scaling decisions.
+  hold_seconds: 20
+  freeze: [deployment/mock-api]
+  guards_at: load_end
+
+window_closes_when_back_to_idle:
+  mock-api:
+    idle_replicas: 1
+    max_replicas: 4
+
+point_validity_guards:
+  G1:
+    min: 1
+    metric: M4
+  G2:
+    max: 0
+    promql: max(resets(mock_requests_total[2m])) or vector(0)
+
+# Off here, on purpose. On EKS this line holds every price OpenCost published
+# during a point against the one AWS publishes for the same node, volume, load
+# balancer and control plane, and puts the point in doubt when one is further
+# off than `within`. This cluster is not on AWS and its rates are invented, so
+# every price would be in doubt and every point with it.
+#
+# prices_match_aws:
+#   within: 0.01

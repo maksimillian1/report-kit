@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from . import cluster, prometheus, reporting
+from . import cluster, opencost, prometheus, reporting
 from .constants import EXIT_CLEAN, EXIT_PREFLIGHT, OK, die
 from .env import Env
 from .execution_config import (EXECUTION, Execution, ExecutionError, PointPlan,
@@ -152,11 +152,24 @@ def preflight(point: Point, more: Callable[[Preflight], None] | None = None) -> 
                   f"{count} replica(s), idle {target.idle_replicas}")
     if more:
         more(pre)
+    check_price_inputs(point, pre)
     down = prometheus.prom_targets_down(point.env.prom_url)
     pre.check("prometheus targets up", not down, ", ".join(down[:5]))
     check_images(point, pre)
     pre.record(**reporting.git_facts())
     return pre
+
+
+def check_price_inputs(point: Point, pre: Preflight) -> None:
+    """The control-plane fee is the one price checked against a named cluster;
+    finding out it is unnamed after the window closed costs the point."""
+    if point.execution.prices_match_aws is None:
+        return
+    lines = opencost.lines_read(metric.promql for metric in point.register.exported)
+    if opencost.CONTROL_PLANE in lines:
+        pre.check("eks_cluster in env.yaml", bool(point.env.get("eks_cluster")),
+                  "the control-plane fee OpenCost publishes is checked against "
+                  "that cluster's")
 
 
 def check_images(point: Point, pre: Preflight) -> None:

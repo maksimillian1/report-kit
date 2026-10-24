@@ -1,0 +1,12 @@
+# The service under test alone in one namespace, so that what OpenCost
+# allocates to that namespace is the service's own cost and nothing else.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: report-kit-priced
+---
+# What measures and prices it, in another.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: report-kit-priced-monitoring

@@ -12,6 +12,7 @@ from pathlib import Path
 
 import yaml
 
+from . import opencost
 from .register import Register
 from .strict_yaml import UniqueKeyLoader, unknown_keys
 from .text import fill
@@ -20,13 +21,15 @@ EXECUTION = "execution.yaml"
 WINDOW = "window_closes_when_back_to_idle"
 GUARDS = "point_validity_guards"
 POINT = "point"
-SECTIONS = (POINT, WINDOW, GUARDS)
+PRICES = "prices_match_aws"
+SECTIONS = (POINT, WINDOW, GUARDS, PRICES)
 
 GUARD_REF = re.compile(r"^G([1-9]\d*)$")
 SUBSTITUTION = re.compile(r"^\{[A-Za-z_]\w*\}$")
 GUARD_KEYS = frozenset({"metric", "promql", "min", "max"})
 IDLE_KEYS = frozenset({"idle_replicas", "max_replicas"})
 POINT_KEYS = frozenset({"settings", "load", "hold_seconds", "freeze", "step", "guards_at"})
+PRICE_KEYS = frozenset({"within"})
 SETTING_KEYS = frozenset({"default"})
 SETTING_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 LOADS = ("foreground", "background")
@@ -63,6 +66,15 @@ class Guard:
 
 
 @dataclass(frozen=True)
+class PriceMatch:
+    """Every price OpenCost published during the window is held against AWS's
+    for the same thing, and one further off than `within` — a share of AWS's
+    price — puts the point in doubt."""
+
+    within: float
+
+
+@dataclass(frozen=True)
 class Setting:
     """What a point is run with: a `--name` flag on the runner, filled into
     the load command and the guards, and recorded under `settings`."""
@@ -90,6 +102,7 @@ class Execution:
     window_closes_when_back_to_idle: tuple[IdleTarget, ...] = ()
     point_validity_guards: tuple[Guard, ...] = ()
     point: dict | None = None
+    prices_match_aws: PriceMatch | None = None
 
     def plan(self, defaults: PointPlan) -> PointPlan:
         return replace(defaults, **(self.point or {}))
@@ -121,7 +134,8 @@ def parse_execution(text: str, path: Path, register: Register) -> Execution:
     idle = tuple(idle_target_of(name, spec) for name, spec in entries(doc, WINDOW, path))
     guards = tuple(guard_of(ref, spec, register) for ref, spec in entries(doc, GUARDS, path))
     check_guard_order(guards, path)
-    return Execution(path, idle, guards, point_of(doc.get(POINT), path))
+    return Execution(path, idle, guards, point_of(doc.get(POINT), path),
+                     price_match_of(doc.get(PRICES), path, register))
 
 
 def point_of(raw: object, path: Path) -> dict:
@@ -135,6 +149,23 @@ def point_of(raw: object, path: Path) -> dict:
     readers = {"settings": settings_of, "load": load_of, "hold_seconds": hold_of,
                "freeze": freeze_of, "step": step_of, "guards_at": guards_at_of}
     return {key: readers[key](raw[key]) for key in raw}
+
+
+def price_match_of(raw: object, path: Path, register: Register) -> PriceMatch | None:
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise ExecutionError(f"{path}: {PRICES} must be a mapping, such as {{within: 0.01}}")
+    refuse_unknown_keys(PRICES, raw, PRICE_KEYS)
+    within = raw.get("within")
+    if isinstance(within, bool) or not isinstance(within, (int, float)) \
+            or not 0 < within < 1:
+        raise ExecutionError(f"{PRICES}.within is how far apart two prices may be, "
+                             f"as a share of AWS's, between 0 and 1 — not {within!r}")
+    if not opencost.lines_read(metric.promql for metric in register.exported):
+        raise ExecutionError(f"{path}: {PRICES} is set, but no query in "
+                             f"{register.path.name} reads a price OpenCost publishes")
+    return PriceMatch(float(within))
 
 
 def settings_of(raw: object) -> tuple[Setting, ...]:
