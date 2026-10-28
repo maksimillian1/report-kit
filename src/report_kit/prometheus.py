@@ -63,8 +63,22 @@ def prom_targets_down(prom_url: str) -> list[str]:
     ]
 
 
+@dataclass(frozen=True)
+class GuardResult:
+    """What each guard read (None where it read nothing), and which failed."""
+
+    failures: list[str]
+    values: dict[str, float | None]
+
+
 def check_guards(prom_url: str, guards: list[dict],
                  at: datetime | None = None) -> list[str]:
+    """The refs that failed; `evaluate_guards` also returns what each read."""
+    return evaluate_guards(prom_url, guards, at=at).failures
+
+
+def evaluate_guards(prom_url: str, guards: list[dict],
+                    at: datetime | None = None) -> GuardResult:
     """Evaluated once, as of `at` (Prometheus's own "now" when not given).
 
     Pass the instant the load actually stopped, not the moment you got around
@@ -75,9 +89,11 @@ def check_guards(prom_url: str, guards: list[dict],
 
     A guard returning nothing fails: an empty result is a gap, not a pass. Use
     `or vector(0)` where a zero is honest."""
-    failures = []
+    failures: list[str] = []
+    values: dict[str, float | None] = {}
     for guard in guards:
         ref = guard["ref"]
+        values[ref] = None
         try:
             value = prom_scalar(prom_url, guard["query"], at=at)
         except RuntimeError as e:
@@ -88,6 +104,7 @@ def check_guards(prom_url: str, guards: list[dict],
             print(f"[{BAD}] guard {ref} — NO DATA (a gap, not a zero)")
             failures.append(ref)
             continue
+        values[ref] = value
         low, high = guard.get("min"), guard.get("max")
         breached = ((low is not None and value < low)
                     or (high is not None and value > high))
@@ -96,7 +113,7 @@ def check_guards(prom_url: str, guards: list[dict],
         print(f"[{BAD if breached else OK}] guard {ref} = {value:g}  [{bound}]")
         if breached:
             failures.append(ref)
-    return failures
+    return GuardResult(failures, values)
 
 
 @dataclass

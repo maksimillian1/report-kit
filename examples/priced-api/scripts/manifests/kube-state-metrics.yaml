@@ -1,0 +1,74 @@
+# kube-state-metrics: what OpenCost allocates by (requests, capacity, volumes)
+# and what the register joins prices to. Without the allowlist below,
+# kube_node_labels carries no label_karpenter_sh_nodepool and a query that
+# sums one pool's nodes silently sums none of them.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-state-metrics
+  namespace: report-kit-priced-monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: report-kit-priced-kube-state-metrics
+rules:
+  - apiGroups: [""]
+    resources: [nodes, pods, services, namespaces, persistentvolumes,
+                persistentvolumeclaims]
+    verbs: [list, watch]
+  - apiGroups: [apps]
+    resources: [deployments, replicasets, statefulsets, daemonsets]
+    verbs: [list, watch]
+  - apiGroups: [batch]
+    resources: [jobs]
+    verbs: [list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: report-kit-priced-kube-state-metrics
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: report-kit-priced-kube-state-metrics
+subjects:
+  - kind: ServiceAccount
+    name: kube-state-metrics
+    namespace: report-kit-priced-monitoring
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-state-metrics
+  namespace: report-kit-priced-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: kube-state-metrics}
+  template:
+    metadata:
+      labels: {app: kube-state-metrics}
+    spec:
+      serviceAccountName: kube-state-metrics
+      containers:
+        - name: kube-state-metrics
+          image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.13.0
+          args:
+            - --resources=nodes,pods,services,namespaces,persistentvolumes,persistentvolumeclaims,deployments,replicasets,statefulsets,daemonsets,jobs
+            - --metric-labels-allowlist=nodes=[karpenter.sh/nodepool]
+          ports:
+            - {name: http, containerPort: 8080}
+          readinessProbe:
+            httpGet: {path: /healthz, port: 8080}
+            periodSeconds: 2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-state-metrics
+  namespace: report-kit-priced-monitoring
+spec:
+  selector: {app: kube-state-metrics}
+  ports:
+    - {name: http, port: 8080, targetPort: 8080}

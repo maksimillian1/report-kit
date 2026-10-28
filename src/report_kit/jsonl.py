@@ -17,6 +17,15 @@ def load_lines(path: Path) -> list[dict]:
     {"metric": ref, "query": …, "result": [ …Prometheus series… ]}."""
     if not path.is_file():
         die(f"not found: {path}")
+    try:
+        return read_lines(path)
+    except ValueError as e:
+        die(str(e))
+
+
+def read_lines(path: Path) -> list[dict]:
+    """load_lines for a caller that reports the failure itself: raises
+    OSError, or ValueError naming the line, instead of exiting."""
     lines = []
     for lineno, raw in enumerate(path.read_text().splitlines(), 1):
         raw = raw.strip()
@@ -25,7 +34,7 @@ def load_lines(path: Path) -> list[dict]:
         try:
             lines.append(json.loads(raw))
         except json.JSONDecodeError as e:
-            die(f"{path}:{lineno} not valid JSON: {e}")
+            raise ValueError(f"{path}:{lineno} not valid JSON: {e}") from e
     return lines
 
 

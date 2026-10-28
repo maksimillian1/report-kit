@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""selftest.py — run both runner templates end to end against a faked cluster.
+"""selftest.py — run both runner templates, node-cost and the price check end
+to end against a faked cluster.
 
     report-kit selftest
 
 No pytest, no cluster, no AWS. It patches the three functions everything
 bottoms out in (shell.sh / sh_json / http_json) and drives a full point:
-preflight, load, the window closing, export, guards, the point record.
+preflight, load, the window closing, export, guards, the register's refs
+worked out, the point record.
 
 Two things it is for. It proves the seam the docs claim — if this file needs
 anything beyond those three patches to fake a cluster, then something in the
@@ -30,7 +32,7 @@ from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
-from report_kit import shell  # (patched by name below)
+from report_kit import opencost, price_check, shell  # (shell patched by name below)
 from report_kit.tools import node_cost
 
 
@@ -140,12 +142,25 @@ class FakeCluster:
 
 
 def write_inputs(root: Path, profile: str) -> None:
-    (root / "series.txt").write_text("M1|sum(rate(requests_total[1m]))\n")
-    (root / "guards.txt").write_text("G1|max 5|sum(errors_total)\n")
+    """The execution's own files, as `new-point` leaves them once filled in.
+    The hold is the project's tuning, not the flow's: a 90s hold would make
+    this test take 90s to prove nothing extra."""
+    scaled = ("api: {idle_replicas: 1, max_replicas: 10}" if profile == "api"
+              else "embeddings: {idle_replicas: 1}")
+    frozen = (["deployment/api"] if profile == "api"
+              else ["deployment/worker", "deployment/embeddings"])
+    (root / "metrics.yaml").write_text(
+        "metrics:\n"
+        "  M1: {what: requests, promql: 'sum(rate(requests_total[1m]))', "
+        "status: unconfirmed}\n"
+        "  D2: {what: peak request rate, series: {ref: M1, reduce: max}, "
+        "status: active}\n")
+    (root / "execution.yaml").write_text(
+        f"point:\n  hold_seconds: 0.2\n  freeze: {json.dumps(frozen)}\n"
+        f"window_closes_when_back_to_idle:\n  {scaled}\n"
+        "point_validity_guards:\n  G1: {max: 5, promql: sum(errors_total)}\n")
     (root / "image-freeze.json").write_text(json.dumps(
-        {"deployment/api": [IMAGE]} if profile == "api" else
-        {"deployment/worker": [IMAGE], "deployment/embeddings": [IMAGE]},
-        indent=2) + "\n")
+        {name: [IMAGE] for name in frozen}, indent=2) + "\n")
 
 
 def env_yaml(profile: str, marker: Path) -> str:
@@ -173,8 +188,8 @@ def run_profile(profile: str) -> int:
 
         runner = load_runner("api_point" if profile == "api" else "jobs_point")
         argv = ["x", "--run", f"smoke-{profile}", "--env", str(root / "env.yaml"),
-                "--series", str(root / "series.txt"),
-                "--guards", str(root / "guards.txt"),
+                "--metrics", str(root / "metrics.yaml"),
+                "--execution", str(root / "execution.yaml"),
                 "--freeze-file", str(root / "image-freeze.json"),
                 "--out-dir", str(root / "data"), "--no-port-forward"]
         argv += ["--rate", "200"] if profile == "api" else ["--n", "8", "--count", "100"]
@@ -184,18 +199,31 @@ def run_profile(profile: str) -> int:
         with patch("report_kit.shell.sh", fake.sh), \
              patch("report_kit.shell.sh_json", fake.sh_json), \
              patch("report_kit.shell.http_json", fake.http_json), \
-             patch.object(runner, "HOLD_SECONDS", 0.2), \
              patch.object(sys, "argv", argv):
             code = runner.main()
 
         record = json.loads((root / "data" / f"smoke-{profile}.point.json").read_text())
+        block = (root / "data" / f"smoke-{profile}.point.md").read_text()
         # > 0, not >= 0. A runner that closes its window at the very first
         # poll records a zero-length window, and every other assertion here
         # passes anyway — which is exactly how jobs_point.py shipped able to
         # measure nothing and report it clean.
         assert record["window"]["seconds"] > 0, record["window"]
         assert record["export"]["series"] == 1, record["export"]
-        assert (root / "data" / f"smoke-{profile}.point.md").is_file()
+        assert record["guard_values"] == {"G1": 1.0}, record.get("guard_values")
+        assert record["queries"] == {"M1": "sum(rate(requests_total[1m]))"}, record
+        assert record["guards"] == [{"ref": "G1", "query": "sum(errors_total)",
+                                     "max": 5.0}], record["guards"]
+        settings = {"rate": "200", "duration": "10m"} if profile == "api" \
+            else {"n": "8", "count": "100"}
+        assert record["settings"] == settings, record["settings"]
+        events = record["events"]
+        assert events["load_started"] < events["window_closed"], events
+        if profile == "jobs":
+            assert events["load_started"] <= events["queues_empty"], events
+        # The register's D ref, worked out of this run's export by the kit
+        # rather than by the runner: the fake's samples are 1 and 2.
+        assert "| D2 | peak request rate | 2 |" in block, block
         assert (root / "data" / f"smoke-{profile}.jsonl").is_file()
         print(f"\n[  ok  ] {profile}: exit {code}, window "
               f"{record['window']['seconds']}s, point files written")
@@ -259,9 +287,57 @@ def run_node_cost() -> int:
         return 1
 
 
+def run_price_check() -> int:
+    """OpenCost's prices against AWS's, on the same three patches: one
+    on-demand node at its listed rate, and one spot node priced at that same
+    rate — what OpenCost publishes for spot with no data feed. Exactly the
+    second is a doubt."""
+    from datetime import datetime, timezone
+    from report_kit.window import Window
+    start = datetime(2026, 1, 2, 10, 0, tzinfo=timezone.utc)
+    nodes = [{"metric": {"node": name, "instance_type": "c6i.large",
+                         "region": "eu-central-1",
+                         "provider_id": f"aws:///eu-central-1a/i-{name}"},
+              "values": [[start.timestamp(), "0.0970"]]} for name in ("a", "b")]
+
+    def http_json(method, url, body=None, timeout=30):
+        query = parse_qs(urlparse(url).query).get("query", [""])[0]
+        if query == opencost.LINE_QUERIES[opencost.NODES]:
+            result = nodes
+        elif query == opencost.SPOT_QUERY:
+            result = [{"metric": {"node": "b"}, "values": [[start.timestamp(), "1"]]}]
+        else:                                   # every node was priced
+            result = []
+        return {"status": "success", "data": {"result": result}}
+
+    def sh_json(cmd, timeout=60):
+        if cmd[:3] == ["aws", "pricing", "get-products"]:
+            return {"PriceList": ['{"terms":{"OnDemand":{"t":{"priceDimensions":'
+                                  '{"d":{"pricePerUnit":{"USD":"0.0970"}}}}}}}']}
+        if cmd[:3] == ["aws", "ec2", "describe-spot-price-history"]:
+            return {"SpotPriceHistory": [{"SpotPrice": "0.0390"}]}
+        raise AssertionError(f"unexpected aws: {cmd}")
+
+    try:
+        plan = {"within": 0.01, "lines": [opencost.NODES], "eks_cluster": None}
+        with patch("report_kit.shell.http_json", http_json), \
+             patch("report_kit.shell.sh_json", sh_json):
+            check = price_check.check_prices(
+                "http://p", Window(start, start.replace(minute=15)), plan)
+        assert len(check.checked) == 2, check.checked
+        assert len(check.doubts) == 1 and "node b" in check.doubts[0], check.doubts
+        print("\n[  ok  ] price_check: a spot node at the on-demand rate doubted, "
+              "an on-demand one not")
+        return 0
+    except Exception as e:
+        print(f"\n[ FAIL ] price_check: {type(e).__name__}: {e}")
+        return 1
+
+
 def main(argv: list[str] | None = None) -> int:
     failures = sum(run_profile(profile) for profile in ("api", "jobs"))
     failures += run_node_cost()
+    failures += run_price_check()
     print()
     print("smoke test: " + ("everything passed" if not failures
                             else f"{failures} case(s) FAILED"))

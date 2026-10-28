@@ -1,23 +1,84 @@
 {
-  "client": {
-    "failed_share": 0,
-    "p95_ms": 298.0,
-    "requests": 4321,
-    "served_per_second": 24.0
+  "commit": "1d9d592182a50bc7253b966089183e55a24dafa5",
+  "dirty": true,
+  "doubts": [],
+  "events": {
+    "load_finished": 1792769794.747686,
+    "load_started": 1792769614.281149,
+    "window_closed": 1792769846.865487
   },
-  "empty_refs": [],
-  "generator_exit": 0,
-  "generator_window": {
-    "end": "2026-09-05T19:41:08Z",
-    "seconds": 180.5,
-    "start": "2026-09-05T19:38:07Z"
+  "export": {
+    "empty_refs": [],
+    "path": "/Users/maksimsnitcuk/Applications/personal/report-kit/examples/simple-api/scripts/data/rate-24-long.jsonl",
+    "points": 48,
+    "series": 3
   },
   "guard_failures": [],
-  "rate": "24",
+  "guard_values": {
+    "G1": 4.0,
+    "G2": 0.0
+  },
+  "guards": [
+    {
+      "min": 1.0,
+      "query": "count(up{job=\"mock-api\"} == 1)",
+      "ref": "G1"
+    },
+    {
+      "max": 0.0,
+      "query": "max(resets(mock_requests_total[2m])) or vector(0)",
+      "ref": "G2"
+    }
+  ],
+  "images": {
+    "deployment/mock-api": [
+      "python:3.12-alpine"
+    ]
+  },
+  "kit_version": "0.4.0",
+  "load": {
+    "exit": 0,
+    "window": {
+      "end": "2026-10-23T15:36:34Z",
+      "seconds": 180.466537,
+      "start": "2026-10-23T15:33:34Z"
+    }
+  },
+  "observations": {
+    "ceilings_reached": [
+      "mock-api"
+    ],
+    "client": {
+      "dropped_iterations": 0,
+      "failed_share": 0,
+      "p95_ms": 154.701,
+      "requests": 4321,
+      "served_per_second": 23.99369573834871
+    },
+    "peaks": {
+      "tiers.mock-api": 4.0
+    }
+  },
+  "plan": {
+    "guards_at": "load_end",
+    "hold_seconds": 20.0,
+    "load": "foreground",
+    "step": "15s"
+  },
+  "profile": "api",
+  "queries": {
+    "M4": "count(up{job=\"mock-api\"} == 1)",
+    "M5": "sum(rate(mock_requests_total[30s]))",
+    "M6": "sum(rate(mock_request_duration_seconds_sum[30s])) / sum(rate(mock_requests_total[30s]))"
+  },
   "run": "rate-24-long",
+  "settings": {
+    "duration": "3m",
+    "rate": "24"
+  },
   "window": {
-    "end": "2026-09-05T19:41:58Z",
-    "seconds": 230.5,
-    "start": "2026-09-05T19:38:07Z"
+    "end": "2026-10-23T15:37:26Z",
+    "seconds": 232.584338,
+    "start": "2026-10-23T15:33:34Z"
   }
 }

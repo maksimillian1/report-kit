@@ -1,0 +1,8 @@
+{
+  "deployment/results": [
+    "python:3.12-alpine"
+  ],
+  "deployment/worker": [
+    "python:3.12-alpine"
+  ]
+}

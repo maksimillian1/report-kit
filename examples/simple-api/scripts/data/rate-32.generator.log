@@ -1,44 +1,35 @@
-time="2026-09-05T21:14:59+02:00" level=warning msg="Request Failed" error="Get \"http://localhost:8081/\": request timeout"
-time="2026-09-05T21:15:02+02:00" level=warning msg="Request Failed" error="Get \"http://localhost:8081/\": request timeout"
-time="2026-09-05T21:15:02+02:00" level=warning msg="Request Failed" error="Get \"http://localhost:8081/\": request timeout"
-time="2026-09-05T21:15:05+02:00" level=warning msg="Request Failed" error="Get \"http://localhost:8081/\": request timeout"
-time="2026-09-05T21:15:06+02:00" level=warning msg="Insufficient VUs, reached 80 active VUs and cannot initialize more" executor=constant-arrival-rate scenario=constant
-time="2026-09-05T21:15:08+02:00" level=warning msg="Request Failed" error="Get \"http://localhost:8081/\": request timeout"
-time="2026-09-05T21:15:10+02:00" level=warning msg="Request Failed" error="Get \"http://localhost:8081/\": request timeout"
-time="2026-09-05T21:15:16+02:00" level=warning msg="Request Failed" error="Get \"http://localhost:8081/\": request timeout"
 
 
   █ THRESHOLDS 
 
     http_req_failed
-    ✓ 'rate<0.05' rate=0.51%
+    ✓ 'rate<0.05' rate=0.00%
 
 
   █ TOTAL RESULTS 
 
-    checks_total.......: 1350   26.353808/s
-    checks_succeeded...: 99.48% 1343 out of 1350
-    checks_failed......: 0.51%  7 out of 1350
+    checks_total.......: 1432    31.717211/s
+    checks_succeeded...: 100.00% 1432 out of 1432
+    checks_failed......: 0.00%   0 out of 1432
 
-    ✗ status 200
-      ↳  99% — ✓ 1343 / ✗ 7
+    ✓ status 200
 
     HTTP
-    http_req_duration..............: avg=1.5s  min=83.34ms med=960.62ms max=10s   p(90)=3.2s  p(95)=4.68s
-      { expected_response:true }...: avg=1.45s min=83.34ms med=950.5ms  max=9.48s p(90)=3.11s p(95)=4.41s
-    http_req_failed................: 0.51%  7 out of 1350
-    http_reqs......................: 1350   26.353808/s
+    http_req_duration..............: avg=382.99ms min=41.84ms med=314.35ms max=2.87s p(90)=718.11ms p(95)=940.72ms
+      { expected_response:true }...: avg=382.99ms min=41.84ms med=314.35ms max=2.87s p(90)=718.11ms p(95)=940.72ms
+    http_req_failed................: 0.00%  0 out of 1432
+    http_reqs......................: 1432   31.717211/s
 
     EXECUTION
-    dropped_iterations.............: 90     1.756921/s
-    iteration_duration.............: avg=1.5s  min=83.52ms med=961ms    max=10s   p(90)=3.2s  p(95)=4.68s
-    iterations.....................: 1350   26.353808/s
-    vus............................: 1      min=1         max=80
-    vus_max........................: 80     min=17        max=80
+    dropped_iterations.............: 9      0.19934/s
+    iteration_duration.............: avg=383.37ms min=42.01ms med=314.62ms max=2.87s p(90)=718.66ms p(95)=940.98ms
+    iterations.....................: 1432   31.717211/s
+    vus............................: 9      min=4         max=23
+    vus_max........................: 25     min=16        max=25
 
     NETWORK
-    data_received..................: 210 kB 4.1 kB/s
-    data_sent......................: 95 kB  1.8 kB/s
+    data_received..................: 223 kB 4.9 kB/s
+    data_sent......................: 100 kB 2.2 kB/s
 
 
 

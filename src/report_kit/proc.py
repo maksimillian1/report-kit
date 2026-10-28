@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import signal
 import subprocess
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -77,6 +78,10 @@ class Background:
             start_new_session=True,
         )
         log.close()  # the child holds its own fd now
+        # Nothing polls a load while the window is watched, so the exit has
+        # to be stamped by something waiting on it, or finished_at is whenever
+        # the window happened to close.
+        threading.Thread(target=self.wait, daemon=True).start()
         return self
 
     def __enter__(self) -> "Background":

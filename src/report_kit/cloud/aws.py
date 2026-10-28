@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import re
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from .. import shell
@@ -80,21 +82,24 @@ LOCATION_BY_REGION = {
 _ondemand_cache: dict[tuple[str, str], float | None] = {}
 
 
+def location_of(region: str) -> str:
+    """An unmapped region raises rather than returning None: that is a fixable
+    lookup-table gap, not a fact about the price, and None reads downstream
+    as "unpriceable" and hides the real cause."""
+    location = LOCATION_BY_REGION.get(region)
+    if location is None:
+        raise ValueError(
+            f"no Pricing API location known for region {region!r} — add it to "
+            f"LOCATION_BY_REGION (have: {', '.join(sorted(LOCATION_BY_REGION))}) "
+            f"or pass location= explicitly")
+    return location
+
+
 def ondemand_hourly(instance_type: str, region: str,
                     location: str | None = None) -> float | None:
     """USD/hour for Linux, shared tenancy. None means the API returned no
-    price for this instance type; an unmapped region raises instead, since
-    that's a fixable lookup-table gap rather than a fact about the price —
-    silently returning None there reads downstream as "unpriceable instance"
-    and hides the real cause. Cached per (type, location) in-process only."""
-    if location is None:
-        location = LOCATION_BY_REGION.get(region)
-        if location is None:
-            raise ValueError(
-                f"no Pricing API location known for region {region!r} — add it to "
-                f"LOCATION_BY_REGION (have: {', '.join(sorted(LOCATION_BY_REGION))}) "
-                f"or pass location= explicitly")
-
+    price for this instance type. Cached per (type, location) in-process only."""
+    location = location or location_of(region)
     key = (instance_type, location)
     if key in _ondemand_cache:
         return _ondemand_cache[key]
@@ -146,6 +151,7 @@ def spot_hourly(instance_type: str, az: str, at: datetime) -> float | None:
     window_start = at - timedelta(hours=1)
     cmd = [
         "aws", "ec2", "describe-spot-price-history",
+        "--region", region_of_zone(az),
         "--instance-types", instance_type,
         "--availability-zone", az,
         "--product-descriptions", "Linux/UNIX",
@@ -167,3 +173,120 @@ def spot_hourly(instance_type: str, az: str, at: datetime) -> float | None:
     rate = float(history[0]["SpotPrice"])  # most recent ≤ end-time, API returns newest-first
     _spot_cache[key] = rate
     return rate
+
+
+ZONE_REGION = re.compile(r"^([a-z]{2}(?:-gov)?-[a-z]+-\d+)")
+
+# The Price List API prefixes every usage type with a region code (EUC1-,
+# USE2-, EU-) except in us-east-1, where it has none.
+USAGE_REGION_PREFIX = re.compile(r"^[A-Z]{2,4}\d*-")
+
+
+def region_of_zone(az: str) -> str:
+    """eu-central-1a and us-east-1-bos-1a alike name their region first."""
+    found = ZONE_REGION.match(az)
+    if not found:
+        raise ValueError(f"{az!r} does not read as an availability zone")
+    return found.group(1)
+
+
+@dataclass(frozen=True)
+class ListedRate:
+    """One on-demand price dimension of one Price List product."""
+
+    usage_type: str
+    unit: str
+    usd: float
+
+
+_listed_cache: dict[tuple, list[ListedRate]] = {}
+
+
+def listed_rates(service_code: str, region: str, **terms: str) -> list[ListedRate]:
+    """Every on-demand rate the Price List API holds for `service_code` in
+    `region` whose attributes match `terms` exactly. A usage type comes back
+    without its region prefix, so one name matches in every region."""
+    key = (service_code, region, tuple(sorted(terms.items())))
+    if key in _listed_cache:
+        return _listed_cache[key]
+    filters = [f"Type=TERM_MATCH,Field={field},Value={value}"
+               for field, value in (("location", location_of(region)), *terms.items())]
+    data = shell.sh_json(["aws", "pricing", "get-products",
+                          "--service-code", service_code,
+                          "--region", PRICING_REGION_ENDPOINT,
+                          "--filters", *filters, "--output", "json"], timeout=30)
+    rates = []
+    for entry in data.get("PriceList", []):
+        product = json.loads(entry)
+        usage = USAGE_REGION_PREFIX.sub(
+            "", product.get("product", {}).get("attributes", {}).get("usagetype", ""))
+        for term in product.get("terms", {}).get("OnDemand", {}).values():
+            for dim in term.get("priceDimensions", {}).values():
+                usd = dim.get("pricePerUnit", {}).get("USD")
+                if usd is not None:
+                    rates.append(ListedRate(usage, dim.get("unit", ""), float(usd)))
+    _listed_cache[key] = rates
+    return rates
+
+
+def listed_rate(rates: list[ListedRate], usage_type: str) -> float | None:
+    found = {rate.usd for rate in rates if rate.usage_type == usage_type}
+    return found.pop() if len(found) == 1 else None
+
+
+def ebs_gb_month(volume_type: str, region: str) -> float | None:
+    """USD per GB-month of storage for an EBS volume type. Provisioned IOPS
+    and throughput are priced separately and are not in this number."""
+    usage = "EBS:VolumeUsage" + ("" if volume_type == "standard" else f".{volume_type}")
+    return listed_rate(listed_rates("AmazonEC2", region, productFamily="Storage",
+                                    volumeApiName=volume_type), usage)
+
+
+def nlb_hourly(region: str) -> float | None:
+    """USD/hour a Network Load Balancer stands for, before LCUs."""
+    return listed_rate(listed_rates("AWSELB", region,
+                                    productFamily="Load Balancer-Network"),
+                       "LoadBalancerUsage")
+
+
+def eks_cluster_hourly(region: str) -> float | None:
+    """USD/hour for one EKS control plane in standard support."""
+    return listed_rate(listed_rates("AmazonEKS", region, tiertype="HAStandard"),
+                       "AmazonEKS-Hours:perCluster")
+
+
+def eks_extended_support_hourly(region: str) -> float | None:
+    """USD/hour added to the control plane while its version is in extended
+    support."""
+    return listed_rate(listed_rates("AmazonEKS", region, operation="ExtendedSupport"),
+                       "AmazonEKS-Hours:extendedSupport")
+
+
+def describe_volumes(volume_ids: list[str], region: str,
+                     timeout: int = 30) -> dict[str, dict]:
+    """volume-id -> the EC2 description. A filter rather than --volume-ids,
+    which fails the whole call when one volume is already gone."""
+    ids = sorted({i for i in volume_ids if i})
+    if not ids:
+        return {}
+    data = shell.sh_json(["aws", "ec2", "describe-volumes", "--region", region,
+                          "--filters", f"Name=volume-id,Values={','.join(ids)}",
+                          "--output", "json"], timeout=timeout)
+    return {volume["VolumeId"]: volume for volume in data.get("Volumes", [])}
+
+
+def describe_cluster(name: str, region: str, timeout: int = 30) -> dict:
+    return shell.sh_json(["aws", "eks", "describe-cluster", "--name", name,
+                          "--region", region, "--output", "json"],
+                         timeout=timeout).get("cluster", {})
+
+
+def cluster_version_status(version: str, region: str, timeout: int = 30) -> str | None:
+    """STANDARD_SUPPORT, EXTENDED_SUPPORT or UNSUPPORTED, as EKS says today."""
+    data = shell.sh_json(["aws", "eks", "describe-cluster-versions",
+                          "--cluster-versions", version, "--region", region,
+                          "--output", "json"], timeout=timeout)
+    for entry in data.get("clusterVersions", []):
+        if entry.get("clusterVersion") == version:
+            return entry.get("versionStatus")
+    return None

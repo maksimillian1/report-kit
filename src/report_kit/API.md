@@ -18,20 +18,25 @@ Standard library only, except:
 | Needed by | Requirement |
 |---|---|
 | `env.py` | `PyYAML` (import fails loudly with an install hint) |
+| `register.py`, `execution_config.py`, `derive.py`, `point.py`, `finish.py` | `PyYAML` |
 | `cloud/aws_s3.py` | `boto3` / `botocore` |
-| `cloud/aws.py` | the `aws` CLI on PATH (no SDK) |
+| `cloud/aws.py`, `price_check.py` | the `aws` CLI on PATH (no SDK) |
 | `cluster.py`, `portforward.py`, `reporting.frozen_images` | `kubectl` on PATH, working kubecontext |
 | `reporting.git_facts` | `git` on PATH |
 
-Import cost is per-module, and deliberately so: **`env.py` is the only
-module in the package that needs a third-party package at all.** The time
+Import cost is per-module, and deliberately so: **`env.py`, `register.py` and
+`execution_config.py` are the only modules in the library that need a
+third-party package at all**, and `derive.py`, `point.py` and `finish.py` need
+it only because they read those files. The time
 helpers live in `clock.py` rather than next to `Env` precisely so that
 importing a timestamp doesn't drag PyYAML in behind it — otherwise most of
 the package would transitively require it, and `report-kit export-metrics`
 would stop being a rescue path for a window whose metrics are aging out.
-Verified: with `yaml` unimportable, 22 of the 24 modules here still load.
-The two that do not are `env.py` itself, by design, and `cloud/aws_s3.py`,
-which wants boto3 — and `report-kit export-metrics` still runs.
+Verified: with `yaml` unimportable, every module in the map below loads
+except `env.py`, `register.py`, `execution_config.py` and the three that read
+them — `derive.py`, `point.py`, `finish.py` — by design — `cloud/aws_s3.py` wants boto3
+on top — and `report-kit export-metrics` still runs: it reads a point record,
+which is JSON.
 
 ## Module map
 
@@ -41,19 +46,32 @@ which wants boto3 — and `report-kit export-metrics` still runs.
 | `env.py` | YAML config access | `Env` reads a file | `Env`, `execution_dir` |
 | `clock.py` | UTC now, RFC3339, duration formatting | pure | `utcnow`, `rfc3339`, `parse_instant`, `hms` |
 | `shell.py` | subprocess and HTTP, JSON-decoded | integration — **the seam** | `sh`, `sh_json`, `http_json` |
-| `refs.py` | `ref\|…` pipe-file parsing, guard bounds with `{sub}` placeholders | pure | `read_ref_file`, `load_guards` |
-| `prometheus.py` | queries, target health, guard evaluation, exporting a window | integration | `prom_query`, `prom_query_range`, `prom_scalar`, `prom_targets_down`, `check_guards`, `export_range`, `Export` |
+| `register.py` | `metrics.yaml`: what an execution reads and from where — the M refs a runner exports, and how every other ref a run's data holds is had (`record:`, `series:`, `formula:`) | reads a file | `read_register`, `parse_register`, `series_rows`, `find_register`, `register_above`, `Register`, `Metric`, `RegisterError`, `REGISTER`, `DEFINITIONS` |
+| `derive.py` | a register ref's number for one run, worked out of its point record and export, with the steps that produced it | reads files | `derive`, `explain`, `Derivation`, `DeriveError` |
+| `records.py` | a point record read back: a field by dotted path, as a number or an instant | reads a file | `read_record`, `field`, `number_at`, `instant_at`, `export_beside`, `record_beside`, `RecordError`, `RECORD_SUFFIX`, `EXPORT_SUFFIX` |
+| `series.py` | an exported ref reduced to one number: `ref`, `across`, `per`, `where`, `settle_on`, `until`, `reduce` | reads a file | `read_series`, `value`, `describe`, `formula_text`, `Series`, `Mask`, `SeriesError` |
+| `arith.py` | `+ - * /` over named numbers — the one evaluator behind a register's `formula:` and a registry's | pure | `parse`, `check`, `names`, `evaluate`, `ArithError` |
+| `execution_config.py` | `execution.yaml`: what a point is run with (`point:` — settings, load, hold, freeze, step, `guards_at`, over a runner's defaults), when its window closes (`window_closes_when_back_to_idle`) and what makes it valid (`point_validity_guards`, a guard reusing a register ref by `metric:`; `prices_match_aws`, how far OpenCost's prices may be from AWS's), guards with `{setting}` placeholders filled | reads a file | `read_execution`, `parse_execution`, `run_guards`, `Execution`, `PointPlan`, `Setting`, `IdleTarget`, `Guard`, `PriceMatch`, `ExecutionError`, `EXECUTION`, `WINDOW`, `GUARDS`, `POINT`, `PRICES` |
+| `point.py` | one point's inputs, opened the same way by every runner: a command line built from the declared settings, the three YAML files, port-forwards, the image freeze, the preflight every point shares, the tiers' replicas | integration | `open_point`, `Point`, `require_settings`, `port_forwards`, `record_freeze`, `preflight`, `verdict`, `tier_replicas`, `tiers_at_rest`, `ceilings_reached` |
+| `launch.py` | the load env.yaml names, its command filled from the settings, run to completion or in the background | integration (subprocess) | `run_load`, `start_load`, `load_of`, `load_command`, `Load` |
+| `watch.py` | a window closing on a held condition, never on a system not yet busy; the peak of every reading and the instant each named condition first held | pure (calls what it is handed) | `watch`, `Watched` |
+| `finish.py` | everything after the window closes, on the record alone: export, guards as of the planned instant, the price check when the execution asks for it, every register ref worked out, the journal block, the verdict | integration | `close_point`, `finish_point`, `journal_block`, `window_of`, `guard_instant` |
+| `strict_yaml.py` | YAML with a key written twice refused | pure | `UniqueKeyLoader`, `unknown_keys` |
+| `refs.py` | `ref\|…` pipe-file parsing, for a runner copied before 0.4 and for `export-metrics --queries` | pure | `read_ref_file`, `load_guards` |
+| `prometheus.py` | queries, target health, guard evaluation, exporting a window | integration | `prom_query`, `prom_query_range`, `prom_scalar`, `prom_targets_down`, `check_guards`, `evaluate_guards`, `GuardResult`, `export_range`, `Export` |
+| `opencost.py` | what OpenCost publishes in Prometheus, read back over a window: each price it held per node, volume, load balancer and control plane, the nodes it never priced, and which of those lines a register's queries read | integration (via `prometheus`) | `published_prices`, `price_changes`, `unpriced_nodes`, `regions`, `lines_read`, `Price`, `NODES`, `VOLUMES`, `LOAD_BALANCERS`, `CONTROL_PLANE`, `LINE_METRICS`, `LINE_QUERIES` |
+| `price_check.py` | `prices_match_aws`: those prices held against AWS's for the same thing, the doubts it raises and what the point record keeps | integration (via `opencost`, `cloud/aws`) | `check_prices`, `plan_of`, `recorded`, `print_check`, `PriceCheck`, `Checked`, `HOURS_PER_MONTH` |
 | `cluster.py` | kubectl introspection (nodes, pods-per-node, replicas, interrupt events) | integration | `nodes_by_selector`, `pods_by_node`, `deployment_replicas`, `interrupt_events`, `FORCED_REASONS`, `INTERRUPT_REASONS` |
 | `portforward.py` | `kubectl port-forward` lifecycle incl. relaunch-on-death | integration, background procs | `PortForwards`, `forward_spec` |
-| `reporting.py` | image freeze, git facts, result block writing | mixed | `frozen_images`, `check_freeze`, `git_facts`, `md_table`, `write_point`, `report_validity`, `CONTAINER_PATHS` |
-| `jsonl.py` | reading the exported metrics `.jsonl`, and splitting a series at the instant it settled | pure | `load_lines`, `parse_values`, `label_summary`, `changes`, `split`, `NOISY_LABELS` |
+| `reporting.py` | image freeze, git facts, writing a point's two files, the verdict printed | mixed | `frozen_images`, `check_freeze`, `git_facts`, `md_table`, `write_point`, `write_record`, `report_validity`, `CONTAINER_PATHS` |
+| `jsonl.py` | reading the exported metrics `.jsonl`, and splitting a series at the instant it settled | pure | `load_lines`, `read_lines`, `parse_values`, `label_summary`, `changes`, `split`, `NOISY_LABELS` |
 | `poll.py` | "retry until condition" and "until it has *held*" | pure (does no I/O itself) | `poll_until`, `wait_until_stable` |
 | `text.py` | filename sanitising, `{token}` substitution | pure | `safe_filename`, `fill` |
 | `window.py` | the measured interval as one object | pure | `Window` |
 | `proc.py` | running load: blocking, or in the background | integration (subprocess) | `run_logged`, `Completed`, `Background` |
 | `preflight.py` | a checklist that collects every failure before stopping | prints; no I/O of its own | `Preflight` |
 | `dbs/qdrant.py` | Qdrant point counts / collection reset | integration | `points_count`, `delete_collection_if_nonempty` |
-| `cloud/aws.py` | SQS depth/purge, S3 prefix wipe, EC2 lookup and on-demand / spot pricing | integration (via `aws` CLI) | `sqs_depth`, `sqs_purge`, `s3_rm_recursive`, `describe_instances`, `ondemand_hourly`, `spot_hourly`, `LOCATION_BY_REGION` |
+| `cloud/aws.py` | SQS depth/purge, S3 prefix wipe, EC2 and EBS lookup, the EKS cluster and its version's support, on-demand / spot / EBS / NLB / EKS rates | integration (via `aws` CLI) | `sqs_depth`, `sqs_purge`, `s3_rm_recursive`, `describe_instances`, `describe_volumes`, `describe_cluster`, `cluster_version_status`, `ondemand_hourly`, `spot_hourly`, `listed_rates`, `ebs_gb_month`, `nlb_hourly`, `eks_cluster_hourly`, `eks_extended_support_hourly`, `location_of`, `region_of_zone`, `LOCATION_BY_REGION` |
 | `cloud/aws_s3.py` | concurrent directory upload with skip-existing | integration (boto3) | `upload_dir`, `object_exists` |
 
 A new data store goes in `dbs/<store>.py`; a new provider in
@@ -189,7 +207,7 @@ same loop, closing on several conditions at different times — goes in your
   common; a common interface would only hide that. Duplication between two
   store files is fine.
 - Functions return values and raise; they don't print status and exit. The
-  exceptions are `die()` (explicitly fatal), `check_guards`/`check_freeze`
+  exceptions are `die()` (explicitly fatal), `check_guards`/`evaluate_guards`/`check_freeze`
   and `report_validity`, which exist to print a verdict. New utilities
   should follow the first rule, so a caller can decide what to say.
 - Take paths, clients, and callables as arguments instead of constructing
@@ -210,24 +228,28 @@ Two things sit beside this library, and the split between them is the point:
 - **`templates/runners/`** — exactly two scripts, `api_point.py` (synchronous
   request/response workload) and `jobs_point.py` (asynchronous queue/worker
   one). `report-kit new-point` **copies one into an execution** for you to
-  edit: each has a CONSTANTS block naming what must not move during a sweep.
-  They are not a framework — nothing subclasses anything, and a run is the
-  body of `main()`, readable top to bottom. The copy is deliberate: a runner
-  edited in place would change what the earlier points of the same sweep
-  measured.
-- **`tools/`** — `figures`, `charts`, `export_metrics`, `inspect_metrics`,
-  `node_cost`, `selftest`, reached as `report-kit <name>`. Generic CLIs that
+  edit — what is left in it is only what your system knows, because what a
+  point is run with is declared in the execution's `execution.yaml` under
+  `point:` and every shared step is a call into `point`, `launch`, `watch`
+  and `finish`. They are not a framework — nothing subclasses anything, and a
+  run is the body of `main()`, readable top to bottom. The copy is
+  deliberate: a runner edited in place would change what the earlier points
+  of the same sweep measured. The steps after the window closes are the
+  exception, and on purpose: they read only the record, so running them again
+  under a newer kit re-derives, it does not re-measure.
+- **`tools/`** — `values`, `charts`, `metrics`, `point`, `export_metrics`,
+  `inspect_metrics`, `node_cost`, `selftest`, reached as `report-kit <name>`. Generic CLIs that
   **work unedited** in any project, and the reason `cli.py` imports a
   subcommand only after the arguments are parsed. A tool's model sits above its
-  `cmd_*` functions and prints nothing, so `from report_kit.tools.figures
+  `cmd_*` functions and prints nothing, so `from report_kit.tools.values
   import Registry` gets a script a value rather than a page. `charts` defers
   one import further: matplotlib is loaded by `canvas.load_backend()` at render
   time, so `--format` and `--check` work without it.
 
-  **`charts` deliberately does not read `figures.yaml`.** The CSVs are the
+  **`charts` deliberately does not read `report-values.yaml`.** The CSVs are the
   consuming report's, and whether a cell still matches what the documents print
   is the registry's question — answered by putting `charts/*.csv` in its `scan`,
-  where `retired` already lives and can name the figure that replaced the stale
+  where `retired` already lives and can name the value that replaced the stale
   value. A second resolver inside the renderer would have been a worse answer to
   a question that was already solved. What `charts` asserts is narrower and
   entirely its own: given these columns, what can be drawn, and whether each
@@ -239,9 +261,20 @@ Two things sit beside this library, and the split between them is the point:
   the SVG's stamp (`stamp.py`), `--check` (`check.py`), the surface
   (`canvas.py`) and the label geometry (`labels.py`) move for different reasons
   and are read on different days. Its `__init__.py` is the command and
-  nothing else. The rest of `tools/`
-  is one file each, and should stay that way until the same thing is true of
-  it.
+  nothing else. `metrics/` is the second: what the register renders
+  (`views.py`), the refs its prose names (`mentions.py`) and the one-way import
+  from hand-kept files (`legacy.py`). The register's format itself is the
+  library's `register.py`, because a runner reads it. `values/` is the
+  third: the registry and its arithmetic (`registry.py`), the scanned
+  documents and the marks in them (`corpus.py`),
+  the checks (`checks.py`), the `from:` format and the values it reads back
+  (`evidence.py`, `readings.py`), the `metric:` link to the register
+  (`links.py`), one value followed from the page down to its run data
+  (`trace.py`), the `points:` template (`points.py`), line
+  edits to `report-values.yaml` (`surgery.py`), and the edits that span the registry
+  and the documents citing it (`edits.py`), and the one-way move of a report
+  from before 0.4 (`migrate.py`). The rest of `tools/` is one file
+  each, and should stay that way until the same thing is true of it.
 
   One rule that directory inherits from the seam above: the four matplotlib
   names `load_backend()` binds are module globals on `canvas`, so every other
@@ -256,13 +289,13 @@ are writing a new measurement script, start there, not from a blank file.
 
 ## Why some of this is opinionated
 
-`refs.py` and `reporting.py` encode one specific measurement methodology — the
-one in `methodology.md`, which `report-kit init` puts at your report's
-root. A "point" is one measured run; `series.txt` is
-`ref|promql` exported per point; `guards.txt` is `ref|bound|promql` checked at
-the window's close; a frozen set of image digests proves a whole sweep measured
-one artifact. Reuse those two modules if that methodology fits, and ignore them
-if it does not — nothing else here depends on them.
+`register.py`, `derive.py`, `finish.py` and `reporting.py` encode one specific measurement methodology —
+the one in `methodology.md`, which `report-kit init` puts at your report's
+root. A "point" is one measured run; the register's `M` refs are exported per
+point and its guards checked at the window's close; a frozen set of image
+digests proves a whole sweep measured one artifact. Reuse those two modules if
+that methodology fits, and ignore them if it does not — nothing else here
+depends on them.
 
 `cluster.FORCED_REASONS` is similarly specific: it lists the node-loss reasons
 that invalidate a window on EKS with Karpenter, as distinct from ordinary

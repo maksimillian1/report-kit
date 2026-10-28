@@ -9,6 +9,7 @@ pip install -e ".[dev]"
 git config core.hooksPath .githooks
 pytest
 report-kit charts --all && report-kit charts --check
+report-kit metrics check --all
 ```
 
 ## Code

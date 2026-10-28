@@ -1,0 +1,90 @@
+{
+  "commit": "d0944b2357a8a5685db8f50be928ce0c5d624cd4",
+  "dirty": true,
+  "doubts": [],
+  "events": {
+    "load_finished": 1792834680.847716,
+    "load_started": 1792834635.548622,
+    "window_closed": 1792834714.635057
+  },
+  "export": {
+    "empty_refs": [],
+    "path": "/home/user/report-kit/examples/priced-api/scripts/data/rate-08.jsonl",
+    "points": 42,
+    "series": 7
+  },
+  "guard_failures": [],
+  "guard_values": {
+    "G1": 3.0,
+    "G2": 0.0
+  },
+  "guards": [
+    {
+      "min": 1.0,
+      "query": "count(up{job=\"mock-api\"} == 1)",
+      "ref": "G1"
+    },
+    {
+      "max": 0.0,
+      "query": "max(resets(mock_requests_total[2m])) or vector(0)",
+      "ref": "G2"
+    }
+  ],
+  "images": {
+    "deployment/mock-api": [
+      "python:3.12-alpine"
+    ]
+  },
+  "kit_version": "0.4.0",
+  "load": {
+    "exit": 0,
+    "window": {
+      "end": "2026-10-24T09:38:00Z",
+      "seconds": 45.299094,
+      "start": "2026-10-24T09:37:15Z"
+    }
+  },
+  "observations": {
+    "ceilings_reached": [
+      "mock-api"
+    ],
+    "client": {
+      "dropped_iterations": 0,
+      "failed_share": 0,
+      "p95_ms": 102.17185595,
+      "requests": 360,
+      "served_per_second": 7.999917417741376
+    },
+    "peaks": {
+      "tiers.mock-api": 4.0
+    }
+  },
+  "plan": {
+    "guards_at": "load_end",
+    "hold_seconds": 20.0,
+    "load": "foreground",
+    "step": "15s"
+  },
+  "price_check": null,
+  "prices": null,
+  "profile": "api",
+  "queries": {
+    "M10": "sum(max by (service_name) (kubecost_load_balancer_cost{namespace=\"report-kit-priced\"}))",
+    "M11": "max(kubecost_cluster_management_cost)",
+    "M4": "count(up{job=\"mock-api\"} == 1)",
+    "M6": "sum(max by (node) (node_total_hourly_cost) * on (node) group_left () max by (node) (kube_node_labels{label_karpenter_sh_nodepool=\"apps\"}))",
+    "M7": "sum(kube_pod_container_resource_requests{job=\"kube-state-metrics\", namespace=\"report-kit-priced\", resource=\"cpu\"} * on (node) group_left () max by (node) (node_cpu_hourly_cost)) + sum(kube_pod_container_resource_requests{job=\"kube-state-metrics\", namespace=\"report-kit-priced\", resource=\"memory\"} / 1073741824 * on (node) group_left () max by (node) (node_ram_hourly_cost))",
+    "M8": "sum(container_cpu_allocation{namespace=\"report-kit-priced\"} * on (node) group_left () max by (node) (node_cpu_hourly_cost)) + sum(container_memory_allocation_bytes{namespace=\"report-kit-priced\"} / 1073741824 * on (node) group_left () max by (node) (node_ram_hourly_cost))",
+    "M9": "sum(max by (persistentvolume) (pv_hourly_cost) * on (persistentvolume) group_left () max by (persistentvolume) (kube_persistentvolume_capacity_bytes{job=\"kube-state-metrics\"}) / 1073741824 * on (persistentvolume) group_left () max by (persistentvolume) (kube_persistentvolume_claim_ref{job=\"kube-state-metrics\", claim_namespace=\"report-kit-priced\"}))"
+  },
+  "run": "rate-08",
+  "settings": {
+    "duration": "45s",
+    "rate": "8"
+  },
+  "window": {
+    "end": "2026-10-24T09:38:34Z",
+    "seconds": 79.086435,
+    "start": "2026-10-24T09:37:15Z"
+  }
+}

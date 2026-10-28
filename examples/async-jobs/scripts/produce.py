@@ -3,7 +3,7 @@
 
     ./produce.py --count 400 --rate 40
 
-Runs in the background for the whole of a point (`point.py` starts it with
+Runs in the background for the whole of a point (`jobs_point.py` starts it with
 `report_kit.proc.Background`), which is the one thing about this profile that
 must not be simplified away: filling the queue first and then watching would
 measure a system draining a backlog that already exists, and the arrival

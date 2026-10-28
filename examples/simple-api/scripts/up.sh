@@ -23,4 +23,4 @@ kubectl -n report-kit-example rollout status deploy/mock-api --timeout=180s
 kubectl -n report-kit-example rollout status deploy/prometheus --timeout=180s
 
 echo
-echo "ready. run:  ./point.py --run demo-r20 --rate 20 --duration 30s"
+echo "ready. run:  ./api_point.py --run demo-r20 --rate 20 --duration 30s"

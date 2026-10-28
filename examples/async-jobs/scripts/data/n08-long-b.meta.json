@@ -1,12 +1,12 @@
 {
   "run": "n08-long-b",
-  "exported_at": "2026-09-09T16:01:59Z",
+  "exported_at": "2026-10-23T16:56:30Z",
   "prom_url": "http://localhost:9092",
   "step": "5s",
   "window": {
-    "start": "2026-09-09T16:00:04Z",
-    "end": "2026-09-09T16:01:28Z",
-    "seconds": 84.6
+    "start": "2026-10-23T16:54:37Z",
+    "end": "2026-10-23T16:55:59Z",
+    "seconds": 81.713728
   },
   "refs": [
     {

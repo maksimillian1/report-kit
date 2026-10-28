@@ -1,39 +1,35 @@
-time="2026-09-05T21:17:15+02:00" level=warning msg="Request Failed" error="Get \"http://localhost:8081/\": request timeout"
-time="2026-09-05T21:17:15+02:00" level=warning msg="Request Failed" error="request timeout"
-time="2026-09-05T21:17:19+02:00" level=warning msg="Request Failed" error="request timeout"
 
 
   █ THRESHOLDS 
 
     http_req_failed
-    ✓ 'rate<0.05' rate=0.21%
+    ✓ 'rate<0.05' rate=0.00%
 
 
   █ TOTAL RESULTS 
 
-    checks_total.......: 1384   29.462777/s
-    checks_succeeded...: 99.78% 1381 out of 1384
-    checks_failed......: 0.21%  3 out of 1384
+    checks_total.......: 1435    31.750797/s
+    checks_succeeded...: 100.00% 1435 out of 1435
+    checks_failed......: 0.00%   0 out of 1435
 
-    ✗ status 200
-      ↳  99% — ✓ 1381 / ✗ 3
+    ✓ status 200
 
     HTTP
-    http_req_duration..............: avg=1.3s  min=71.64ms med=894.41ms max=10s  p(90)=2.74s p(95)=3.75s
-      { expected_response:true }...: avg=1.28s min=71.64ms med=891.1ms  max=9.1s p(90)=2.7s  p(95)=3.72s
-    http_req_failed................: 0.21%  3 out of 1384
-    http_reqs......................: 1384   29.462777/s
+    http_req_duration..............: avg=348.37ms min=41.31ms med=295.8ms  max=1.59s p(90)=643.32ms p(95)=813.41ms
+      { expected_response:true }...: avg=348.37ms min=41.31ms med=295.8ms  max=1.59s p(90)=643.32ms p(95)=813.41ms
+    http_req_failed................: 0.00%  0 out of 1435
+    http_reqs......................: 1435   31.750797/s
 
     EXECUTION
-    dropped_iterations.............: 57     1.213424/s
-    iteration_duration.............: avg=1.3s  min=83.88ms med=894.54ms max=10s  p(90)=2.74s p(95)=3.75s
-    iterations.....................: 1384   29.462777/s
-    vus............................: 26     min=11        max=68
-    vus_max........................: 73     min=16        max=73
+    dropped_iterations.............: 6      0.132756/s
+    iteration_duration.............: avg=348.73ms min=41.4ms  med=296.27ms max=1.59s p(90)=643.69ms p(95)=813.88ms
+    iterations.....................: 1435   31.750797/s
+    vus............................: 13     min=6         max=18
+    vus_max........................: 22     min=16        max=22
 
     NETWORK
-    data_received..................: 216 kB 4.6 kB/s
-    data_sent......................: 97 kB  2.1 kB/s
+    data_received..................: 224 kB 5.0 kB/s
+    data_sent......................: 101 kB 2.2 kB/s
 
 
 

@@ -16,9 +16,7 @@ import pytest
 
 from report_kit import scaffold
 
-RENAMED = {"env.example.yaml": "env.yaml",
-           "series.example.txt": "series.txt",
-           "guards.example.txt": "guards.txt"}
+RENAMED = {"env.example.yaml": "env.yaml"}
 
 REPO_ONLY = {"pyproject.toml", "bootstrap.sh", "cli.py", "scaffold.py",
              "selftest.py", "shell.py", "prometheus.py"}

@@ -1,0 +1,78 @@
+meta:
+  updated: ⟨date⟩
+  rule: ⟨which numbers must exist here — the promise this file makes⟩
+  rounding: ⟨how precision is handled, and the evidence for choosing it that way⟩
+  display: ⟨what prose prints · what tables print · what rates keep⟩
+  naming: ⟨how a value is named, so two authors produce one name and not two⟩
+
+scan:
+  - report.md
+  - ⟨executions/NN-name/index.md⟩
+  # The chart inputs are scanned like any other document, so a value this
+  # report retires is caught where it survives in a picture. See formats.md.
+  - charts/*.csv
+
+# Optional: the values one run adds, so `report-kit values add-point
+# data/<run>.point.json` registers a point instead of a person. formats.md.
+points:
+  axis: ⟨the point record field that names a point⟩
+  label: "⟨n{n:02d}⟩"
+  values:
+    ⟨measured⟩_{point}: {kind: M, unit: ⟨unit⟩, from: {metric: M1}}
+    ⟨derived⟩_{point}: {kind: D, unit: ⟨unit⟩, from: {metric: D3}}
+
+values:
+  ⟨recorded_name⟩:
+    ref: VR1
+    kind: R
+    value: ⟨number⟩
+    unit: ⟨unit⟩
+    source: ⟨the authority it was read from, and the date⟩
+
+  # from: names where the value sits in a run's committed data/, so
+  # `report-kit values pull` writes it and `check` fails when the two part.
+  # metric: reads a ref of the run's metrics.yaml, worked out the way the
+  # register defines it; path: reads a point-record field, ref: and reduce:
+  # an export. A value is the kind of the ref it reads. formats.md.
+  ⟨measured_name⟩:
+    ref: VM1
+    kind: M
+    value: ⟨number⟩
+    from: {file: executions/⟨NN-name⟩/data/⟨run⟩.point.json, metric: M1}
+    unit: ⟨unit⟩
+
+  ⟨derived_per_run⟩:
+    ref: VD1
+    kind: D
+    value: ⟨number⟩
+    from: {file: executions/⟨NN-name⟩/data/⟨run⟩.point.json, metric: D3}
+    unit: ⟨unit⟩
+
+  # A formula spans values — runs, executions, a price — where a register ref
+  # describes one run.
+  ⟨derived_name⟩:
+    ref: VD2
+    kind: D
+    formula: ⟨expression over other value names⟩
+    unit: ⟨unit⟩
+    display: ⟨decimals⟩
+    group: ⟨subject⟩
+    appears_in: [report.md]
+
+  ⟨estimated_name⟩:
+    ref: VE1
+    kind: E
+    value: ⟨number⟩
+    unit: ⟨unit⟩
+    source: ⟨the basis, and the reference value it is judged against⟩
+
+allow:
+  - pattern: "⟨digits⟩"
+    file: ⟨path⟩
+    must_contain: ⟨text that makes this occurrence deliberate⟩
+    why: ⟨why this one is not drift⟩
+
+retired:
+  - pattern: "⟨the superseded digits⟩"
+    replaced_by: ⟨value name⟩
+    why: ⟨what changed, so a reader meeting the old number knows⟩

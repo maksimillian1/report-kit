@@ -1,0 +1,51 @@
+# The metric register: every ref this execution defines, once. scripts/api_point.py
+# reads it; `report-kit metrics write` renders the register table from it.
+
+metrics:
+  M1:
+    what: requests served per second
+    record: observations.client.served_per_second
+    status: confirmed 2026-10-22
+    notes: client-side, k6 summary `http_reqs.rate`; the numerator of D8
+  M2:
+    what: client-observed latency p95
+    record: observations.client.p95_ms
+    status: confirmed 2026-10-22
+    notes: k6 summary `http_req_duration.p(95)`; includes the port-forward hop
+  M3:
+    what: share of requests not served
+    record: observations.client.failed_share
+    status: confirmed 2026-10-22
+    notes: k6 summary `http_req_failed.value`; timeouts at 10 s count here
+  # The server-side view, exported at every point. M1–M3 above are client-side
+  # and come from the k6 summary instead.
+  M4:
+    what: serving instances
+    promql: count(up{job="mock-api"} == 1)
+    status: confirmed 2026-10-22
+    notes: '**scrape targets, not replicas** — a terminating pod and its replacement are both up for one interval, so this overshoots `maxReplicas` during rollover'
+  M5:
+    what: server-side served rate
+    promql: sum(rate(mock_requests_total[30s]))
+    status: confirmed 2026-10-22
+    notes: second opinion on M1
+  M6:
+    what: server-side mean service time
+    promql: sum(rate(mock_request_duration_seconds_sum[30s])) / sum(rate(mock_requests_total[30s]))
+    status: confirmed 2026-10-22
+    notes: excludes queueing, unlike M2
+  R7:
+    what: which component sat at its ceiling
+    source: hand-recorded at the end of each run
+    status: active
+    notes: carried in the ledger `Signal` column
+  D8:
+    what: offered load actually served
+    formula: M1 / R9
+    status: active
+    notes: a share; the report prints it as a percent
+  R9:
+    what: offered rate, the swept axis
+    record: settings.rate
+    status: active
+    notes: TARGET_RATE in scripts/load.js, passed by api_point.py --rate

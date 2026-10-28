@@ -1,0 +1,127 @@
+# Prometheus scraping the four things the register reads: the mock API per
+# pod, kube-state-metrics, OpenCost, and the kubelet's cAdvisor endpoint.
+#
+# OpenCost works its prices out of the last two — requests from
+# kube-state-metrics, usage from cAdvisor — and publishes them back here, so
+# one Prometheus holds both the measurement and its price, and the runner
+# exports them over the same window in one pass.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: report-kit-priced-monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: report-kit-priced-prometheus
+rules:
+  - apiGroups: [""]
+    resources: [pods, services, endpoints, nodes, nodes/metrics]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: report-kit-priced-prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: report-kit-priced-prometheus
+subjects:
+  - kind: ServiceAccount
+    name: prometheus
+    namespace: report-kit-priced-monitoring
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: report-kit-priced-monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 5s
+      evaluation_interval: 5s
+    scrape_configs:
+      - job_name: mock-api
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [report-kit-priced]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: mock-api
+          - source_labels: [__meta_kubernetes_pod_container_port_number]
+            action: keep
+            regex: "8080"
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+      # honor_labels for both: their series carry the node, pod and namespace
+      # they describe, and Prometheus must not overwrite those with the
+      # scrape target's own.
+      - job_name: kube-state-metrics
+        honor_labels: true
+        static_configs:
+          - targets: [kube-state-metrics.report-kit-priced-monitoring:8080]
+      - job_name: opencost
+        honor_labels: true
+        # OpenCost recomputes its prices about once a minute; a faster scrape
+        # only repeats them.
+        scrape_interval: 60s
+        static_configs:
+          - targets: [opencost.report-kit-priced-monitoring:9003]
+      - job_name: cadvisor
+        scheme: https
+        metrics_path: /metrics/cadvisor
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        tls_config:
+          insecure_skip_verify: true    # kubelet serving certs are self-signed locally
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: node
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: report-kit-priced-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: prometheus}
+  template:
+    metadata:
+      labels: {app: prometheus}
+    spec:
+      serviceAccountName: prometheus
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v3.1.0
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.retention.time=6h
+            - --web.enable-lifecycle
+          ports:
+            - {name: web, containerPort: 9090}
+          readinessProbe:
+            httpGet: {path: /-/ready, port: 9090}
+            periodSeconds: 2
+          volumeMounts:
+            - {name: config, mountPath: /etc/prometheus}
+      volumes:
+        - name: config
+          configMap: {name: prometheus-config}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: report-kit-priced-monitoring
+spec:
+  selector: {app: prometheus}
+  ports:
+    - {name: web, port: 9090, targetPort: 9090}

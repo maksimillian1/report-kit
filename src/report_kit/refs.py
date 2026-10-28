@@ -8,9 +8,9 @@ from .text import fill
 
 
 def read_ref_file(path: Path, fields: int) -> list[list[str]]:
-    """Shared parser for series.txt and guards.txt. Pipe-separated, '#' comments
-    and blanks ignored. Refs are unique within a file — which is why the same ref
-    exported as a series and checked as a guard lives in two files."""
+    """The parser for series.txt and guards.txt, the pipe files an execution
+    laid out before 0.4 keeps beside its runner, and that runner still reads.
+    Pipe-separated, '#' comments and blanks ignored, refs unique within a file."""
     if not path.is_file():
         die(f"file not found: {path}")
     rows: list[list[str]] = []

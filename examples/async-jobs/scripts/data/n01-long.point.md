@@ -1,13 +1,26 @@
 | | |
 | :--- | :--- |
 | run | `n01-long` |
-| profile | jobs (async) |
-| pool ceiling | 1 |
-| units | 1200 |
-| window | 2026-09-09T15:46:23Z .. 2026-09-09T15:51:28Z (0h05m05s)  |
-| drain | 0h04m43s  |
-| peak worker pods | 1 |
-| completed | 1200 |
-| drained/s | 4.23 |
-| series exported | 7 (431 points) |
+| profile | jobs |
+| count | 1200 |
+| n | 1 |
+| rate | 40 |
+| window | `2026-10-23T16:40:23Z` .. `2026-10-23T16:45:32Z` (0h05m09s) |
+| commit | `1d9d592182a5` (dirty) |
+| load exit | 0 |
 | guards | clean |
+| series exported | 7 (432 points) |
+| ceilings_reached | none |
+| final_counters | completed=1200, enqueued=1200, retried=60 |
+| peaks | counters.completed=1200, counters.enqueued=1200, counters.retried=60, outstanding=1087, queues.retry=60, queues.work=1074, tiers.results=2, workers=1 |
+| units_outstanding_at_close | 0 |
+| doubts | none |
+
+| Ref | What it measures | This run |
+| :--- | :--- | ---: |
+| D8 | drain duration | 290.338 |
+| D9 | sustained drain rate | 4.13311 |
+| D10 | shared-tier mean service time | 0.077705 |
+| R12 | worker pool ceiling, the swept axis | 1 |
+| R13 | units enqueued per point | 1200 |
+| R14 | offered rate, units per second | 40 |
